@@ -17,8 +17,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = discord.Client(intents=intents)
 
-
-# --- READ EXCEL FROM GOOGLE DRIVE IN MEMORY ---
+# --- READ EXCEL FROM GOOGLE DRIVE ---
 def read_excel():
     try:
         url = f"https://drive.google.com/uc?id={DRIVE_FILE_ID}&export=download"
@@ -29,12 +28,10 @@ def read_excel():
         print(f"❌ Failed to download Excel from Drive: {e}")
         return pd.DataFrame()
 
-
 # --- FORMAT TABLE ---
 def dataframe_to_markdown_aligned(df, shorten_tank=False):
     df = df.copy()
     if FIRST_COLUMN in df.columns:
-        # Remove commas and convert to float
         df[FIRST_COLUMN] = pd.to_numeric(
             df[FIRST_COLUMN].astype(str).str.replace(',', ''),
             errors='coerce').fillna(0)
@@ -45,7 +42,6 @@ def dataframe_to_markdown_aligned(df, shorten_tank=False):
         df["Date"] = df["Date"].astype(str).str[:10]
 
     if shorten_tank and "Tank Type" in df.columns:
-
         def shorten_name(name):
             n = str(name)
             parts = n.split('-')
@@ -76,24 +72,20 @@ def dataframe_to_markdown_aligned(df, shorten_tank=False):
     body = [fmt_row(r) for r in df.values]
     return [header, separator] + body
 
-
 # --- HELPERS ---
 def is_tejm(user):
     return str(user.name).lower() == "tejm_of_curonia"
-
 
 def add_index(df):
     df = df.copy().reset_index(drop=True)
     df["Ņ"] = range(1, len(df) + 1)
     return df
 
-
 # --- BOT EVENTS ---
 @bot.event
 async def on_ready():
     print(f"✅ Logged in as {bot.user}")
     print("Bot ready and listening...")
-
 
 @bot.event
 async def on_message(message):
@@ -125,8 +117,7 @@ async def on_message(message):
 
     df = read_excel()
     if df.empty:
-        await message.channel.send("❌ Failed to fetch Excel from Google Drive!"
-                                   )
+        await message.channel.send("❌ Failed to fetch Excel from Google Drive!")
         return
     df.columns = [str(c).strip() for c in df.columns]
     output_df = None
@@ -163,11 +154,8 @@ async def on_message(message):
 
     elif cmd == "b":
         df2 = df.copy()
-        df2["Score"] = pd.to_numeric(df2["Score"].astype(str).str.replace(
-            ',', ''),
-                                     errors="coerce").fillna(0)
-        df2 = df2.sort_values("Score", ascending=False).drop_duplicates(
-            subset=["True Name"], keep="first")
+        df2["Score"] = pd.to_numeric(df2["Score"].astype(str).str.replace(',', ''), errors="coerce").fillna(0)
+        df2 = df2.sort_values("Score", ascending=False).drop_duplicates(subset=["True Name"], keep="first")
         df2 = add_index(df2)
         a, b = range_arg
         df2 = df2[(df2['Ņ'] >= a) & (df2['Ņ'] <= b)]
@@ -175,11 +163,8 @@ async def on_message(message):
 
     elif cmd == "c":
         df2 = df.copy()
-        df2["Score"] = pd.to_numeric(df2["Score"].astype(str).str.replace(
-            ',', ''),
-                                     errors="coerce").fillna(0)
-        df2 = df2.sort_values("Score", ascending=False).drop_duplicates(
-            subset=["Tank Type"], keep="first")
+        df2["Score"] = pd.to_numeric(df2["Score"].astype(str).str.replace(',', ''), errors="coerce").fillna(0)
+        df2 = df2.sort_values("Score", ascending=False).drop_duplicates(subset=["Tank Type"], keep="first")
         df2 = add_index(df2)
         a, b = range_arg
         df2 = df2[(df2['Ņ'] >= a) & (df2['Ņ'] <= b)]
@@ -197,9 +182,7 @@ async def on_message(message):
             return
         tank_query = parts[2].strip().lower()
         df2 = df.copy()
-        df2["Score"] = pd.to_numeric(df2["Score"].astype(str).str.replace(
-            ',', ''),
-                                     errors="coerce").fillna(0)
+        df2["Score"] = pd.to_numeric(df2["Score"].astype(str).str.replace(',', ''), errors="coerce").fillna(0)
         df2 = df2.sort_values("Score", ascending=False)
         df_filtered = df2[df2["Tank Type"].str.lower() == tank_query]
         if df_filtered.empty:
@@ -244,7 +227,6 @@ async def on_message(message):
 
     for c in chunks:
         await message.channel.send(f"```\n{c}\n```")
-
 
 # --- RUN BOT ---
 if __name__ == "__main__":
