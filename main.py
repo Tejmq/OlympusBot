@@ -11,7 +11,7 @@ DRIVE_FILE_ID = "1YMzE4FXjH4wctFektINwhCDjzZ0xqCP6"
 COLUMNS_DEFAULT = ["Ņ", "Score", "True Name", "Tank Type", "Date"]
 COLUMNS_C = ["Ņ", "Tank Type", "True Name", "Score", "Date"]
 FIRST_COLUMN = "Score"
-LEGENDS = 221
+LEGENDS = 500
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -107,10 +107,11 @@ async def on_message(message):
     if cmd == "help":
         help_message = (
             "Commands:\n"
-            "!olymp;b;1-10    - Show best scores of each player (requires range n-m)\n"
-            "!olymp;c;1-10    - Show best scores per unique tank (requires range n-m)\n"
-            "!olymp;p;1-15    - Show part of the score leaderboard (max range 15)\n"
-            "!olymp;t;TankName;1-10    - Show best score of a tank (range optional) if not specified will show top 1\n"
+            "!olymp;b;1-15    - Show best scores of each player\n"
+            "!olymp;c;1-15    - Show best scores per unique tank\n"
+            "!olymp;p;1-15    - Show part of the scoreboard\n"
+            "!olymp;t;TankName;1-15    - Show best score of a tank\n"
+            "!olymp;d;DD-MM-YYYY   - Show all scores from that exact date\n"
         )
         await message.channel.send(help_message)
         return
@@ -122,13 +123,13 @@ async def on_message(message):
     df.columns = [str(c).strip() for c in df.columns]
     output_df = None
 
-    # --- RANGE ARGUMENT ---
+    # --- RANGE REQUIRED COMMANDS ---
     range_arg = None
     if cmd in ['b', 'c', 'p']:
         if len(parts) > 2 and '-' in parts[2]:
             try:
                 a, b = map(int, parts[2].split('-'))
-                if b - a + 1 > 10:
+                if b - a + 1 > 15:   # CHANGED FROM 10 → 15
                     await message.channel.send("Range is too big!")
                     return
                 if a > LEGENDS or b > LEGENDS:
@@ -138,7 +139,7 @@ async def on_message(message):
             except:
                 pass
         if range_arg is None:
-            await message.channel.send("Input range! For example (1-10)")
+            await message.channel.send("Input range! (1-15)")
             return
 
     # --- COMMANDS ---
@@ -159,7 +160,7 @@ async def on_message(message):
         df2 = add_index(df2)
         a, b = range_arg
         df2 = df2[(df2['Ņ'] >= a) & (df2['Ņ'] <= b)]
-        output_df = df2[[c for c in COLUMNS_DEFAULT if c in df2.columns]]
+        output_df = df2[COLUMNS_DEFAULT]
 
     elif cmd == "c":
         df2 = df.copy()
@@ -168,13 +169,13 @@ async def on_message(message):
         df2 = add_index(df2)
         a, b = range_arg
         df2 = df2[(df2['Ņ'] >= a) & (df2['Ņ'] <= b)]
-        output_df = df2[[c for c in COLUMNS_C if c in df2.columns]]
+        output_df = df2[COLUMNS_C]
 
     elif cmd == "p":
         a, b = range_arg
         df2 = add_index(df)
         df2 = df2[(df2['Ņ'] >= a) & (df2['Ņ'] <= b)]
-        output_df = df2[[c for c in COLUMNS_DEFAULT if c in df2.columns]]
+        output_df = df2[COLUMNS_DEFAULT]
 
     elif cmd == "t":
         if len(parts) < 3:
@@ -189,21 +190,41 @@ async def on_message(message):
             await message.channel.send("No such tank found!")
             return
         df2 = add_index(df_filtered)
+
+        # optional range
         if len(parts) > 3 and '-' in parts[3]:
             try:
                 a, b = map(int, parts[3].split('-'))
                 if b - a + 1 > 15:
                     await message.channel.send("Range is too big!")
                     return
-                if a > LEGENDS or b > LEGENDS:
-                    await message.channel.send("Not enough scores for that!")
-                    return
                 df2 = df2[(df2['Ņ'] >= a) & (df2['Ņ'] <= b)]
             except:
                 pass
         else:
             df2 = df2[df2['Ņ'] == 1]
-        output_df = df2[[c for c in COLUMNS_C if c in df2.columns]]
+
+        output_df = df2[COLUMNS_C]
+
+    # --- NEW DATE COMMAND ---
+    elif cmd == "d":
+        if len(parts) < 3:
+            await message.channel.send("Provide a date in DD-MM-YYYY format!")
+            return
+
+        target_date = parts[2].strip()
+
+        df2 = df.copy()
+        df2["Date"] = df2["Date"].astype(str).str[:10]
+
+        df2 = df2[df2["Date"] == target_date]
+
+        if df2.empty:
+            await message.channel.send("No scores found for that date!")
+            return
+
+        df2 = add_index(df2)
+        output_df = df2[COLUMNS_DEFAULT]
 
     else:
         await message.channel.send("Not a command buddy")
