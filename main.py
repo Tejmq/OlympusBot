@@ -111,7 +111,7 @@ async def on_message(message):
             "!olymp;c;1-15    - Show best scores per unique tank\n"
             "!olymp;p;1-15    - Show part of the scoreboard\n"
             "!olymp;t;TankName;1-15    - Show best score of a tank\n"
-            "!olymp;d;DD-MM-YYYY   - Show all scores from that exact date\n"
+            "!olymp;d;YYYY-MM-DD   - Show all scores from that exact date\n"
         )
         await message.channel.send(help_message)
         return
