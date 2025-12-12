@@ -43,14 +43,15 @@ def dataframe_to_markdown_aligned(df, shorten_tank=False):
 
     if shorten_tank and "Tank Type" in df.columns:
         def shorten_name(name):
-            n = str(name)
-            parts = n.split('-')
-            for i in range(min(2, len(parts))):
-                if parts[i].lower() == 'triple':
-                    parts[i] = 'T'
-                elif parts[i].lower() == 'auto':
-                    parts[i] = 'A'
-            return '-'.join(parts)[:8]
+            n = str(name).lower()
+            replacements = {
+                'triple': 'T',
+                'auto': 'A',
+                'hexa': 'H'
+            }
+            for key, val in replacements.items():
+                n = n.replace(key, val)
+            return n[:8]
 
         df["Tank Type"] = df["Tank Type"].apply(shorten_name)
 
@@ -107,11 +108,12 @@ async def on_message(message):
     if cmd == "help":
         help_message = (
             "Commands:\n"
-            "!olymp;b;1-15    - Show best scores of each player\n"
-            "!olymp;c;1-15    - Show best scores per unique tank\n"
-            "!olymp;p;1-15    - Show part of the scoreboard\n"
-            "!olymp;t;TankName;1-15    - Show best score of a tank\n"
-            "!olymp;d;YYYY-MM-DD   - Show all scores from that exact date\n"
+            "!olymp;b;1-15                 - Best scores of each player\n"
+            "!olymp;b;Player;1-15          - Best score of specific player\n"
+            "!olymp;c;1-15                 - Best per tank\n"
+            "!olymp;p;1-15                 - Part of scoreboard\n"
+            "!olymp;t;TankName;1-15        - Best score of a tank\n"
+            "!olymp;d;YYYY-MM-DD           - Scores from that date\n"
         )
         await message.channel.send(help_message)
         return
@@ -126,10 +128,10 @@ async def on_message(message):
     # --- RANGE REQUIRED COMMANDS ---
     range_arg = None
     if cmd in ['b', 'c', 'p']:
-        if len(parts) > 2 and '-' in parts[2]:
+        if len(parts) > 2 and '-' in parts[-1]:
             try:
-                a, b = map(int, parts[2].split('-'))
-                if b - a + 1 > 15:   # CHANGED FROM 10 → 15
+                a, b = map(int, parts[-1].split('-'))
+                if b - a + 1 > 15:
                     await message.channel.send("Range is too big!")
                     return
                 if a > LEGENDS or b > LEGENDS:
@@ -153,11 +155,22 @@ async def on_message(message):
             df2 = df2[(df2['Ņ'] >= a) & (df2['Ņ'] <= b)]
         output_df = df2[[c for c in COLUMNS_DEFAULT if c in df2.columns]]
 
+    # --- B COMMAND (NOW SUPPORTS PLAYER NAME) ---
     elif cmd == "b":
         df2 = df.copy()
         df2["Score"] = pd.to_numeric(df2["Score"].astype(str).str.replace(',', ''), errors="coerce").fillna(0)
+
+        # check if user provided a player name
+        player_name = None
+        if len(parts) > 2 and '-' not in parts[2]:
+            player_name = parts[2].strip().lower()
+
+        if player_name:
+            df2 = df2[df2["True Name"].str.lower() == player_name]
+
         df2 = df2.sort_values("Score", ascending=False).drop_duplicates(subset=["True Name"], keep="first")
         df2 = add_index(df2)
+
         a, b = range_arg
         df2 = df2[(df2['Ņ'] >= a) & (df2['Ņ'] <= b)]
         output_df = df2[COLUMNS_DEFAULT]
@@ -206,14 +219,12 @@ async def on_message(message):
 
         output_df = df2[COLUMNS_C]
 
-    # --- NEW DATE COMMAND ---
     elif cmd == "d":
         if len(parts) < 3:
             await message.channel.send("Provide a date in DD-MM-YYYY format!")
             return
 
         target_date = parts[2].strip()
-
         df2 = df.copy()
         df2["Date"] = df2["Date"].astype(str).str[:10]
 
