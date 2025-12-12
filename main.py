@@ -5,6 +5,7 @@ from io import BytesIO
 from wcwidth import wcswidth
 import os
 from keep_alive import keep_alive
+import re
 
 # --- CONFIG ---
 DRIVE_FILE_ID = "1YMzE4FXjH4wctFektINwhCDjzZ0xqCP6"
@@ -41,17 +42,24 @@ def dataframe_to_markdown_aligned(df, shorten_tank=False):
     if "Date" in df.columns:
         df["Date"] = df["Date"].astype(str).str[:10]
 
+    # shorten tank types if requested
     if shorten_tank and "Tank Type" in df.columns:
         def shorten_name(name):
-            n = str(name).lower()
-            replacements = {
+            s = str(name)
+            # perform case-insensitive replacements but preserve final Title Case
+            # replace keywords anywhere in the name
+            repl_map = {
                 'triple': 'T',
                 'auto': 'A',
                 'hexa': 'H'
             }
-            for key, val in replacements.items():
-                n = n.replace(key, val)
-            return n[:8]
+            # operate on lowercase copy to find/replace all occurrences
+            low = s.lower()
+            for key, val in repl_map.items():
+                low = low.replace(key, val)
+            # convert to Title Case to keep CamelCase-like look (preserve readability)
+            # then trim
+            return low.title()[:8]
 
         df["Tank Type"] = df["Tank Type"].apply(shorten_name)
 
@@ -109,7 +117,7 @@ async def on_message(message):
         help_message = (
             "Commands:\n"
             "!olymp;b;1-15                 - Best scores of each player\n"
-            "!olymp;b;Player;1-15          - Best score of specific player\n"
+            "!olymp;b;Player;1-15          - Best scores of specific player\n"
             "!olymp;c;1-15                 - Best per tank\n"
             "!olymp;p;1-15                 - Part of scoreboard\n"
             "!olymp;t;TankName;1-15        - Best score of a tank\n"
@@ -125,9 +133,11 @@ async def on_message(message):
     df.columns = [str(c).strip() for c in df.columns]
     output_df = None
 
-    # --- RANGE REQUIRED COMMANDS ---
+    # --- RANGE ARGUMENT PARSING ---
     range_arg = None
-    if cmd in ['b', 'c', 'p']:
+    # For c and p commands, require a range (keeps old behavior)
+    if cmd in ['c', 'p']:
+        # last part should be range
         if len(parts) > 2 and '-' in parts[-1]:
             try:
                 a, b = map(int, parts[-1].split('-'))
@@ -144,6 +154,41 @@ async def on_message(message):
             await message.channel.send("Input range! (1-15)")
             return
 
+    # For b command: range is optional.
+    # Accept either: !olymp;b;1-5  OR !olymp;b;Player;1-5  OR !olymp;b;Player
+    if cmd == 'b':
+        # case 1: user provided a range in second position: !olymp;b;1-5
+        if len(parts) > 2 and '-' in parts[2]:
+            try:
+                a, b = map(int, parts[2].split('-'))
+                if b - a + 1 > 15:
+                    await message.channel.send("Range is too big!")
+                    return
+                if a > LEGENDS or b > LEGENDS:
+                    await message.channel.send("Not enough scores for that!")
+                    return
+                range_arg = (a, b)
+            except:
+                pass
+        # case 2: user provided player at parts[2] and optional range at parts[3]
+        elif len(parts) > 3 and '-' in parts[3]:
+            try:
+                a, b = map(int, parts[3].split('-'))
+                if b - a + 1 > 15:
+                    await message.channel.send("Range is too big!")
+                    return
+                if a > LEGENDS or b > LEGENDS:
+                    await message.channel.send("Not enough scores for that!")
+                    return
+                range_arg = (a, b)
+            except:
+                pass
+        # default for b when no explicit range: top 1
+        if range_arg is None:
+            range_arg = (1, 1)
+
+    # For other commands not covered earlier (like a,t,d) we handle below where needed.
+
     # --- COMMANDS ---
     if cmd == "a":
         if not is_tejm(message.author):
@@ -155,25 +200,28 @@ async def on_message(message):
             df2 = df2[(df2['Ņ'] >= a) & (df2['Ņ'] <= b)]
         output_df = df2[[c for c in COLUMNS_DEFAULT if c in df2.columns]]
 
-    # --- B COMMAND (NOW SUPPORTS PLAYER NAME) ---
+    # --- B COMMAND (supports optional player name and optional range) ---
     elif cmd == "b":
         df2 = df.copy()
         df2["Score"] = pd.to_numeric(df2["Score"].astype(str).str.replace(',', ''), errors="coerce").fillna(0)
 
-        # check if user provided a player name
         player_name = None
+        # detect a player at parts[2] if it isn't a range
         if len(parts) > 2 and '-' not in parts[2]:
-            player_name = parts[2].strip().lower()
-
+            player_name = parts[2].strip()
+        # if player provided, filter by player (exact true name match, case-insensitive)
         if player_name:
-            df2 = df2[df2["True Name"].str.lower() == player_name]
+            df2 = df2[df2["True Name"].str.lower() == player_name.lower()]
+            # sort by score descending; do NOT drop_duplicates, we want multiple scores for the player
+            df2 = df2.sort_values("Score", ascending=False)
+        else:
+            # no player specified -> show best score per player
+            df2 = df2.sort_values("Score", ascending=False).drop_duplicates(subset=["True Name"], keep="first")
 
-        df2 = df2.sort_values("Score", ascending=False).drop_duplicates(subset=["True Name"], keep="first")
         df2 = add_index(df2)
-
         a, b = range_arg
         df2 = df2[(df2['Ņ'] >= a) & (df2['Ņ'] <= b)]
-        output_df = df2[COLUMNS_DEFAULT]
+        output_df = df2[[c for c in COLUMNS_DEFAULT if c in df2.columns]]
 
     elif cmd == "c":
         df2 = df.copy()
@@ -182,13 +230,14 @@ async def on_message(message):
         df2 = add_index(df2)
         a, b = range_arg
         df2 = df2[(df2['Ņ'] >= a) & (df2['Ņ'] <= b)]
-        output_df = df2[COLUMNS_C]
+        output_df = df2[[c for c in COLUMNS_C if c in df2.columns]]
 
     elif cmd == "p":
+        # p requires range_arg earlier, now we have it
         a, b = range_arg
         df2 = add_index(df)
         df2 = df2[(df2['Ņ'] >= a) & (df2['Ņ'] <= b)]
-        output_df = df2[COLUMNS_DEFAULT]
+        output_df = df2[[c for c in COLUMNS_DEFAULT if c in df2.columns]]
 
     elif cmd == "t":
         if len(parts) < 3:
@@ -198,13 +247,13 @@ async def on_message(message):
         df2 = df.copy()
         df2["Score"] = pd.to_numeric(df2["Score"].astype(str).str.replace(',', ''), errors="coerce").fillna(0)
         df2 = df2.sort_values("Score", ascending=False)
-        df_filtered = df2[df2["Tank Type"].str.lower() == tank_query]
+        df_filtered = df2[df2["Tank Type"].astype(str).str.lower() == tank_query]
         if df_filtered.empty:
             await message.channel.send("No such tank found!")
             return
         df2 = add_index(df_filtered)
 
-        # optional range
+        # optional range for t
         if len(parts) > 3 and '-' in parts[3]:
             try:
                 a, b = map(int, parts[3].split('-'))
@@ -217,8 +266,9 @@ async def on_message(message):
         else:
             df2 = df2[df2['Ņ'] == 1]
 
-        output_df = df2[COLUMNS_C]
+        output_df = df2[[c for c in COLUMNS_C if c in df2.columns]]
 
+    # --- DATE COMMAND ---
     elif cmd == "d":
         if len(parts) < 3:
             await message.channel.send("Provide a date in DD-MM-YYYY format!")
@@ -235,7 +285,7 @@ async def on_message(message):
             return
 
         df2 = add_index(df2)
-        output_df = df2[COLUMNS_DEFAULT]
+        output_df = df2[[c for c in COLUMNS_DEFAULT if c in df2.columns]]
 
     else:
         await message.channel.send("Not a command buddy")
@@ -243,7 +293,7 @@ async def on_message(message):
 
     # --- FINAL FORMAT ---
     output_df = output_df.head(LEGENDS)
-    shorten_tank = True if cmd in ['c', 'b', 'a', 't'] else False
+    shorten_tank = True if cmd in ['c', 'b', 'a', 't', 'p'] else False
     lines = dataframe_to_markdown_aligned(output_df, shorten_tank=shorten_tank)
 
     chunk = ""
