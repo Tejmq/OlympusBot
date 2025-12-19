@@ -236,7 +236,7 @@ async def on_message(message):
         df2 = add_index(df2)
         output_df = df2[[c for c in COLUMNS_DEFAULT if c in df2.columns]]
         # Disable tank type shortening for d command
-        shorten_tank = False
+        shorten_tank = True
 
     # --- RANDOM RECOMMENDATION ---
     elif cmd == "r":
