@@ -7,6 +7,10 @@ import os
 from keep_alive import keep_alive
 import re
 import random  # added for random recommendation
+import time
+
+user_cooldowns = {}
+COOLDOWN_SECONDS = 5
 
 # --- CONFIG ---
 DRIVE_FILE_ID = "1YMzE4FXjH4wctFektINwhCDjzZ0xqCP6"
@@ -93,6 +97,15 @@ async def on_message(message):
     txt = message.content.strip()
     if not txt.startswith("!olymp;"):
         return
+            # 🔒 COOLDOWN GOES HERE
+    now = time.time()
+    last = user_cooldowns.get(message.author.id, 0)
+
+    if now - last < COOLDOWN_SECONDS:
+        return  # ignore spam
+
+    user_cooldowns[message.author.id] = now
+    # 🔒 END COOLDOWN
 
     parts = txt.split(";")
     if len(parts) < 2:
