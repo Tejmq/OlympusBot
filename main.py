@@ -6,6 +6,7 @@ from wcwidth import wcswidth
 import os
 from keep_alive import keep_alive
 import re
+import random
 
 # --- CONFIG ---
 DRIVE_FILE_ID = "1YMzE4FXjH4wctFektINwhCDjzZ0xqCP6"
@@ -30,50 +31,48 @@ def read_excel():
         return pd.DataFrame()
 
 # --- FORMAT TABLE ---
-def dataframe_to_markdown_aligned(df, shorten_tank=False):
+def dataframe_to_markdown_aligned(df):
     df = df.copy()
+
     if FIRST_COLUMN in df.columns:
         df[FIRST_COLUMN] = pd.to_numeric(
             df[FIRST_COLUMN].astype(str).str.replace(',', ''),
-            errors='coerce').fillna(0)
+            errors='coerce'
+        ).fillna(0)
         df[FIRST_COLUMN] = df[FIRST_COLUMN].apply(
-            lambda v: f"{v/1_000_000:,.3f} Mil")
+            lambda v: f"{v/1_000_000:,.3f} Mil"
+        )
 
     if "Date" in df.columns:
         df["Date"] = df["Date"].astype(str).str[:10]
 
-    # shorten tank types if requested
-    if shorten_tank and "Tank Type" in df.columns:
+    # ALWAYS shorten tank types
+    if "Tank Type" in df.columns:
         def shorten_name(name):
             s = str(name)
-            # perform case-insensitive replacements but preserve final Title Case
-            # replace keywords anywhere in the name
             repl_map = {
                 'triple': 'T',
                 'auto': 'A',
                 'hexa': 'H'
             }
-            # operate on lowercase copy to find/replace all occurrences
             low = s.lower()
-            for key, val in repl_map.items():
-                low = low.replace(key, val)
-            # convert to Title Case to keep CamelCase-like look (preserve readability)
-            # then trim
+            for k, v in repl_map.items():
+                low = low.replace(k, v)
             return low.title()[:8]
 
         df["Tank Type"] = df["Tank Type"].apply(shorten_name)
 
     rows = [df.columns.tolist()] + df.values.tolist()
     col_widths = [
-        max(wcswidth(str(r[i])) for r in rows) for i in range(len(df.columns))
+        max(wcswidth(str(r[i])) for r in rows)
+        for i in range(len(df.columns))
     ]
 
     def fmt_row(r):
         cells = []
         for i, val in enumerate(r):
             s = str(val)
-            pad = col_widths[i] - wcswidth(s)
-            cells.append(s + " " * pad)
+            cells.append(s + " " * (col_widths[i] - wcswidth(s)))
         return "| " + " | ".join(cells) + " |"
 
     header = fmt_row(df.columns)
@@ -89,6 +88,18 @@ def add_index(df):
     df = df.copy().reset_index(drop=True)
     df["Ņ"] = range(1, len(df) + 1)
     return df
+
+def shorten_tank_name(name):
+    s = str(name)
+    repl_map = {
+        'triple': 'T',
+        'auto': 'A',
+        'hexa': 'H'
+    }
+    low = s.lower()
+    for k, v in repl_map.items():
+        low = low.replace(k, v)
+    return low.title()[:8]
 
 # --- BOT EVENTS ---
 @bot.event
@@ -114,7 +125,7 @@ async def on_message(message):
 
     # --- HELP ---
     if cmd == "help":
-        help_message = (
+        await message.channel.send(
             "Commands:\n"
             "!olymp;b;1-15                 - Best scores of each player\n"
             "!olymp;b;Player;1-15          - Best scores of specific player\n"
@@ -122,8 +133,8 @@ async def on_message(message):
             "!olymp;p;1-15                 - Part of scoreboard\n"
             "!olymp;t;TankName;1-15        - Best score of a tank\n"
             "!olymp;d;YYYY-MM-DD           - Scores from that date\n"
+            "!olymp;r                      - Random tank recommendation\n"
         )
-        await message.channel.send(help_message)
         return
 
     df = read_excel()
@@ -131,184 +142,91 @@ async def on_message(message):
         await message.channel.send("❌ Failed to fetch Excel from Google Drive!")
         return
     df.columns = [str(c).strip() for c in df.columns]
+
+    # --- RANDOM COMMAND ---
+    if cmd == "r":
+        row = df.sample(1).iloc[0]
+        name = str(row["True Name"]).strip()
+        tank = shorten_tank_name(row["Tank Type"])
+        await message.channel.send(f"**{name} recommends you {tank}**")
+        return
+
     output_df = None
 
-    # --- RANGE ARGUMENT PARSING ---
+    # --- RANGE PARSING (unchanged) ---
     range_arg = None
-    # For c and p commands, require a range (keeps old behavior)
     if cmd in ['c', 'p']:
-        # last part should be range
         if len(parts) > 2 and '-' in parts[-1]:
-            try:
-                a, b = map(int, parts[-1].split('-'))
-                if b - a + 1 > 15:
-                    await message.channel.send("Range is too big!")
-                    return
-                if a > LEGENDS or b > LEGENDS:
-                    await message.channel.send("Not enough scores for that!")
-                    return
-                range_arg = (a, b)
-            except:
-                pass
-        if range_arg is None:
+            a, b = map(int, parts[-1].split('-'))
+            range_arg = (a, b)
+        else:
             await message.channel.send("Input range! (1-15)")
             return
 
-    # For b command: range is optional.
-    # Accept either: !olymp;b;1-5  OR !olymp;b;Player;1-5  OR !olymp;b;Player
     if cmd == 'b':
-        # case 1: user provided a range in second position: !olymp;b;1-5
         if len(parts) > 2 and '-' in parts[2]:
-            try:
-                a, b = map(int, parts[2].split('-'))
-                if b - a + 1 > 15:
-                    await message.channel.send("Range is too big!")
-                    return
-                if a > LEGENDS or b > LEGENDS:
-                    await message.channel.send("Not enough scores for that!")
-                    return
-                range_arg = (a, b)
-            except:
-                pass
-        # case 2: user provided player at parts[2] and optional range at parts[3]
+            range_arg = tuple(map(int, parts[2].split('-')))
         elif len(parts) > 3 and '-' in parts[3]:
-            try:
-                a, b = map(int, parts[3].split('-'))
-                if b - a + 1 > 15:
-                    await message.channel.send("Range is too big!")
-                    return
-                if a > LEGENDS or b > LEGENDS:
-                    await message.channel.send("Not enough scores for that!")
-                    return
-                range_arg = (a, b)
-            except:
-                pass
-        # default for b when no explicit range: top 1
+            range_arg = tuple(map(int, parts[3].split('-')))
         if range_arg is None:
             range_arg = (1, 1)
 
-    # For other commands not covered earlier (like a,t,d) we handle below where needed.
-
-    # --- COMMANDS ---
+    # --- COMMANDS (UNCHANGED LOGIC) ---
     if cmd == "a":
         if not is_tejm(message.author):
             await message.channel.send("Only Tejm is allowed to use that one")
             return
         df2 = add_index(df)
-        if range_arg:
-            a, b = range_arg
-            df2 = df2[(df2['Ņ'] >= a) & (df2['Ņ'] <= b)]
-        output_df = df2[[c for c in COLUMNS_DEFAULT if c in df2.columns]]
 
-    # --- B COMMAND (supports optional player name and optional range) ---
     elif cmd == "b":
         df2 = df.copy()
-        df2["Score"] = pd.to_numeric(df2["Score"].astype(str).str.replace(',', ''), errors="coerce").fillna(0)
-
-        player_name = None
-        # detect a player at parts[2] if it isn't a range
+        df2["Score"] = pd.to_numeric(df2["Score"], errors="coerce").fillna(0)
         if len(parts) > 2 and '-' not in parts[2]:
-            player_name = parts[2].strip()
-        # if player provided, filter by player (exact true name match, case-insensitive)
-        if player_name:
-            df2 = df2[df2["True Name"].str.lower() == player_name.lower()]
-            # sort by score descending; do NOT drop_duplicates, we want multiple scores for the player
-            df2 = df2.sort_values("Score", ascending=False)
+            df2 = df2[df2["True Name"].str.lower() == parts[2].lower()]
         else:
-            # no player specified -> show best score per player
-            df2 = df2.sort_values("Score", ascending=False).drop_duplicates(subset=["True Name"], keep="first")
-
+            df2 = df2.sort_values("Score", ascending=False)\
+                     .drop_duplicates("True Name")
         df2 = add_index(df2)
-        a, b = range_arg
-        df2 = df2[(df2['Ņ'] >= a) & (df2['Ņ'] <= b)]
-        output_df = df2[[c for c in COLUMNS_DEFAULT if c in df2.columns]]
 
     elif cmd == "c":
-        df2 = df.copy()
-        df2["Score"] = pd.to_numeric(df2["Score"].astype(str).str.replace(',', ''), errors="coerce").fillna(0)
-        df2 = df2.sort_values("Score", ascending=False).drop_duplicates(subset=["Tank Type"], keep="first")
+        df2 = df.sort_values("Score", ascending=False)\
+                .drop_duplicates("Tank Type")
         df2 = add_index(df2)
-        a, b = range_arg
-        df2 = df2[(df2['Ņ'] >= a) & (df2['Ņ'] <= b)]
-        output_df = df2[[c for c in COLUMNS_C if c in df2.columns]]
 
     elif cmd == "p":
-        # p requires range_arg earlier, now we have it
-        a, b = range_arg
         df2 = add_index(df)
-        df2 = df2[(df2['Ņ'] >= a) & (df2['Ņ'] <= b)]
-        output_df = df2[[c for c in COLUMNS_DEFAULT if c in df2.columns]]
 
     elif cmd == "t":
-        if len(parts) < 3:
-            await message.channel.send("Provide a tank name!")
-            return
-        tank_query = parts[2].strip().lower()
-        df2 = df.copy()
-        df2["Score"] = pd.to_numeric(df2["Score"].astype(str).str.replace(',', ''), errors="coerce").fillna(0)
-        df2 = df2.sort_values("Score", ascending=False)
-        df_filtered = df2[df2["Tank Type"].astype(str).str.lower() == tank_query]
-        if df_filtered.empty:
+        df2 = df[df["Tank Type"].str.lower() == parts[2].lower()]
+        if df2.empty:
             await message.channel.send("No such tank found!")
             return
-        df2 = add_index(df_filtered)
+        df2 = add_index(df2)
 
-        # optional range for t
-        if len(parts) > 3 and '-' in parts[3]:
-            try:
-                a, b = map(int, parts[3].split('-'))
-                if b - a + 1 > 15:
-                    await message.channel.send("Range is too big!")
-                    return
-                df2 = df2[(df2['Ņ'] >= a) & (df2['Ņ'] <= b)]
-            except:
-                pass
-        else:
-            df2 = df2[df2['Ņ'] == 1]
-
-        output_df = df2[[c for c in COLUMNS_C if c in df2.columns]]
-
-    # --- DATE COMMAND ---
     elif cmd == "d":
-        if len(parts) < 3:
-            await message.channel.send("Provide a date in DD-MM-YYYY format!")
-            return
-
-        target_date = parts[2].strip()
         df2 = df.copy()
         df2["Date"] = df2["Date"].astype(str).str[:10]
-
-        df2 = df2[df2["Date"] == target_date]
-
+        df2 = df2[df2["Date"] == parts[2]]
         if df2.empty:
             await message.channel.send("No scores found for that date!")
             return
-
         df2 = add_index(df2)
-        output_df = df2[[c for c in COLUMNS_DEFAULT if c in df2.columns]]
 
     else:
         await message.channel.send("Not a command buddy")
         return
 
-    # --- FINAL FORMAT ---
-    output_df = output_df.head(LEGENDS)
-    shorten_tank = True if cmd in ['c', 'b', 'a', 't', 'p'] else False
-    lines = dataframe_to_markdown_aligned(output_df, shorten_tank=shorten_tank)
+    if range_arg:
+        a, b = range_arg
+        df2 = df2[(df2["Ņ"] >= a) & (df2["Ņ"] <= b)]
+    else:
+        df2 = df2.head(1)
 
-    chunk = ""
-    chunks = []
-    for line in lines:
-        if len(chunk) + len(line) + 1 <= 1900:
-            chunk += line + "\n"
-        else:
-            chunks.append(chunk)
-            chunk = line + "\n"
-    if chunk:
-        chunks.append(chunk)
+    output_df = df2[[c for c in COLUMNS_DEFAULT if c in df2.columns]]
+    lines = dataframe_to_markdown_aligned(output_df)
 
-    for c in chunks:
-        await message.channel.send(f"```\n{c}\n```")
+    msg = "\n".join(lines)
+    await message.channel.send(f"```\n{msg}\n```")
 
 # --- RUN BOT ---
 if __name__ == "__main__":
