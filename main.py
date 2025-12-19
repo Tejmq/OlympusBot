@@ -6,7 +6,7 @@ from wcwidth import wcswidth
 import os
 from keep_alive import keep_alive
 import re
-import random  # Added for random selection
+import random  # added for random recommendation
 
 # --- CONFIG ---
 DRIVE_FILE_ID = "1YMzE4FXjH4wctFektINwhCDjzZ0xqCP6"
@@ -35,9 +35,11 @@ def dataframe_to_markdown_aligned(df, shorten_tank=False):
     df = df.copy()
     if FIRST_COLUMN in df.columns:
         df[FIRST_COLUMN] = pd.to_numeric(
-            df[FIRST_COLUMN].astype(str).str.replace(',', ''), errors='coerce'
-        ).fillna(0)
-        df[FIRST_COLUMN] = df[FIRST_COLUMN].apply(lambda v: f"{v/1_000_000:,.3f} Mil")
+            df[FIRST_COLUMN].astype(str).str.replace(',', ''),
+            errors='coerce').fillna(0)
+        df[FIRST_COLUMN] = df[FIRST_COLUMN].apply(
+            lambda v: f"{v/1_000_000:,.3f} Mil")
+
     if "Date" in df.columns:
         df["Date"] = df["Date"].astype(str).str[:10]
 
@@ -45,8 +47,11 @@ def dataframe_to_markdown_aligned(df, shorten_tank=False):
     if shorten_tank and "Tank Type" in df.columns:
         def shorten_name(name):
             s = str(name)
-            # preserve full tank type (do not shorten)
-            return s
+            repl_map = {'triple': 'T', 'auto': 'A', 'hexa': 'H'}
+            low = s.lower()
+            for key, val in repl_map.items():
+                low = low.replace(key, val)
+            return low.title()[:8]
         df["Tank Type"] = df["Tank Type"].apply(shorten_name)
 
     rows = [df.columns.tolist()] + df.values.tolist()
@@ -100,13 +105,13 @@ async def on_message(message):
     if cmd == "help":
         help_message = (
             "Commands:\n"
-            "!olymp;b;1-15 - Best scores of each player\n"
-            "!olymp;b;Player;1-15 - Best scores of specific player\n"
-            "!olymp;c;1-15 - Best per tank\n"
-            "!olymp;p;1-15 - Part of scoreboard\n"
-            "!olymp;t;TankName;1-15 - Best score of a tank\n"
-            "!olymp;d;YYYY-MM-DD - Scores from that date\n"
-            "!olymp;r - Random recommendation\n"
+            "!olymp;b;1-15                 - Best scores of each player\n"
+            "!olymp;b;Player;1-15          - Best scores of specific player\n"
+            "!olymp;c;1-15                 - Best per tank\n"
+            "!olymp;p;1-15                 - Part of scoreboard\n"
+            "!olymp;t;TankName;1-15        - Best score of a tank\n"
+            "!olymp;d;YYYY-MM-DD           - Scores from that date\n"
+            "!olymp;r                      - Random recommendation\n"
         )
         await message.channel.send(help_message)
         return
@@ -118,17 +123,6 @@ async def on_message(message):
     df.columns = [str(c).strip() for c in df.columns]
     output_df = None
 
-    # --- RANDOM RECOMMENDATION ---
-    if cmd == "r":
-        df2 = df.copy()
-        if df2.empty:
-            await message.channel.send("No data available!")
-            return
-        row = df2.sample(1).iloc[0]
-        await message.channel.send(f"{row['True Name']} recommends you {row['Tank Type']}.")
-        return
-
-    # --- RANGE ARGUMENT PARSING ---
     range_arg = None
     if cmd in ['c', 'p']:
         if len(parts) > 2 and '-' in parts[-1]:
@@ -146,28 +140,17 @@ async def on_message(message):
         if range_arg is None:
             await message.channel.send("Input range! (1-15)")
             return
-    elif cmd == 'b':
+
+    if cmd == 'b':
         if len(parts) > 2 and '-' in parts[2]:
             try:
                 a, b = map(int, parts[2].split('-'))
-                if b - a + 1 > 15:
-                    await message.channel.send("Range is too big!")
-                    return
-                if a > LEGENDS or b > LEGENDS:
-                    await message.channel.send("Not enough scores for that!")
-                    return
                 range_arg = (a, b)
             except:
                 pass
         elif len(parts) > 3 and '-' in parts[3]:
             try:
                 a, b = map(int, parts[3].split('-'))
-                if b - a + 1 > 15:
-                    await message.channel.send("Range is too big!")
-                    return
-                if a > LEGENDS or b > LEGENDS:
-                    await message.channel.send("Not enough scores for that!")
-                    return
                 range_arg = (a, b)
             except:
                 pass
@@ -184,6 +167,7 @@ async def on_message(message):
             a, b = range_arg
             df2 = df2[(df2['Ņ'] >= a) & (df2['Ņ'] <= b)]
         output_df = df2[[c for c in COLUMNS_DEFAULT if c in df2.columns]]
+
     elif cmd == "b":
         df2 = df.copy()
         df2["Score"] = pd.to_numeric(df2["Score"].astype(str).str.replace(',', ''), errors="coerce").fillna(0)
@@ -192,13 +176,14 @@ async def on_message(message):
             player_name = parts[2].strip()
         if player_name:
             df2 = df2[df2["True Name"].str.lower() == player_name.lower()]
-        df2 = df2.sort_values("Score", ascending=False)
-        if not player_name:
+            df2 = df2.sort_values("Score", ascending=False)
+        else:
             df2 = df2.sort_values("Score", ascending=False).drop_duplicates(subset=["True Name"], keep="first")
         df2 = add_index(df2)
         a, b = range_arg
         df2 = df2[(df2['Ņ'] >= a) & (df2['Ņ'] <= b)]
         output_df = df2[[c for c in COLUMNS_DEFAULT if c in df2.columns]]
+
     elif cmd == "c":
         df2 = df.copy()
         df2["Score"] = pd.to_numeric(df2["Score"].astype(str).str.replace(',', ''), errors="coerce").fillna(0)
@@ -207,11 +192,13 @@ async def on_message(message):
         a, b = range_arg
         df2 = df2[(df2['Ņ'] >= a) & (df2['Ņ'] <= b)]
         output_df = df2[[c for c in COLUMNS_C if c in df2.columns]]
+
     elif cmd == "p":
         a, b = range_arg
         df2 = add_index(df)
         df2 = df2[(df2['Ņ'] >= a) & (df2['Ņ'] <= b)]
         output_df = df2[[c for c in COLUMNS_DEFAULT if c in df2.columns]]
+
     elif cmd == "t":
         if len(parts) < 3:
             await message.channel.send("Provide a tank name!")
@@ -228,15 +215,13 @@ async def on_message(message):
         if len(parts) > 3 and '-' in parts[3]:
             try:
                 a, b = map(int, parts[3].split('-'))
-                if b - a + 1 > 15:
-                    await message.channel.send("Range is too big!")
-                    return
                 df2 = df2[(df2['Ņ'] >= a) & (df2['Ņ'] <= b)]
             except:
                 pass
         else:
             df2 = df2[df2['Ņ'] == 1]
         output_df = df2[[c for c in COLUMNS_C if c in df2.columns]]
+
     elif cmd == "d":
         if len(parts) < 3:
             await message.channel.send("Provide a date in DD-MM-YYYY format!")
@@ -250,14 +235,28 @@ async def on_message(message):
             return
         df2 = add_index(df2)
         output_df = df2[[c for c in COLUMNS_DEFAULT if c in df2.columns]]
+        # Disable tank type shortening for d command
+        shorten_tank = False
+
+    # --- RANDOM RECOMMENDATION ---
+    elif cmd == "r":
+        if df.empty:
+            await message.channel.send("No data available for recommendation!")
+            return
+        row = df.sample(1).iloc[0]
+        await message.channel.send(f"{row['True Name']} recommends you {row['Tank Type']}.")
+        return
+
     else:
         await message.channel.send("Not a command buddy")
         return
 
     # --- FINAL FORMAT ---
     output_df = output_df.head(LEGENDS)
-    shorten_tank = False if cmd in ['d'] else True
+    if cmd != 'd':
+        shorten_tank = True
     lines = dataframe_to_markdown_aligned(output_df, shorten_tank=shorten_tank)
+
     chunk = ""
     chunks = []
     for line in lines:
@@ -268,10 +267,9 @@ async def on_message(message):
             chunk = line + "\n"
     if chunk:
         chunks.append(chunk)
+
     for c in chunks:
-        await message.channel.send(f"
-\n{c}\n
-")
+        await message.channel.send(f"```\n{c}\n```")
 
 # --- RUN BOT ---
 if __name__ == "__main__":
