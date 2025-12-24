@@ -257,7 +257,7 @@ async def on_message(message):
             await message.channel.send("No data available for recommendation!")
             return
         row = df.sample(1).iloc[0]
-        await message.channel.send(f"{row['True Name']} recommends you {row['Tank Type']}.")
+        await message.channel.send(f"{row['Name in game']} recommends you {row['Tank Type']}.")
         return
 
     else:
