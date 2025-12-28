@@ -276,8 +276,8 @@ async def on_message(message):
         # No subcommand → show help
         if len(parts) == 2:
             await message.channel.send(
-                "!olymp;r;a for a tank with a player record!\n"
-                "!olymp;r;b for the tank with no score!"
+                "**!olymp;r;a** for a tank with a player record!\n"
+                "**!olymp;r;b** for the tank with no score!"
             )
             return
 
@@ -290,10 +290,9 @@ async def on_message(message):
                 return
 
             row = df.sample(1).iloc[0]
-await message.channel.send(
-    f"**{row['Name in game']}** recommends you **{row['Tank Type']}**."
-)
-
+            await message.channel.send(
+                f"**{row['Name in game']}** recommends you **{row['Tank Type']}**."
+            )
             return
 
         # --- r;b ---
@@ -324,6 +323,7 @@ await message.channel.send(
                 "Unknown r command. Use !olymp;r to see options."
             )
             return
+
 
 
 
