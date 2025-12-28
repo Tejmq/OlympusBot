@@ -290,9 +290,10 @@ async def on_message(message):
                 return
 
             row = df.sample(1).iloc[0]
-            await message.channel.send(
-                f"{row['Name in game']} recommends you {row['Tank Type']}."
-            )
+await message.channel.send(
+    f"**{row['Name in game']}** recommends you **{row['Tank Type']}**."
+)
+
             return
 
         # --- r;b ---
