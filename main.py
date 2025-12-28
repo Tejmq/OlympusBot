@@ -314,10 +314,26 @@ async def on_message(message):
 
             chosen_tank = random.choice(available_tanks)
             await message.channel.send(
-                f"🏔️ **The Mountain recommends you {chosen_tank}.**"
+                f"🏔️ **The Mountain** recommends you **{chosen_tank}.**"
             )
             return
 
+        # --- r;r → pure random JSON tank ---
+        elif subcmd == "r":
+            if not TANK_NAMES:
+                await message.channel.send(
+                    "🏔️ The Mountain has no tanks to recommend."
+                )
+                return
+
+            chosen_tank = random.choice(TANK_NAMES)
+            await message.channel.send(
+                f"🏔️ **The Mountain** recommends you **{chosen_tank}.**"
+            )
+            return
+
+
+        
         else:
             await message.channel.send(
                 "Unknown r command. Use !olymp;r to see options."
