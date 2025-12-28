@@ -8,6 +8,7 @@ from keep_alive import keep_alive
 import re
 import random  # added for random recommendation
 import time
+import json
 
 user_cooldowns = {}
 COOLDOWN_SECONDS = 5
@@ -17,7 +18,9 @@ DRIVE_FILE_ID = "1YMzE4FXjH4wctFektINwhCDjzZ0xqCP6"
 COLUMNS_DEFAULT = ["Ņ", "Score", "True Name", "Tank Type", "Date"]
 COLUMNS_C = ["Ņ", "Tank Type", "True Name", "Score", "Date"]
 FIRST_COLUMN = "Score"
-LEGENDS = 500
+LEGENDS = 1000
+TANKS_JSON_FILE_ID = "1pGcmeDcTqx2h_HXA_R24JbaqQiBHhYMQ"
+
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -33,6 +36,21 @@ def read_excel():
     except Exception as e:
         print(f"❌ Failed to download Excel from Drive: {e}")
         return pd.DataFrame()
+
+
+
+# --- tank json reader ---
+def load_tanks_from_drive(file_id):
+    url = f"https://drive.google.com/uc?export=download&id={file_id}"
+    response = requests.get(url)
+    response.raise_for_status()
+    return json.loads(response.text)
+
+tank_data = load_tanks_from_drive(TANKS_JSON_FILE_ID)
+TANK_NAMES = tank_data["tanks"]
+
+
+
 
 # --- FORMAT TABLE ---
 def dataframe_to_markdown_aligned(df, shorten_tank=False):
@@ -251,18 +269,63 @@ async def on_message(message):
         # Disable tank type shortening for d command
         shorten_tank = True
 
-    # --- RANDOM RECOMMENDATION ---
-    elif cmd == "r":
+
+
+elif cmd == "r":
+
+    # No subcommand → show help
+    if len(parts) == 2:
+        await message.channel.send(
+            "!olymp;r;a for a tank with a player record!\n"
+            "!olymp;r;b for the tank with no score!"
+        )
+        return
+
+    subcmd = parts[2].strip().lower()
+
+    # --- r;a → existing behavior ---
+    if subcmd == "a":
         if df.empty:
             await message.channel.send("No data available for recommendation!")
             return
+
         row = df.sample(1).iloc[0]
-        await message.channel.send(f"{row['Name in game']} recommends you {row['Tank Type']}.")
+        await message.channel.send(
+            f"{row['Name in game']} recommends you {row['Tank Type']}."
+        )
+        return
+
+    # --- r;b → Mountain / JSON behavior ---
+    elif subcmd == "b":
+        excel_tanks = set(
+            df["Tank Type"].astype(str).str.lower().str.strip()
+        )
+
+        available_tanks = [
+            t for t in TANK_NAMES
+            if t.lower().strip() not in excel_tanks
+        ]
+
+        if not available_tanks:
+            await message.channel.send(
+                "🏔️ The Mountain has no new tanks left to recommend."
+            )
+            return
+
+        chosen_tank = random.choice(available_tanks)
+        await message.channel.send(
+            f"🏔️ **The Mountain recommends you {chosen_tank}.**"
+        )
         return
 
     else:
-        await message.channel.send("Not a command buddy")
+        await message.channel.send(
+            "Unknown r command. Use !olymp;r to see options."
+        )
         return
+
+
+
 
     # --- FINAL FORMAT ---
     output_df = output_df.head(LEGENDS)
