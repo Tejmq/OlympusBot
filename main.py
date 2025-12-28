@@ -271,58 +271,59 @@ async def on_message(message):
 
 
 
-elif cmd == "r":
+    elif cmd == "r":
 
-    # No subcommand → show help
-    if len(parts) == 2:
-        await message.channel.send(
-            "!olymp;r;a for a tank with a player record!\n"
-            "!olymp;r;b for the tank with no score!"
-        )
-        return
-
-    subcmd = parts[2].strip().lower()
-
-    # --- r;a → existing behavior ---
-    if subcmd == "a":
-        if df.empty:
-            await message.channel.send("No data available for recommendation!")
-            return
-
-        row = df.sample(1).iloc[0]
-        await message.channel.send(
-            f"{row['Name in game']} recommends you {row['Tank Type']}."
-        )
-        return
-
-    # --- r;b → Mountain / JSON behavior ---
-    elif subcmd == "b":
-        excel_tanks = set(
-            df["Tank Type"].astype(str).str.lower().str.strip()
-        )
-
-        available_tanks = [
-            t for t in TANK_NAMES
-            if t.lower().strip() not in excel_tanks
-        ]
-
-        if not available_tanks:
+        # No subcommand → show help
+        if len(parts) == 2:
             await message.channel.send(
-                "🏔️ The Mountain has no new tanks left to recommend."
+                "!olymp;r;a for a tank with a player record!\n"
+                "!olymp;r;b for the tank with no score!"
             )
             return
 
-        chosen_tank = random.choice(available_tanks)
-        await message.channel.send(
-            f"🏔️ **The Mountain recommends you {chosen_tank}.**"
-        )
-        return
+        subcmd = parts[2].strip().lower()
 
-    else:
-        await message.channel.send(
-            "Unknown r command. Use !olymp;r to see options."
-        )
-        return
+        # --- r;a ---
+        if subcmd == "a":
+            if df.empty:
+                await message.channel.send("No data available for recommendation!")
+                return
+
+            row = df.sample(1).iloc[0]
+            await message.channel.send(
+                f"{row['Name in game']} recommends you {row['Tank Type']}."
+            )
+            return
+
+        # --- r;b ---
+        elif subcmd == "b":
+            excel_tanks = set(
+                df["Tank Type"].astype(str).str.lower().str.strip()
+            )
+
+            available_tanks = [
+                t for t in TANK_NAMES
+                if t.lower().strip() not in excel_tanks
+            ]
+
+            if not available_tanks:
+                await message.channel.send(
+                    "🏔️ The Mountain has no new tanks left to recommend."
+                )
+                return
+
+            chosen_tank = random.choice(available_tanks)
+            await message.channel.send(
+                f"🏔️ **The Mountain recommends you {chosen_tank}.**"
+            )
+            return
+
+        else:
+            await message.channel.send(
+                "Unknown r command. Use !olymp;r to see options."
+            )
+            return
+
 
 
 
