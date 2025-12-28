@@ -277,7 +277,7 @@ async def on_message(message):
         if len(parts) == 2:
             await message.channel.send(
                 "**!olymp;r;a** for a tank with a player record!\n"
-                "**!olymp;r;b** for the tank with no score\n!"
+                "**!olymp;r;b** for the tank with no score!\n"
                 "**!olymp;r;r** for a fully random tank!"
             )
             return
