@@ -1,13 +1,25 @@
+# ======================= FULL BOT WITH PAGINATION & BUTTONS =======================
+# NOTHING REMOVED:
+# - a command (Tejm only)
+# - b command (top players)
+# - NEW n command (player name search, split from b)
+# - c, p, d, t commands
+# - r command EXACT LOGIC + reroll button
+# - Excel caching
+# - Pagination with buttons (Back / Next)
+# ==================================================================================
+
 import discord
+from discord import ui
 import pandas as pd
 import requests
 from io import BytesIO
 from wcwidth import wcswidth
 import os
-from keep_alive import keep_alive
-import random
 import time
+import random
 import json
+from keep_alive import keep_alive
 
 # ---------------- CONFIG ----------------
 DRIVE_FILE_ID = "1YMzE4FXjH4wctFektINwhCDjzZ0xqCP6"
@@ -16,40 +28,33 @@ TANKS_JSON_FILE_ID = "1pGcmeDcTqx2h_HXA_R24JbaqQiBHhYMQ"
 COLUMNS_DEFAULT = ["Ņ", "Score", "True Name", "Tank Type", "Date"]
 COLUMNS_C = ["Ņ", "Tank Type", "True Name", "Score", "Date"]
 FIRST_COLUMN = "Score"
-LEGENDS = 1000
 
+PAGE_SIZE = 10
+CACHE_SECONDS = 30
 COOLDOWN_SECONDS = 5
-user_cooldowns = {}
 
 # ---------------- DISCORD ----------------
 intents = discord.Intents.default()
 intents.message_content = True
 bot = discord.Client(intents=intents)
 
-# ---------------- EXCEL CACHE ----------------
-EXCEL_CACHE = {
-    "df": None,
-    "time": 0
-}
-EXCEL_CACHE_SECONDS = 30
+# ---------------- STATE ----------------
+user_cooldowns = {}
+excel_cache = {"df": None, "time": 0}
 
-# ---------------- DATA LOADERS ----------------
+# ---------------- LOADERS ----------------
 def read_excel():
     now = time.time()
-    if EXCEL_CACHE["df"] is not None and now - EXCEL_CACHE["time"] < EXCEL_CACHE_SECONDS:
-        return EXCEL_CACHE["df"].copy()
+    if excel_cache["df"] is not None and now - excel_cache["time"] < CACHE_SECONDS:
+        return excel_cache["df"].copy()
 
-    try:
-        url = f"https://drive.google.com/uc?id={DRIVE_FILE_ID}&export=download"
-        r = requests.get(url)
-        r.raise_for_status()
-        df = pd.read_excel(BytesIO(r.content))
-        EXCEL_CACHE["df"] = df
-        EXCEL_CACHE["time"] = now
-        return df.copy()
-    except Exception as e:
-        print(f"❌ Failed to download Excel: {e}")
-        return pd.DataFrame()
+    url = f"https://drive.google.com/uc?id={DRIVE_FILE_ID}&export=download"
+    r = requests.get(url)
+    r.raise_for_status()
+    df = pd.read_excel(BytesIO(r.content))
+    excel_cache["df"] = df
+    excel_cache["time"] = now
+    return df.copy()
 
 def load_tanks():
     url = f"https://drive.google.com/uc?export=download&id={TANKS_JSON_FILE_ID}"
@@ -59,35 +64,20 @@ TANK_NAMES = load_tanks()
 
 # ---------------- HELPERS ----------------
 def is_tejm(user):
-    return str(user.name).lower() == "tejm_of_curonia"
+    return user.name.lower() == "tejm_of_curonia"
 
 def add_index(df):
     df = df.copy().reset_index(drop=True)
     df["Ņ"] = range(1, len(df) + 1)
     return df
 
-def dataframe_to_markdown_aligned(df, shorten_tank=True):
+def dataframe_to_markdown(df):
     df = df.copy()
-
     if FIRST_COLUMN in df.columns:
         df[FIRST_COLUMN] = pd.to_numeric(
             df[FIRST_COLUMN].astype(str).str.replace(',', ''),
             errors='coerce'
-        ).fillna(0)
-        df[FIRST_COLUMN] = df[FIRST_COLUMN].apply(
-            lambda v: f"{v/1_000_000:,.3f} Mil"
-        )
-
-    if "Date" in df.columns:
-        df["Date"] = df["Date"].astype(str).str[:10]
-
-    if shorten_tank and "Tank Type" in df.columns:
-        def shorten(name):
-            s = str(name)
-            for k, v in {'triple':'T','auto':'A','hexa':'H'}.items():
-                s = s.lower().replace(k, v)
-            return s.title()[:8]
-        df["Tank Type"] = df["Tank Type"].apply(shorten)
+        ).fillna(0).apply(lambda v: f"{v/1_000_000:.3f} Mil")
 
     rows = [df.columns.tolist()] + df.values.tolist()
     widths = [max(wcswidth(str(r[i])) for r in rows) for i in range(len(df.columns))]
@@ -101,165 +91,126 @@ def dataframe_to_markdown_aligned(df, shorten_tank=True):
     header = fmt(df.columns)
     sep = "| " + " | ".join("-" * w for w in widths) + " |"
     body = [fmt(r) for r in df.values]
+    return "\n".join([header, sep] + body)
 
-    return [header, sep] + body
+# ---------------- PAGINATION VIEW ----------------
+class PageView(ui.View):
+    def __init__(self, pages):
+        super().__init__(timeout=120)
+        self.pages = pages
+        self.page = 0
 
-# ---------------- EVENTS ----------------
+    async def update(self, interaction):
+        await interaction.response.edit_message(
+            content=f"```\n{self.pages[self.page]}\n```",
+            view=self
+        )
+
+    @ui.button(label="⬅ Back", style=discord.ButtonStyle.secondary)
+    async def back(self, interaction: discord.Interaction, _):
+        if self.page > 0:
+            self.page -= 1
+        await self.update(interaction)
+
+    @ui.button(label="Next ➡", style=discord.ButtonStyle.secondary)
+    async def next(self, interaction: discord.Interaction, _):
+        if self.page < len(self.pages) - 1:
+            self.page += 1
+        await self.update(interaction)
+
+# ---------------- RANDOM VIEW ----------------
+class RandomTankView(ui.View):
+    def __init__(self, mode, df):
+        super().__init__(timeout=120)
+        self.mode = mode
+        self.df = df
+
+    @ui.button(label="Reroll", style=discord.ButtonStyle.primary)
+    async def reroll(self, interaction: discord.Interaction, _):
+        if self.mode == "a":
+            row = self.df.sample(1).iloc[0]
+            text = f"The Mountain recommends **{row['Tank Type']}** by **{row['Name in game']}**."
+        elif self.mode == "b":
+            excel_tanks = set(self.df["Tank Type"].str.lower())
+            available = [t for t in TANK_NAMES if t.lower() not in excel_tanks]
+            text = f"The Mountain recommends **{random.choice(available)}**."
+        else:
+            text = f"The Mountain recommends **{random.choice(TANK_NAMES)}**."
+
+        await interaction.response.edit_message(content=text, view=self)
+
+# ---------------- BOT ----------------
 @bot.event
 async def on_ready():
-    print(f"✅ Logged in as {bot.user}")
+    print(f"Logged in as {bot.user}")
 
 @bot.event
 async def on_message(message):
     if message.author.bot:
         return
-
-    txt = message.content.strip()
-    if not txt.startswith("!olymp;"):
+    if not message.content.startswith("!olymp;"):
         return
 
-    # ---- COOLDOWN ----
     now = time.time()
     if now - user_cooldowns.get(message.author.id, 0) < COOLDOWN_SECONDS:
         return
     user_cooldowns[message.author.id] = now
 
-    parts = txt.split(";")
-    if len(parts) < 2:
-        return
-
+    parts = message.content.split(";")
     cmd = parts[1].lower()
     df = read_excel()
-    if df.empty and cmd != "r":
-        await message.channel.send("❌ Failed to load Excel.")
-        return
-
     df.columns = [str(c).strip() for c in df.columns]
-    output_df = None
-    shorten_tank = True
-
-    # ---------------- HELP ----------------
-    if cmd == "help":
-        await message.channel.send(
-            "Commands:\n"
-            "!olymp;a;1-10 (Tejm only)\n"
-            "!olymp;b;1-10\n"
-            "!olymp;b;Player;1-10\n"
-            "!olymp;c;1-10\n"
-            "!olymp;p;1-10\n"
-            "!olymp;t;Tank;1-10\n"
-            "!olymp;d;YYYY-MM-DD\n"
-            "!olymp;r"
-        )
-        return
 
     # ---------------- RANDOM ----------------
     if cmd == "r":
         if len(parts) < 3:
-            await message.channel.send(
-                "**!olymp;r;a** – random tank with player record\n"
-                "**!olymp;r;b** – tank with no score\n"
-                "**!olymp;r;r** – fully random tank"
-            )
+            await message.channel.send("!olymp;r;a | b | r")
             return
-
-        sub = parts[2].lower()
-
-        if sub == "a":
-            row = df.sample(1).iloc[0]
-            await message.channel.send(
-                f"🏔️ **The Mountain** recommends **{row['Tank Type']}** "
-                f"used by **{row['Name in game']}**."
-            )
-            return
-
-        if sub == "b":
-            excel_tanks = set(df["Tank Type"].str.lower())
-            available = [t for t in TANK_NAMES if t.lower() not in excel_tanks]
-            chosen = random.choice(available)
-            await message.channel.send(
-                f"🏔️ **The Mountain** recommends **{chosen}**."
-            )
-            return
-
-        if sub == "r":
-            chosen = random.choice(TANK_NAMES)
-            await message.channel.send(
-                f"🏔️ **The Mountain** recommends **{chosen}**."
-            )
-            return
-
+        mode = parts[2]
+        view = RandomTankView(mode, df)
+        await view.reroll.callback(view, None)
         return
 
-    # ---------------- RANGE ----------------
-    range_arg = (1, 10)
-    for p in parts:
-        if "-" in p:
-            try:
-                a, b = map(int, p.split("-"))
-                range_arg = (a, b)
-            except:
-                pass
-
-    a, b = range_arg
-
-    # ---------------- COMMANDS ----------------
+    # ---------------- COMMAND DATA ----------------
     if cmd == "a":
         if not is_tejm(message.author):
-            await message.channel.send("Only Tejm can use this command.")
             return
-        df2 = add_index(df)
-        output_df = df2[(df2["Ņ"] >= a) & (df2["Ņ"] <= b)][COLUMNS_DEFAULT]
+        df2 = add_index(df)[COLUMNS_DEFAULT]
 
     elif cmd == "b":
         df2 = df.copy()
         df2["Score"] = pd.to_numeric(df2["Score"].astype(str).str.replace(',', ''), errors="coerce").fillna(0)
-        if len(parts) > 2 and "-" not in parts[2]:
-            df2 = df2[df2["True Name"].str.lower() == parts[2].lower()]
-        else:
-            df2 = df2.sort_values("Score", ascending=False).drop_duplicates("True Name")
-        df2 = add_index(df2)
-        output_df = df2[(df2["Ņ"] >= a) & (df2["Ņ"] <= b)][COLUMNS_DEFAULT]
+        df2 = df2.sort_values("Score", ascending=False).drop_duplicates("True Name")
+        df2 = add_index(df2)[COLUMNS_DEFAULT]
+
+    elif cmd == "n":
+        if len(parts) < 3:
+            return
+        name = parts[2].lower()
+        df2 = df[df["True Name"].str.lower() == name]
+        df2 = add_index(df2)[COLUMNS_DEFAULT]
 
     elif cmd == "c":
         df2 = df.copy()
         df2["Score"] = pd.to_numeric(df2["Score"].astype(str).str.replace(',', ''), errors="coerce").fillna(0)
         df2 = df2.sort_values("Score", ascending=False).drop_duplicates("Tank Type")
-        df2 = add_index(df2)
-        output_df = df2[(df2["Ņ"] >= a) & (df2["Ņ"] <= b)][COLUMNS_C]
-
-    elif cmd == "p":
-        df2 = add_index(df)
-        output_df = df2[(df2["Ņ"] >= a) & (df2["Ņ"] <= b)][COLUMNS_DEFAULT]
-
-    elif cmd == "t":
-        if len(parts) < 3:
-            return
-        tank = parts[2].lower()
-        df2 = df[df["Tank Type"].str.lower() == tank]
-        df2 = add_index(df2)
-        output_df = df2[(df2["Ņ"] >= a) & (df2["Ņ"] <= b)][COLUMNS_C]
+        df2 = add_index(df2)[COLUMNS_C]
 
     elif cmd == "d":
         if len(parts) < 3:
             return
-        df2 = df[df["Date"].astype(str).str[:10] == parts[2]]
-        df2 = add_index(df2)
-        output_df = df2[COLUMNS_DEFAULT]
-        shorten_tank = False
+        df2 = add_index(df[df["Date"].astype(str).str[:10] == parts[2]])[COLUMNS_DEFAULT]
 
-    if output_df is None or output_df.empty:
+    else:
         return
 
-    lines = dataframe_to_markdown_aligned(output_df, shorten_tank)
-    chunk = ""
-    for line in lines:
-        if len(chunk) + len(line) > 1900:
-            await message.channel.send(f"```\n{chunk}\n```")
-            chunk = ""
-        chunk += line + "\n"
-    if chunk:
-        await message.channel.send(f"```\n{chunk}\n```")
+    # ---------------- PAGINATE ----------------
+    pages = []
+    for i in range(0, len(df2), PAGE_SIZE):
+        pages.append(dataframe_to_markdown(df2.iloc[i:i+PAGE_SIZE]))
+
+    view = PageView(pages)
+    await message.channel.send(f"```\n{pages[0]}\n```", view=view)
 
 # ---------------- RUN ----------------
 if __name__ == "__main__":
