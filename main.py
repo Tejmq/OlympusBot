@@ -4,10 +4,10 @@ import requests
 from io import BytesIO
 from wcwidth import wcswidth
 import os
-from keep_alive import keep_alive
 import random
 import time
 import json
+from keep_alive import keep_alive
 
 # ---------------- CONFIG ----------------
 DRIVE_FILE_ID = "1YMzE4FXjH4wctFektINwhCDjzZ0xqCP6"
@@ -16,9 +16,9 @@ TANKS_JSON_FILE_ID = "1pGcmeDcTqx2h_HXA_R24JbaqQiBHhYMQ"
 COLUMNS_DEFAULT = ["Ņ", "Score", "True Name", "Tank Type", "Date"]
 COLUMNS_C = ["Ņ", "Tank Type", "True Name", "Score", "Date"]
 FIRST_COLUMN = "Score"
-LEGENDS = 1000
-
+PAGE_SIZE = 10
 COOLDOWN_SECONDS = 5
+
 user_cooldowns = {}
 
 # ---------------- DISCORD ----------------
@@ -26,54 +26,26 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = discord.Client(intents=intents)
 
-# ---------------- DATA LOADERS ----------------
+# ---------------- DATA ----------------
 def read_excel():
     url = f"https://drive.google.com/uc?id={DRIVE_FILE_ID}&export=download"
     r = requests.get(url)
     r.raise_for_status()
     return pd.read_excel(BytesIO(r.content))
 
-def load_tanks_from_drive(file_id):
-    url = f"https://drive.google.com/uc?export=download&id={file_id}"
-    response = requests.get(url)
-    response.raise_for_status()
-    return json.loads(response.text)
+def load_tanks():
+    url = f"https://drive.google.com/uc?export=download&id={TANKS_JSON_FILE_ID}"
+    return json.loads(requests.get(url).text)["tanks"]
 
-TANK_NAMES = load_tanks_from_drive(TANKS_JSON_FILE_ID)["tanks"]
+TANK_NAMES = load_tanks()
 
 # ---------------- HELPERS ----------------
 def add_index(df):
-    df = df.copy().reset_index(drop=True)
+    df = df.reset_index(drop=True)
     df["Ņ"] = range(1, len(df) + 1)
     return df
 
-# ---------------- TABLE FORMAT ----------------
-def dataframe_to_lines(df, shorten_tank=True):
-    df = df.copy()
-
-    if FIRST_COLUMN in df.columns:
-        df[FIRST_COLUMN] = pd.to_numeric(
-            df[FIRST_COLUMN].astype(str).str.replace(',', ''),
-            errors='coerce'
-        ).fillna(0)
-        df[FIRST_COLUMN] = df[FIRST_COLUMN].apply(
-            lambda v: f"{v/1_000_000:,.3f} Mil"
-        )
-
-    if "Date" in df.columns:
-        df["Date"] = df["Date"].astype(str).str[:10]
-
-    if shorten_tank and "Tank Type" in df.columns:
-        df["Tank Type"] = (
-            df["Tank Type"]
-            .astype(str)
-            .str.replace("triple", "T", case=False)
-            .str.replace("auto", "A", case=False)
-            .str.replace("hexa", "H", case=False)
-            .str.title()
-            .str[:10]
-        )
-
+def dataframe_to_text(df):
     rows = [df.columns.tolist()] + df.values.tolist()
     widths = [max(wcswidth(str(r[i])) for r in rows) for i in range(len(rows[0]))]
 
@@ -85,55 +57,80 @@ def dataframe_to_lines(df, shorten_tank=True):
 
     lines = [fmt(df.columns), "-" * wcswidth(fmt(df.columns))]
     lines += [fmt(r) for r in df.values]
-    return lines
+    return "\n".join(lines)
 
-# ---------------- PAGINATED VIEW ----------------
-class TableView(discord.ui.View):
-    def __init__(self, user_id, title, pages):
-        super().__init__(timeout=90)
+# ---------------- VIEW ----------------
+class LeaderboardView(discord.ui.View):
+    def __init__(self, user_id, cmd, start, param=None):
+        super().__init__(timeout=120)
         self.user_id = user_id
-        self.title = title
-        self.pages = pages
-        self.index = 0
-
-    def embed(self):
-        embed = discord.Embed(
-            title=self.title,
-            description=f"```text\n{self.pages[self.index]}\n```",
-            color=discord.Color.dark_gold()
-        )
-        embed.set_footer(text=f"Page {self.index + 1}/{len(self.pages)}")
-        return embed
+        self.cmd = cmd
+        self.start = start
+        self.param = param
 
     async def interaction_check(self, interaction):
         return interaction.user.id == self.user_id
 
+    async def render(self):
+        df = read_excel()
+        df.columns = df.columns.str.strip()
+        df["Score"] = pd.to_numeric(df["Score"].astype(str).str.replace(',', ''), errors="coerce").fillna(0)
+
+        # ---- COMMAND LOGIC ----
+        if self.cmd == "a":
+            df = add_index(df)
+            title = "Full Scoreboard"
+            cols = COLUMNS_DEFAULT
+
+        elif self.cmd == "b":
+            df = df.sort_values("Score", ascending=False).drop_duplicates("True Name")
+            df = add_index(df)
+            title = "Best Player Scores"
+            cols = COLUMNS_DEFAULT
+
+        elif self.cmd == "n":
+            df = df[df["True Name"].str.lower() == self.param.lower()]
+            df = df.sort_values("Score", ascending=False)
+            df = add_index(df)
+            title = f"Player: {self.param}"
+            cols = COLUMNS_DEFAULT
+
+        elif self.cmd == "c":
+            df = df.sort_values("Score", ascending=False).drop_duplicates("Tank Type")
+            df = add_index(df)
+            title = "Best Tank Scores"
+            cols = COLUMNS_C
+
+        else:
+            return None
+
+        page = df.iloc[self.start:self.start + PAGE_SIZE][cols]
+        text = dataframe_to_text(page)
+
+        embed = discord.Embed(
+            title=title,
+            description=f"```text\n{text}\n```",
+            color=discord.Color.dark_gold()
+        )
+        embed.set_footer(text=f"Rows {self.start+1}–{self.start+len(page)}")
+        return embed
+
     @discord.ui.button(label="◀ Previous", style=discord.ButtonStyle.secondary)
-    async def prev(self, interaction, button):
-        if self.index > 0:
-            self.index -= 1
-            await interaction.response.edit_message(embed=self.embed(), view=self)
+    async def prev(self, interaction, _):
+        await interaction.response.defer()
+        self.start = max(0, self.start - PAGE_SIZE)
+        await interaction.message.edit(embed=await self.render(), view=self)
 
     @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary)
-    async def next(self, interaction, button):
-        if self.index < len(self.pages) - 1:
-            self.index += 1
-            await interaction.response.edit_message(embed=self.embed(), view=self)
+    async def next(self, interaction, _):
+        await interaction.response.defer()
+        self.start += PAGE_SIZE
+        await interaction.message.edit(embed=await self.render(), view=self)
 
-    async def on_timeout(self):
-        for c in self.children:
-            c.disabled = True
-
-# ---------------- BOT EVENTS ----------------
-@bot.event
-async def on_ready():
-    print(f"Logged in as {bot.user}")
-
+# ---------------- BOT ----------------
 @bot.event
 async def on_message(message):
-    if message.author.bot:
-        return
-    if not message.content.startswith("!olymp;"):
+    if message.author.bot or not message.content.startswith("!olymp;"):
         return
 
     now = time.time()
@@ -144,64 +141,37 @@ async def on_message(message):
     parts = message.content.split(";")
     cmd = parts[1].lower()
 
+    # -------- HELP --------
     if cmd == "help":
         embed = discord.Embed(title="Olympus Commands", color=discord.Color.blurple())
-        embed.add_field(
-            name="Leaderboards",
+        embed.add_field(name="Leaderboards",
             value=(
-                "`!olymp;b;1-15`\n"
-                "`!olymp;c;1-15`\n"
-                "`!olymp;p;1-15`\n"
-                "`!olymp;t;Tank;1-15`\n"
+                "`!olymp;a`\n"
+                "`!olymp;b`\n"
+                "`!olymp;n;PlayerName`\n"
+                "`!olymp;c`\n"
+                "`!olymp;p;1-10`\n"
+                "`!olymp;t;Tank`\n"
                 "`!olymp;d;YYYY-MM-DD`"
-            ),
-            inline=False
-        )
+            ), inline=False)
+        embed.add_field(name="Random",
+            value="`!olymp;r;a` `!olymp;r;b` `!olymp;r;r`", inline=False)
         await message.channel.send(embed=embed)
         return
 
-    df = read_excel()
-    df.columns = df.columns.str.strip()
-
-    # Range
-    a, b = 1, 10
-    if "-" in parts[-1]:
-        try:
-            a, b = map(int, parts[-1].split("-"))
-        except:
-            pass
-
-    if cmd == "b":
-        df["Score"] = pd.to_numeric(df["Score"].astype(str).str.replace(',', ''), errors="coerce").fillna(0)
-        df = df.sort_values("Score", ascending=False).drop_duplicates("True Name")
-        df = add_index(df)
-        out = df[(df["Ņ"] >= a) & (df["Ņ"] <= b)][COLUMNS_DEFAULT]
-        title = "Best Player Scores"
-
-    elif cmd == "c":
-        df["Score"] = pd.to_numeric(df["Score"].astype(str).str.replace(',', ''), errors="coerce").fillna(0)
-        df = df.sort_values("Score", ascending=False).drop_duplicates("Tank Type")
-        df = add_index(df)
-        out = df[(df["Ņ"] >= a) & (df["Ņ"] <= b)][COLUMNS_C]
-        title = "Best Tank Scores"
-
-    else:
-        await message.channel.send("Unknown command.")
+    # -------- RANDOM --------
+    if cmd == "r":
+        if parts[2] == "r":
+            await message.channel.send(f"Recommendation: {random.choice(TANK_NAMES)}")
         return
 
-    lines = dataframe_to_lines(out)
-    pages, buf = [], ""
+    # -------- START VIEW --------
+    param = parts[2] if len(parts) > 2 else None
+    view = LeaderboardView(message.author.id, cmd, 0, param)
+    embed = await view.render()
 
-    for l in lines:
-        if len(buf) + len(l) < 1800:
-            buf += l + "\n"
-        else:
-            pages.append(buf)
-            buf = l + "\n"
-    pages.append(buf)
-
-    view = TableView(message.author.id, title, pages)
-    await message.channel.send(embed=view.embed(), view=view)
+    if embed:
+        await message.channel.send(embed=embed, view=view)
 
 # ---------------- RUN ----------------
 if __name__ == "__main__":
