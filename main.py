@@ -147,8 +147,8 @@ async def on_message(message):
         output = apply_range(normalize_score(df).sort_values("Score", ascending=False).drop_duplicates("Tank Type"), parts, needs_range=True)
 
     elif cmd == "p":
-    output = df.copy()
-    output = apply_range(output, parts, needs_range=True, default_range=(1,1))
+        output = df.copy()
+        output = apply_range(output, parts, needs_range=True, default_range=(1,1))
 
     elif cmd == "t":
         if len(parts) < 3:
