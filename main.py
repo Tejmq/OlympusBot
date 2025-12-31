@@ -199,9 +199,9 @@ async def on_message(message):
         output = handle_tank(df, parts[2])
 
     elif cmd == "d":
-    if len(parts) < 3:
-        await message.channel.send("❌ Provide date as YYYY-MM-DD")
-        return
+        if len(parts) < 3:
+            await message.channel.send("❌ Provide date as YYYY-MM-DD")
+            return
 
     target = parts[2].strip()
 
