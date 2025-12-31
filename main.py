@@ -254,18 +254,22 @@ async def on_message(message):
     output = add_index(output)
     
     range_arg = None
+
     for p in parts:
-    if "-" in p:
-    range_arg = parse_range(p)
-    break
+        if "-" in p:
+            range_arg = parse_range(p)
+            break
 
     if range_arg:
-    a, b = range_arg
-    output = output[(output["Ņ"] >= a) & (output["Ņ"] <= b)]
+        a, b = range_arg
+        output = output[(output["Ņ"] >= a) & (output["Ņ"] <= b)]
     else:
-    if cmd == "p":
-    await message.channel.send("❌ p command requires a range (example: 1-10)")
-    return
+        if cmd == "p":
+            await message.channel.send(
+                "❌ p command requires a range (example: 1-10)"
+            )
+            return
+
 
 
     cols = COLUMNS_C if cmd in {"c", "t"} else COLUMNS_DEFAULT
