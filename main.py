@@ -148,7 +148,19 @@ async def on_message(message):
 
     elif cmd == "p":
         output = df.copy()
-        output = apply_range(output, parts, needs_range=True, default_range=(1,1))
+        output = add_index(output)  # make sure Ņ column exists
+        range_arg = None
+        for part in parts:
+            if "-" in part:
+                range_arg = parse_range(part)
+                break
+        if range_arg:
+            a, b = range_arg
+            output = output[(output["Ņ"] >= a) & (output["Ņ"] <= b)]
+        else:
+            # If no range is given, default to 1-15 for p
+            output = output[(output["Ņ"] >= 1) & (output["Ņ"] <= 15)]
+
 
     elif cmd == "t":
         if len(parts) < 3:
@@ -159,40 +171,32 @@ async def on_message(message):
     
     elif cmd == "d":
         if len(parts) < 3:
-            await message.channel.send(
-                "❌ Usage: !olymp;d;YYYY-MM-DD or DD-MM-YYYY"
-            )
+            await message.channel.send("❌ Usage: !olymp;d;YYYY-MM-DD or DD-MM-YYYY")
             return
         raw_date = parts[2].strip()
-        # ── normalize date ─────────────────────────────
         target = None
         # YYYY-MM-DD
         if re.match(r"^\d{4}-\d{2}-\d{2}$", raw_date):
             target = raw_date
         # DD-MM-YYYY → convert
         elif re.match(r"^\d{2}-\d{2}-\d{4}$", raw_date):
-            d, m, y = raw_date.split("-")
+            d,m,y = raw_date.split("-")
             target = f"{y}-{m}-{d}"
         else:
-            await message.channel.send(
-                "❌ Invalid date format. Use YYYY-MM-DD or DD-MM-YYYY"
-            )
+            await message.channel.send("❌ Invalid date format. Use YYYY-MM-DD or DD-MM-YYYY")
             return
-        df2 = df.copy()
-        # find Date column safely
-        date_col = next(
-            (c for c in df2.columns if c.lower() == "date"),
-            None
-        )
+        # find Date column
+        date_col = next((c for c in df.columns if c.lower() == "date"), None)
         if not date_col:
-            await message.channel.send("❌ No Date column found in Excel")
+            await message.channel.send("❌ No Date column in Excel")
             return
-        df2[date_col] = df2[date_col].astype(str).str[:10]
-        output = df2[df2[date_col] == target]
+        df[date_col] = df[date_col].astype(str).str[:10]
+        output = df[df[date_col] == target]
         if output.empty:
             await message.channel.send(f"❌ No scores found for {target}")
             return
-        shorten_tank = False
+        shorten_tank = False        
+
 
 
 
