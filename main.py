@@ -88,7 +88,7 @@ def handle_tank(df, tank):
     df = normalize_score(df)
     return df[df["Tank Type"].str.lower() == tank.lower()].sort_values("Score", ascending=False)
 
-def apply_range(df, parts, needs_range=True, default_range=(1,1), max_range=15):
+def apply_range(df, parts, needs_range=True, default_range=None, max_range=15):
     df = add_index(df)
     range_arg = None
     for part in parts:
@@ -97,10 +97,12 @@ def apply_range(df, parts, needs_range=True, default_range=(1,1), max_range=15):
             if parsed:
                 range_arg = parsed
                 break
-    if needs_range:
-        if not range_arg:
-            range_arg = default_range
-        a,b = range_arg
+    if needs_range and range_arg:
+        a, b = range_arg
+        return df[(df["Ņ"] >= a) & (df["Ņ"] <= b)]
+    # if no range is given and needs_range=True but default_range=None, return full df
+    if needs_range and default_range:
+        a, b = default_range
         return df[(df["Ņ"] >= a) & (df["Ņ"] <= b)]
     return df
 
@@ -147,16 +149,8 @@ async def on_message(message):
         output = apply_range(normalize_score(df).sort_values("Score", ascending=False).drop_duplicates("Tank Type"), parts, needs_range=True)
 
     elif cmd == "p":
-        output = add_index(df.copy())
-        # check for range argument
-        range_arg = None
-        for part in parts:
-            if "-" in part:
-                range_arg = parse_range(part)
-                break
-        # default 1-15 if none provided
-        a, b = range_arg if range_arg else (1, 15)
-        output = output[(output["Ņ"] >= a) & (output["Ņ"] <= b)]
+        output = apply_range(df.copy(), parts, needs_range=True, default_range=(1,15))
+
 
 
 
@@ -204,6 +198,7 @@ async def on_message(message):
 
         output = add_index(output)
         shorten_tank = False
+
 
 
 
