@@ -25,6 +25,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = discord.Client(intents=intents)
 
+# --- Data loaders ---
 def read_excel():
     try:
         url = f"https://drive.google.com/uc?id={DRIVE_FILE_ID}&export=download"
@@ -42,6 +43,7 @@ def load_tanks():
 
 TANK_NAMES = load_tanks()
 
+# --- Helpers ---
 def is_tejm(user):
     return user.name.lower() == "tejm_of_curonia"
 
@@ -100,12 +102,42 @@ def apply_range(df, parts, needs_range=True, default_range=None, max_range=15):
     if needs_range and range_arg:
         a, b = range_arg
         return df[(df["Ņ"] >= a) & (df["Ņ"] <= b)]
-    # if no range is given and needs_range=True but default_range=None, return full df
     if needs_range and default_range:
         a, b = default_range
         return df[(df["Ņ"] >= a) & (df["Ņ"] <= b)]
     return df
 
+# --- Special functions for p and d ---
+def get_partial_leaderboard(df, parts, default=(1,15)):
+    df = add_index(df.copy())
+    range_arg = None
+    for part in parts:
+        if "-" in part:
+            range_arg = parse_range(part)
+            break
+    a, b = range_arg if range_arg else default
+    return df[(df["Ņ"] >= a) & (df["Ņ"] <= b)]
+
+def get_scores_by_date(df, date_str):
+    target = None
+    if re.match(r"^\d{4}-\d{2}-\d{2}$", date_str):
+        target = date_str
+    elif re.match(r"^\d{2}-\d{2}-\d{4}$", date_str):
+        d, m, y = date_str.split("-")
+        target = f"{y}-{m}-{d}"
+    else:
+        return pd.DataFrame()
+    date_col = next((c for c in df.columns if c.lower() == "date"), None)
+    if not date_col:
+        return pd.DataFrame()
+    if pd.api.types.is_datetime64_any_dtype(df[date_col]):
+        df[date_col] = df[date_col].dt.strftime("%Y-%m-%d")
+    else:
+        df[date_col] = df[date_col].astype(str).str[:10]
+    df_filtered = df[df[date_col] == target]
+    return add_index(df_filtered)
+
+# --- Bot events ---
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
@@ -149,11 +181,7 @@ async def on_message(message):
         output = apply_range(normalize_score(df).sort_values("Score", ascending=False).drop_duplicates("Tank Type"), parts, needs_range=True)
 
     elif cmd == "p":
-        output = apply_range(df.copy(), parts, needs_range=True, default_range=(1,15))
-
-
-
-
+        output = get_partial_leaderboard(df, parts)
 
     elif cmd == "t":
         if len(parts) < 3:
@@ -161,49 +189,15 @@ async def on_message(message):
             return
         output = apply_range(handle_tank(df, parts[2]), parts, needs_range=True)
 
-    
     elif cmd == "d":
         if len(parts) < 3:
             await message.channel.send("❌ Usage: !olymp;d;YYYY-MM-DD or DD-MM-YYYY")
             return
-
-        raw_date = parts[2].strip()
-        target = None
-        # YYYY-MM-DD
-        if re.match(r"^\d{4}-\d{2}-\d{2}$", raw_date):
-            target = raw_date
-        # DD-MM-YYYY → convert
-        elif re.match(r"^\d{2}-\d{2}-\d{4}$", raw_date):
-            d, m, y = raw_date.split("-")
-            target = f"{y}-{m}-{d}"
-        else:
-            await message.channel.send("❌ Invalid date format. Use YYYY-MM-DD or DD-MM-YYYY")
-            return
-
-        date_col = next((c for c in df.columns if c.lower() == "date"), None)
-        if not date_col:
-            await message.channel.send("❌ No Date column found in Excel")
-            return
-
-        # convert column to string YYYY-MM-DD
-        if pd.api.types.is_datetime64_any_dtype(df[date_col]):
-            df[date_col] = df[date_col].dt.strftime("%Y-%m-%d")
-        else:
-            df[date_col] = df[date_col].astype(str).str[:10]
-
-        output = df[df[date_col] == target]
+        output = get_scores_by_date(df, parts[2].strip())
         if output.empty:
-            await message.channel.send(f"❌ No scores found for {target}")
+            await message.channel.send(f"❌ No scores found for {parts[2].strip()}")
             return
-
-        output = add_index(output)
         shorten_tank = False
-
-
-
-
-
-
 
     elif cmd == "r":
         if len(parts)==2:
@@ -240,9 +234,9 @@ async def on_message(message):
         chunk+=line+"\n"
     if chunk: await message.channel.send(f"```\n{chunk}\n```")
 
+# --- Run bot ---
 if __name__=="__main__":
     token = os.getenv("DISCORD_TOKEN")
     if not token: raise RuntimeError("DISCORD_TOKEN missing")
     keep_alive()
     bot.run(token)
- 
