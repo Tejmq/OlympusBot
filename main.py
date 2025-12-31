@@ -147,7 +147,7 @@ async def on_message(message):
         output = apply_range(normalize_score(df).sort_values("Score", ascending=False).drop_duplicates("Tank Type"), parts, needs_range=True)
 
     elif cmd == "p":
-    output = df.copy()
+        output = df.copy()
         # ensure Ņ exists
         output = add_index(output)
         # parse range
