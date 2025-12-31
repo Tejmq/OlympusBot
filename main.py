@@ -147,18 +147,17 @@ async def on_message(message):
         output = apply_range(normalize_score(df).sort_values("Score", ascending=False).drop_duplicates("Tank Type"), parts, needs_range=True)
 
     elif cmd == "p":
-        output = df.copy()
-        # ensure Ņ exists
-        output = add_index(output)
-        # parse range
+        output = add_index(df.copy())
+        # check for range argument
         range_arg = None
         for part in parts:
             if "-" in part:
                 range_arg = parse_range(part)
                 break
-        # apply range, default 1-15 if none provided
+        # default 1-15 if none provided
         a, b = range_arg if range_arg else (1, 15)
         output = output[(output["Ņ"] >= a) & (output["Ņ"] <= b)]
+
 
 
 
@@ -173,8 +172,8 @@ async def on_message(message):
         if len(parts) < 3:
             await message.channel.send("❌ Usage: !olymp;d;YYYY-MM-DD or DD-MM-YYYY")
             return
+
         raw_date = parts[2].strip()
-        # normalize date
         target = None
         # YYYY-MM-DD
         if re.match(r"^\d{4}-\d{2}-\d{2}$", raw_date):
@@ -187,13 +186,12 @@ async def on_message(message):
             await message.channel.send("❌ Invalid date format. Use YYYY-MM-DD or DD-MM-YYYY")
             return
 
-        # find Date column
         date_col = next((c for c in df.columns if c.lower() == "date"), None)
         if not date_col:
-            await message.channel.send("❌ No Date column in Excel")
+            await message.channel.send("❌ No Date column found in Excel")
             return
 
-        # convert datetime columns to string YYYY-MM-DD
+        # convert column to string YYYY-MM-DD
         if pd.api.types.is_datetime64_any_dtype(df[date_col]):
             df[date_col] = df[date_col].dt.strftime("%Y-%m-%d")
         else:
@@ -203,7 +201,10 @@ async def on_message(message):
         if output.empty:
             await message.channel.send(f"❌ No scores found for {target}")
             return
+
+        output = add_index(output)
         shorten_tank = False
+
 
 
 
