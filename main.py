@@ -53,8 +53,10 @@ def is_tejm(user):
 def normalize_score(df):
     df = df.copy()
     df["Score"] = (
-        pd.to_numeric(df["Score"].astype(str).str.replace(",", ""),
-        errors="coerce").fillna(0)
+        pd.to_numeric(
+            df["Score"].astype(str).str.replace(",", ""),
+            errors="coerce"
+        ).fillna(0)
     )
     return df
 
@@ -109,7 +111,7 @@ def dataframe_to_markdown_aligned(df, shorten_tank=True):
         + [fmt(r) for r in df.values]
     )
 
-# ─── COMMAND HANDLERS ──────────────────────────────────────────────────────
+# ─── COMMAND HELPERS ──────────────────────────────────────────────────────
 def handle_best(df, parts):
     df = normalize_score(df)
     player = parts[2] if len(parts) > 2 and "-" not in parts[2] else None
@@ -127,8 +129,10 @@ def handle_best(df, parts):
 
 def handle_tank(df, tank):
     df = normalize_score(df)
-    return df[df["Tank Type"].str.lower() == tank.lower()] \
+    return (
+        df[df["Tank Type"].str.lower() == tank.lower()]
         .sort_values("Score", ascending=False)
+    )
 
 # ─── EVENTS ───────────────────────────────────────────────────────────────
 @bot.event
@@ -177,7 +181,7 @@ async def on_message(message):
         if not is_tejm(message.author):
             await message.channel.send("Restricted command.")
             return
-        output = add_index(df)
+        output = df
 
     elif cmd == "b":
         output = handle_best(df, parts)
@@ -204,9 +208,8 @@ async def on_message(message):
             return
 
         target = parts[2].strip()
-
         df2 = df.copy()
-        df2["Date"] = df2["Date"].astype(str).str[:10]  # 🔥 restore trimming
+        df2["Date"] = df2["Date"].astype(str).str[:10]
 
         output = df2[df2["Date"] == target]
 
@@ -216,14 +219,13 @@ async def on_message(message):
 
         shorten_tank = False
 
-    
-
     elif cmd == "r":
         if len(parts) == 2:
             await message.channel.send("!olymp;r;a | b | r")
             return
 
-        sub = parts[2]
+        sub = parts[2].lower()
+
         if sub == "a":
             row = df.sample(1).iloc[0]
             await message.channel.send(
@@ -231,20 +233,28 @@ async def on_message(message):
             )
             return
 
-        if sub == "b":
+        elif sub == "b":
             used = set(df["Tank Type"].str.lower())
             unused = [t for t in TANK_NAMES if t.lower() not in used]
+
+            if not unused:
+                await message.channel.send("No tanks left.")
+                return
+
             await message.channel.send(
                 f"Mountain recommends {random.choice(unused)}"
-                if unused else "No tanks left."
             )
             return
 
-        if sub == "r":
+        elif sub == "r":
             await message.channel.send(
                 f"Mountain recommends {random.choice(TANK_NAMES)}"
             )
             return
+
+    else:
+        await message.channel.send("Unknown command.")
+        return
 
     # ─── RANGE & OUTPUT ────────────────────────────────────────────────────
     if output is None or output.empty:
@@ -252,9 +262,8 @@ async def on_message(message):
         return
 
     output = add_index(output)
-    
-    range_arg = None
 
+    range_arg = None
     for p in parts:
         if "-" in p:
             range_arg = parse_range(p)
@@ -269,8 +278,6 @@ async def on_message(message):
                 "❌ p command requires a range (example: 1-10)"
             )
             return
-
-
 
     cols = COLUMNS_C if cmd in {"c", "t"} else COLUMNS_DEFAULT
     output = output[[c for c in cols if c in output]].head(LEGENDS)
