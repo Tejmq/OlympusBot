@@ -102,8 +102,7 @@ def apply_range(df, parts, needs_range=True, default_range=(1,1), max_range=15):
             range_arg = default_range
         a,b = range_arg
         return df[(df["Ņ"] >= a) & (df["Ņ"] <= b)]
-    else:
-        return df
+    return df
 
 @bot.event
 async def on_ready():
@@ -148,7 +147,8 @@ async def on_message(message):
         output = apply_range(normalize_score(df).sort_values("Score", ascending=False).drop_duplicates("Tank Type"), parts, needs_range=True)
 
     elif cmd == "p":
-        output = apply_range(df, parts, needs_range=True)
+    output = df.copy()
+    output = apply_range(output, parts, needs_range=True, default_range=(1,1))
 
     elif cmd == "t":
         if len(parts) < 3:
@@ -156,27 +156,45 @@ async def on_message(message):
             return
         output = apply_range(handle_tank(df, parts[2]), parts, needs_range=True)
 
+    
     elif cmd == "d":
         if len(parts) < 3:
-            await message.channel.send("❌ Usage: !olymp;d;YYYY-MM-DD or DD-MM-YYYY")
+            await message.channel.send(
+                "❌ Usage: !olymp;d;YYYY-MM-DD or DD-MM-YYYY"
+            )
             return
         raw_date = parts[2].strip()
+        # ── normalize date ─────────────────────────────
         target = None
-        if re.match(r"^\d{4}-\d{2}-\d{2}$", raw_date): target = raw_date
-        elif re.match(r"^\d{2}-\d{2}-\d{4}$", raw_date): d,m,y=raw_date.split("-"); target=f"{y}-{m}-{d}"
+        # YYYY-MM-DD
+        if re.match(r"^\d{4}-\d{2}-\d{2}$", raw_date):
+            target = raw_date
+        # DD-MM-YYYY → convert
+        elif re.match(r"^\d{2}-\d{2}-\d{4}$", raw_date):
+            d, m, y = raw_date.split("-")
+            target = f"{y}-{m}-{d}"
         else:
-            await message.channel.send("❌ Invalid date format. Use YYYY-MM-DD or DD-MM-YYYY")
+            await message.channel.send(
+                "❌ Invalid date format. Use YYYY-MM-DD or DD-MM-YYYY"
+            )
             return
-        date_col = next((c for c in df.columns if c.lower()=="date"), None)
+        df2 = df.copy()
+        # find Date column safely
+        date_col = next(
+            (c for c in df2.columns if c.lower() == "date"),
+            None
+        )
         if not date_col:
             await message.channel.send("❌ No Date column found in Excel")
             return
-        df[date_col] = df[date_col].astype(str).str[:10]
-        output = df[df[date_col]==target]
+        df2[date_col] = df2[date_col].astype(str).str[:10]
+        output = df2[df2[date_col] == target]
         if output.empty:
             await message.channel.send(f"❌ No scores found for {target}")
             return
         shorten_tank = False
+
+
 
     elif cmd == "r":
         if len(parts)==2:
