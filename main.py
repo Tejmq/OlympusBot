@@ -203,18 +203,18 @@ async def on_message(message):
             await message.channel.send("❌ Provide date as YYYY-MM-DD")
             return
 
-    target = parts[2].strip()
+        target = parts[2].strip()
 
-    df2 = df.copy()
-    df2["Date"] = df2["Date"].astype(str).str[:10]  # 🔥 restore trimming
+        df2 = df.copy()
+        df2["Date"] = df2["Date"].astype(str).str[:10]  # 🔥 restore trimming
 
-    output = df2[df2["Date"] == target]
+        output = df2[df2["Date"] == target]
 
-    if output.empty:
-        await message.channel.send("❌ No scores found for that date")
-        return
+        if output.empty:
+            await message.channel.send("❌ No scores found for that date")
+            return
 
-    shorten_tank = False
+        shorten_tank = False
 
     
 
