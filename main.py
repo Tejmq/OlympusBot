@@ -199,9 +199,24 @@ async def on_message(message):
         output = handle_tank(df, parts[2])
 
     elif cmd == "d":
-        target = parts[2]
-        output = df[df["Date"].astype(str).str.startswith(target)]
-        shorten_tank = False
+    if len(parts) < 3:
+        await message.channel.send("❌ Provide date as YYYY-MM-DD")
+        return
+
+    target = parts[2].strip()
+
+    df2 = df.copy()
+    df2["Date"] = df2["Date"].astype(str).str[:10]  # 🔥 restore trimming
+
+    output = df2[df2["Date"] == target]
+
+    if output.empty:
+        await message.channel.send("❌ No scores found for that date")
+        return
+
+    shorten_tank = False
+
+    
 
     elif cmd == "r":
         if len(parts) == 2:
@@ -237,10 +252,21 @@ async def on_message(message):
         return
 
     output = add_index(output)
-    rng = next((parse_range(p) for p in parts if "-" in p), None)
-    if rng:
-        a, b = rng
-        output = output[(output["Ņ"] >= a) & (output["Ņ"] <= b)]
+    
+    range_arg = None
+    for p in parts:
+    if "-" in p:
+    range_arg = parse_range(p)
+    break
+
+    if range_arg:
+    a, b = range_arg
+    output = output[(output["Ņ"] >= a) & (output["Ņ"] <= b)]
+    else:
+    if cmd == "p":
+    await message.channel.send("❌ p command requires a range (example: 1-10)")
+    return
+
 
     cols = COLUMNS_C if cmd in {"c", "t"} else COLUMNS_DEFAULT
     output = output[[c for c in cols if c in output]].head(LEGENDS)
