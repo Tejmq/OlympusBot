@@ -56,19 +56,22 @@ class RangePaginationView(ui.View):
         self.title = title
         self.shorten_tank = shorten_tank
 
-        # Page calculation: page = (start_index-1) // range_size
+        # Start page calculation
         self.page = (start_index - 1) // range_size
         self.max_page = (len(self.df) - 1) // range_size
 
     def get_slice(self):
         start = self.page * self.range_size
         end = min(start + self.range_size, len(self.df))
+        # Clamp in case start < 0
+        if start < 0:
+            start, end = 0, min(self.range_size, len(self.df))
         return self.df.iloc[start:end], start, end
 
     async def update(self, interaction: Interaction):
         slice_df, start, end = self.get_slice()
 
-        # Use global numbering
+        # Global numbering
         slice_df = slice_df.copy()
         slice_df["Ņ"] = range(start + 1, end + 1)
 
@@ -85,18 +88,32 @@ class RangePaginationView(ui.View):
 
     @ui.button(label="⬅ Prev", style=discord.ButtonStyle.secondary)
     async def prev(self, interaction: Interaction, _):
-        if self.page > 0:
-            self.page -= 1
-            await self.update(interaction)
+        # Decrement page but clamp at 0
+        self.page = max(self.page - 1, 0)
+        await self.update(interaction)
 
     @ui.button(label="Next ➡", style=discord.ButtonStyle.secondary)
     async def next(self, interaction: Interaction, _):
-        if self.page < self.max_page:
-            self.page += 1
-            await self.update(interaction)
+        self.page = min(self.page + 1, self.max_page)
+        await self.update(interaction)
 
 
 
+
+
+
+def shorten_name(name: str, max_len: int = 12) -> str:
+    """
+    Shortens player name to max_len characters.
+    Capitalizes each word for readability.
+    """
+    name = str(name).strip()
+    # Capitalize each word
+    name = " ".join(w.capitalize() for w in name.split())
+    # Truncate to max_len
+    if len(name) > max_len:
+        name = name[:max_len]
+    return name
 
 
 
@@ -132,7 +149,10 @@ def dataframe_to_markdown_aligned(df, shorten_tank=True):
 
     if "Date" in df.columns:
         df["Date"] = df["Date"].astype(str).str[:10]
-
+        
+    if "True Name" in df.columns:
+        df["True Name"] = df["True Name"].apply(lambda n: shorten_name(n, 12))
+    
     if shorten_tank and "Tank Type" in df.columns:
         df["Tank Type"] = (
             df["Tank Type"]
@@ -157,6 +177,7 @@ def dataframe_to_markdown_aligned(df, shorten_tank=True):
         + ["- " + " - ".join("-" * w for w in widths) + " -"]
         + [fmt(r) for r in df.values]
     )
+
 
 
 
