@@ -150,6 +150,7 @@ async def on_message(message):
             return
         output = apply_range(handle_tank(df, parts[2]), parts)
 
+    
     elif cmd == "d":
         if len(parts) < 3:
             await message.channel.send("❌ Usage: !olymp;d;YYYY-MM-DD or DD-MM-YYYY")
@@ -164,13 +165,14 @@ async def on_message(message):
             await message.channel.send("❌ Invalid date format")
             return
         df["Date"] = df["Date"].astype(str).str[:10]
-        output = df[df["Date"] == target]
+        output = normalize_score(df[df["Date"] == target])
         if output.empty:
             await message.channel.send(f"❌ No results for {target}")
             return
         output = add_index(output)
         shorten_tank = False
 
+    
     elif cmd == "r":
         if len(parts) == 2:
             await message.channel.send("!olymp;r;a | b | r")
