@@ -93,10 +93,10 @@ def dataframe_to_markdown_aligned(df, shorten_tank=True):
     widths = [max(wcswidth(str(r[i])) for r in rows) for i in range(len(df.columns))]
 
     def fmt(row):
-        return "| " + " | ".join(
+        return "@ " + " @ ".join(
             str(v) + " " * (widths[i] - wcswidth(str(v)))
             for i, v in enumerate(row)
-        ) + " |"
+        ) + " $"
 
     return (
         [fmt(df.columns)]
@@ -228,7 +228,7 @@ async def on_message(message):
             await message.channel.send(f"❌ No results for {target}")
             return
         output = add_index(output)
-        shorten_tank = False
+        shorten_tank = True
 
     
         # --- HELP ---
