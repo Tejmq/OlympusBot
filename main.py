@@ -5,6 +5,8 @@ from io import BytesIO
 from wcwidth import wcswidth
 import os, time, json, random, re
 from keep_alive import keep_alive
+from discord import Embed
+
 
 DRIVE_FILE_ID = "1YMzE4FXjH4wctFektINwhCDjzZ0xqCP6"
 TANKS_JSON_FILE_ID = "1pGcmeDcTqx2h_HXA_R24JbaqQiBHhYMQ"
@@ -75,6 +77,23 @@ def dataframe_to_markdown_aligned(df, shorten_tank=True):
     def fmt(r):
         return "| " + " | ".join(str(v) + " "*(widths[i]-wcswidth(str(v))) for i,v in enumerate(r)) + " |"
     return [fmt(df.columns), "| " + " | ".join("-"*w for w in widths) + " |"] + [fmt(r) for r in df.values]
+
+
+async def send_embed_table(channel, title, lines, page=1, total=1):
+    text = "\n".join(lines)
+
+    embed = Embed(
+        title=title,
+        description=f"```text\n{text}\n```",
+        color=discord.Color.dark_grey()
+    )
+
+    embed.set_footer(text=f"Page {page}/{total}")
+    await channel.send(embed=embed)
+
+
+
+
 
 def handle_best(df):
     df = normalize_score(df)
@@ -235,19 +254,26 @@ async def on_message(message):
         await message.channel.send("No results.")
         return
 
-    cols = COLUMNS_C if cmd in {"c","t"} else COLUMNS_DEFAULT
+    cols = COLUMNS_C if cmd in {"c", "t"} else COLUMNS_DEFAULT
     output = output[[c for c in cols if c in output]]
 
-    lines = dataframe_to_markdown_aligned(output, shorten_tank)
-    chunk = ""
-    for line in lines:
-        if len(chunk) + len(line) > 1900:
-            await message.channel.send(f"```\n{chunk}\n```")
-            chunk = ""
-        chunk += line + "\n"
-    if chunk:
-        await message.channel.send(f"```\n{chunk}\n```")
+    title_map = {
+        "a": "All Scores",
+        "b": "Best Players",
+        "n": "Player Scores",
+        "c": "Best Per Tank",
+        "p": "Leaderboard",
+        "t": "Tank Scores",
+        "d": "Scores by Date"
+    }
 
-if __name__ == "__main__":
-    keep_alive()
-    bot.run(os.getenv("DISCORD_TOKEN"))
+    title = title_map.get(cmd, "Olymp Leaderboard")
+
+    lines = dataframe_to_markdown_aligned(output, shorten_tank)
+    await send_embed_table(
+        message.channel,
+        title=title,
+        lines=lines,
+        page=1,
+        total=1
+    )
