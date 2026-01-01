@@ -52,25 +52,27 @@ class RangePaginationView(ui.View):
     def __init__(self, df, start_index, range_size, title, shorten_tank):
         super().__init__(timeout=300)
         self.df = df.reset_index(drop=True)
-        self.start_index = start_index - 1  # convert to 0-based
+        self.start_index = start_index - 1  # 0-based
         self.range_size = range_size
         self.title = title
         self.shorten_tank = shorten_tank
 
+        # How many rows from start_index to end of df
+        self.total_from_start = len(self.df) - self.start_index
         self.page = 0
-        self.max_page = (len(self.df) - self.start_index - 1) // range_size
+        self.max_page = (self.total_from_start - 1) // range_size
 
     def get_slice(self):
         start = self.start_index + self.page * self.range_size
-        end = start + self.range_size
+        end = min(start + self.range_size, len(self.df))
         return self.df.iloc[start:end], start, end
 
     async def update(self, interaction: Interaction):
         slice_df, start, end = self.get_slice()
 
-        # Use global numbering
+        # Global numbering
         slice_df = slice_df.copy()
-        slice_df["Ņ"] = range(start + 1, min(end, len(self.df)) + 1)
+        slice_df["Ņ"] = range(start + 1, end + 1)
 
         lines = dataframe_to_markdown_aligned(slice_df, self.shorten_tank)
 
@@ -79,7 +81,7 @@ class RangePaginationView(ui.View):
             description=f"```text\n{chr(10).join(lines)}\n```",
             color=discord.Color.dark_grey()
         )
-        embed.set_footer(text=f"Rows {start+1}-{min(end, len(self.df))} / {len(self.df)}")
+        embed.set_footer(text=f"Rows {start+1}-{end} / {len(self.df)}")
 
         await interaction.response.edit_message(embed=embed, view=self)
 
@@ -202,8 +204,8 @@ def extract_range(parts, max_range=15, total_len=0):
     Returns (start, end, size, warning)
     """
     warning = None
-    start, end = 1, min(total_len, max_range)
-    size = end - start + 1
+    start, end = 1, 1  # default to 1 row
+    size = 1
 
     for p in parts:
         if "-" in p:
@@ -217,8 +219,10 @@ def extract_range(parts, max_range=15, total_len=0):
                 return start, end, size, warning
             except:
                 pass
+    # Make sure end does not exceed total_len
+    end = min(end, total_len)
+    size = end - start + 1
     return start, end, size, warning
-
 
 @bot.event
 async def on_message(message):
@@ -358,6 +362,7 @@ async def on_message(message):
     start, end, range_size, warning = extract_range(parts, max_range=15, total_len=len(output))
     if warning:
         await message.channel.send(warning)
+
     view = RangePaginationView(
         df=output,
         start_index=start,
