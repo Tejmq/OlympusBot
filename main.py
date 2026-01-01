@@ -38,7 +38,13 @@ def load_tanks():
     r.raise_for_status()
     return json.loads(r.text)["tanks"]
 
-TANK_NAMES = load_tanks()
+TANK_NAMES = []
+
+@bot.event
+async def on_ready():
+    global TANK_NAMES
+    TANK_NAMES = load_tanks()
+    print(f"Logged in as {bot.user}")
 
 def is_tejm(user):
     return user.name.lower() == "tejm_of_curonia"
@@ -64,19 +70,21 @@ def parse_range(text, max_range=15):
 
 def dataframe_to_markdown_aligned(df, shorten_tank=True):
     df = df.copy()
-    if FIRST_COLUMN in df:
-        df[FIRST_COLUMN] = df[FIRST_COLUMN].apply(lambda v: f"{float(v)/1_000_000:,.3f} Mil")
-    if "Date" in df:
+    if FIRST_COLUMN in df.columns:
+        df[FIRST_COLUMN] = df[FIRST_COLUMN].apply(
+            lambda v: f"{float(v)/1_000_000:,.3f} Mil"
+        )
+    if "Date" in df.columns:
         df["Date"] = df["Date"].astype(str).str[:10]
-    if shorten_tank and "Tank Type" in df:
-        df["Tank Type"] = df["Tank Type"].astype(str).str.lower().replace(
-            {"triple": "t", "auto": "a", "hexa": "h"}, regex=True
-        ).str.title().str[:8]
-    rows = [df.columns.tolist()] + df.values.tolist()
-    widths = [max(wcswidth(str(r[i])) for r in rows) for i in range(len(df.columns))]
-    def fmt(r):
-        return "| " + " | ".join(str(v) + " "*(widths[i]-wcswidth(str(v))) for i,v in enumerate(r)) + " |"
-    return [fmt(df.columns), "| " + " | ".join("-"*w for w in widths) + " |"] + [fmt(r) for r in df.values]
+    if shorten_tank and "Tank Type" in df.columns:
+        df["Tank Type"] = (
+            df["Tank Type"]
+            .astype(str)
+            .str.lower()
+            .replace({"triple": "t", "auto": "a", "hexa": "h"}, regex=True)
+            .str.title()
+            .str[:8]
+        )
 
 
 async def send_embed_table(channel, title, lines, page=1, total=1):
