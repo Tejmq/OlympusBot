@@ -73,7 +73,7 @@ def dataframe_to_markdown_aligned(df, shorten_tank=True):
 
     if FIRST_COLUMN in df.columns:
         df[FIRST_COLUMN] = df[FIRST_COLUMN].apply(
-            lambda v: f"{float(v) / 1_000_000:,.3f} Mil"
+            lambda v: f"{float(v) / 1_000_000:,.3f} M"
         )
 
     if "Date" in df.columns:
@@ -93,10 +93,10 @@ def dataframe_to_markdown_aligned(df, shorten_tank=True):
     widths = [max(wcswidth(str(r[i])) for r in rows) for i in range(len(df.columns))]
 
     def fmt(row):
-        return "@ " + " @ ".join(
+        return " " + " ".join(
             str(v) + " " * (widths[i] - wcswidth(str(v)))
             for i, v in enumerate(row)
-        ) + " $"
+        ) + " "
 
     return (
         [fmt(df.columns)]
