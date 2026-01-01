@@ -49,24 +49,28 @@ async def on_ready():
 
 
 class RangePaginationView(ui.View):
-    def __init__(self, df, range_size, title, shorten_tank):
+    def __init__(self, df, start_index, range_size, title, shorten_tank):
         super().__init__(timeout=300)
         self.df = df.reset_index(drop=True)
+        self.start_index = start_index - 1  # convert to 0-based
         self.range_size = range_size
         self.title = title
         self.shorten_tank = shorten_tank
 
         self.page = 0
-        self.max_page = (len(self.df) - 1) // range_size
+        self.max_page = (len(self.df) - self.start_index - 1) // range_size
 
     def get_slice(self):
-        start = self.page * self.range_size
+        start = self.start_index + self.page * self.range_size
         end = start + self.range_size
         return self.df.iloc[start:end], start, end
 
     async def update(self, interaction: Interaction):
         slice_df, start, end = self.get_slice()
-        slice_df = add_index(slice_df)
+
+        # Use global numbering
+        slice_df = slice_df.copy()
+        slice_df["Ņ"] = range(start + 1, min(end, len(self.df)) + 1)
 
         lines = dataframe_to_markdown_aligned(slice_df, self.shorten_tank)
 
@@ -90,6 +94,8 @@ class RangePaginationView(ui.View):
         if self.page < self.max_page:
             self.page += 1
         await self.update(interaction)
+
+
 
 
 
@@ -190,16 +196,28 @@ def handle_tank(df, tank):
     df = normalize_score(df)
     return df[df["Tank Type"].str.lower() == tank.lower()].sort_values("Score", ascending=False)
 
-def extract_range(parts, default=(1, 1)):
+def extract_range(parts, max_range=15, total_len=0):
+    """
+    Extract start, end, and size from user input like '1-5'.
+    Returns (start, end, size, warning)
+    """
+    warning = None
+    start, end = 1, min(total_len, max_range)
+    size = end - start + 1
+
     for p in parts:
         if "-" in p:
             try:
                 a, b = map(int, p.split("-"))
-                return a, b, (b - a + 1)
+                if b - a + 1 > max_range:
+                    warning = f"❌ Max range is {max_range}!"
+                    b = a + max_range - 1
+                start, end = a, min(b, total_len)
+                size = end - start + 1
+                return start, end, size, warning
             except:
                 pass
-    a, b = default
-    return a, b, (b - a + 1)
+    return start, end, size, warning
 
 
 @bot.event
@@ -250,7 +268,7 @@ async def on_message(message):
         if len(parts) < 3:
             await message.channel.send("Tank name required.")
             return
-        output = apply_range(handle_tank(df, parts[2]), parts)
+        output = (handle_tank(df, parts[2])
 
     
     elif cmd == "d":
@@ -336,16 +354,19 @@ async def on_message(message):
     }
 
     title = title_map.get(cmd, "Olymp Leaderboard")
-    
-    start, end, range_size = extract_range(parts)
+
+    start, end, range_size, warning = extract_range(parts, max_range=15, total_len=len(output))
+    if warning:
+        await message.channel.send(warning)
     view = RangePaginationView(
         df=output,
+        start_index=start,
         range_size=range_size,
         title=title,
         shorten_tank=shorten_tank
     )
     slice_df = output.iloc[start-1:end]
-    slice_df = add_index(slice_df)
+    slice_df["Ņ"] = range(start, min(end, len(output)) + 1)
     lines = dataframe_to_markdown_aligned(slice_df, shorten_tank)
     embed = Embed(
         title=title,
@@ -354,7 +375,6 @@ async def on_message(message):
     )
     embed.set_footer(text=f"Rows {start}-{min(end, len(output))} / {len(output)}")
     await message.channel.send(embed=embed, view=view)
-
 
 
 
