@@ -76,14 +76,21 @@ def dataframe_to_markdown_aligned(df, shorten_tank=True):
         return "| " + " | ".join(str(v) + " "*(widths[i]-wcswidth(str(v))) for i,v in enumerate(r)) + " |"
     return [fmt(df.columns), "| " + " | ".join("-"*w for w in widths) + " |"] + [fmt(r) for r in df.values]
 
-def handle_best(df, parts):
+def handle_best(df):
     df = normalize_score(df)
-    player = parts[2] if len(parts) > 2 and "-" not in parts[2] else None
-    if player:
-        df = df[df["True Name"].str.lower() == player.lower()].sort_values("Score", ascending=False)
-    else:
-        df = df.sort_values("Score", ascending=False).drop_duplicates("True Name")
-    return df
+    return (
+        df.sort_values("Score", ascending=False)
+          .drop_duplicates("True Name")
+    )
+
+
+def handle_name(df, name):
+    df = normalize_score(df)
+    return (
+        df[df["True Name"].str.lower() == name.lower()]
+        .sort_values("Score", ascending=False)
+    )
+
 
 def handle_tank(df, tank):
     df = normalize_score(df)
@@ -132,7 +139,15 @@ async def on_message(message):
         output = apply_range(df, parts)
 
     elif cmd == "b":
-        output = apply_range(handle_best(df, parts), parts)
+        output = apply_range(handle_best(df), parts)
+        
+    elif cmd == "n":
+        if len(parts) < 3:
+            await message.channel.send("❌ Usage: !olymp;n;PlayerName;1-15")
+            return
+        name = parts[2].strip()
+        output = apply_range(handle_name(df, name), parts)
+
 
     elif cmd == "c":
         output = apply_range(
@@ -173,6 +188,22 @@ async def on_message(message):
         shorten_tank = False
 
     
+        # --- HELP ---
+    elif sub == "help":
+        help_message = (
+                "Commands:\n"
+                "!olymp;b;1-15               - Best scores of each player\n"
+                "!olymp;n;Player;1-15        - Best scores of specific player\n"
+                "!olymp;c;1-15               - Best per tank\n"
+                "!olymp;p;1-15               - Part of scoreboard\n"
+                "!olymp;t;TankName;1-15      - Best score of a tank\n"
+                "!olymp;d;YYYY-MM-DD         - Scores from that date\n"
+                "!olymp;r                    - Random recommendation\n"
+                
+            )
+        await message.channel.send(help_message)
+        return
+            
     elif cmd == "r":
         if len(parts) == 2:
             await message.channel.send("!olymp;r;a | b | r")
@@ -190,6 +221,7 @@ async def on_message(message):
                 return
             await message.channel.send(f"Mountain recommends {random.choice(unused)}")
             return
+            
         if sub == "r":
             await message.channel.send(f"Mountain recommends {random.choice(TANK_NAMES)}")
             return
