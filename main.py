@@ -228,28 +228,23 @@ async def on_message(message):
         if not is_tejm(message.author):
             await message.channel.send("Restricted command.")
             return
-        output = apply_range(df, parts)
+        output = df.copy()
 
     elif cmd == "b":
-        output = apply_range(handle_best(df), parts)
+        output = handle_best(df)
         
     elif cmd == "n":
         if len(parts) < 3:
             await message.channel.send("❌ Usage: !olymp;n;PlayerName;1-15")
             return
         name = parts[2].strip()
-        output = apply_range(handle_name(df, name), parts)
-
+        output = handle_name(df, name)
 
     elif cmd == "c":
-        output = apply_range(
-            normalize_score(df).sort_values("Score", ascending=False).drop_duplicates("Tank Type"),
-            parts
-        )
-
+        output = normalize_score(df).sort_values("Score", ascending=False).drop_duplicates("Tank Type")
+        
     elif cmd == "p":
-        dfp = normalize_score(df).sort_values("Score", ascending=False)
-        output = apply_range(dfp, parts, default_range=(1,1))
+        output = normalize_score(df).sort_values("Score", ascending=False)
 
     elif cmd == "t":
         if len(parts) < 3:
