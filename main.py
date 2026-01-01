@@ -100,7 +100,7 @@ def dataframe_to_markdown_aligned(df, shorten_tank=True):
 
     return (
         [fmt(df.columns)]
-        + ["| " + " | ".join("-" * w for w in widths) + " |"]
+        + ["- " + " - ".join("-" * w for w in widths) + " -"]
         + [fmt(r) for r in df.values]
     )
 
