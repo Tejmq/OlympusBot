@@ -70,12 +70,15 @@ def parse_range(text, max_range=15):
 
 def dataframe_to_markdown_aligned(df, shorten_tank=True):
     df = df.copy()
+
     if FIRST_COLUMN in df.columns:
         df[FIRST_COLUMN] = df[FIRST_COLUMN].apply(
-            lambda v: f"{float(v)/1_000_000:,.3f} Mil"
+            lambda v: f"{float(v) / 1_000_000:,.3f} Mil"
         )
+
     if "Date" in df.columns:
         df["Date"] = df["Date"].astype(str).str[:10]
+
     if shorten_tank and "Tank Type" in df.columns:
         df["Tank Type"] = (
             df["Tank Type"]
@@ -85,6 +88,22 @@ def dataframe_to_markdown_aligned(df, shorten_tank=True):
             .str.title()
             .str[:8]
         )
+
+    rows = [df.columns.tolist()] + df.values.tolist()
+    widths = [max(wcswidth(str(r[i])) for r in rows) for i in range(len(df.columns))]
+
+    def fmt(row):
+        return "| " + " | ".join(
+            str(v) + " " * (widths[i] - wcswidth(str(v)))
+            for i, v in enumerate(row)
+        ) + " |"
+
+    return (
+        [fmt(df.columns)]
+        + ["| " + " | ".join("-" * w for w in widths) + " |"]
+        + [fmt(r) for r in df.values]
+    )
+
 
 
 async def send_embed_table(channel, title, lines, page=1, total=1):
@@ -133,9 +152,6 @@ def apply_range(df, parts, default_range=(1,1)):
     a, b = rng if rng else default_range
     return df[(df["Ņ"] >= a) & (df["Ņ"] <= b)]
 
-@bot.event
-async def on_ready():
-    print(f"Logged in as {bot.user}")
 
 @bot.event
 async def on_message(message):
@@ -285,3 +301,8 @@ async def on_message(message):
         page=1,
         total=1
     )
+
+
+if __name__ == "__main__":
+    keep_alive()
+    bot.run(os.getenv("DISCORD_TOKEN"))
