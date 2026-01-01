@@ -189,7 +189,7 @@ async def on_message(message):
 
     
         # --- HELP ---
-    elif sub == "help":
+    elif cmd == "help":
         help_message = (
                 "Commands:\n"
                 "!olymp;b;1-15               - Best scores of each player\n"
