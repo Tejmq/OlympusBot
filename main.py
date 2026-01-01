@@ -6,7 +6,7 @@ from wcwidth import wcswidth
 import os, time, json, random, re
 from keep_alive import keep_alive
 from discord import Embed
-
+from discord import ui, Interaction
 
 DRIVE_FILE_ID = "1YMzE4FXjH4wctFektINwhCDjzZ0xqCP6"
 TANKS_JSON_FILE_ID = "1pGcmeDcTqx2h_HXA_R24JbaqQiBHhYMQ"
@@ -45,6 +45,54 @@ async def on_ready():
     global TANK_NAMES
     TANK_NAMES = load_tanks()
     print(f"Logged in as {bot.user}")
+
+
+
+class RangePaginationView(ui.View):
+    def __init__(self, df, range_size, title, shorten_tank):
+        super().__init__(timeout=300)
+        self.df = df.reset_index(drop=True)
+        self.range_size = range_size
+        self.title = title
+        self.shorten_tank = shorten_tank
+
+        self.page = 0
+        self.max_page = (len(self.df) - 1) // range_size
+
+    def get_slice(self):
+        start = self.page * self.range_size
+        end = start + self.range_size
+        return self.df.iloc[start:end], start, end
+
+    async def update(self, interaction: Interaction):
+        slice_df, start, end = self.get_slice()
+        slice_df = add_index(slice_df)
+
+        lines = dataframe_to_markdown_aligned(slice_df, self.shorten_tank)
+
+        embed = Embed(
+            title=self.title,
+            description=f"```text\n{chr(10).join(lines)}\n```",
+            color=discord.Color.dark_grey()
+        )
+        embed.set_footer(text=f"Rows {start+1}-{min(end, len(self.df))} / {len(self.df)}")
+
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    @ui.button(label="⬅ Prev", style=discord.ButtonStyle.secondary)
+    async def prev(self, interaction: Interaction, _):
+        if self.page > 0:
+            self.page -= 1
+        await self.update(interaction)
+
+    @ui.button(label="Next ➡", style=discord.ButtonStyle.secondary)
+    async def next(self, interaction: Interaction, _):
+        if self.page < self.max_page:
+            self.page += 1
+        await self.update(interaction)
+
+
+
 
 def is_tejm(user):
     return user.name.lower() == "tejm_of_curonia"
@@ -142,15 +190,16 @@ def handle_tank(df, tank):
     df = normalize_score(df)
     return df[df["Tank Type"].str.lower() == tank.lower()].sort_values("Score", ascending=False)
 
-def apply_range(df, parts, default_range=(1,1)):
-    df = add_index(df)
-    rng = None
+def extract_range(parts, default=(1, 1)):
     for p in parts:
         if "-" in p:
-            rng = parse_range(p)
-            break
-    a, b = rng if rng else default_range
-    return df[(df["Ņ"] >= a) & (df["Ņ"] <= b)]
+            try:
+                a, b = map(int, p.split("-"))
+                return a, b, (b - a + 1)
+            except:
+                pass
+    a, b = default
+    return a, b, (b - a + 1)
 
 
 @bot.event
@@ -292,15 +341,26 @@ async def on_message(message):
     }
 
     title = title_map.get(cmd, "Olymp Leaderboard")
-
-    lines = dataframe_to_markdown_aligned(output, shorten_tank)
-    await send_embed_table(
-        message.channel,
+    
+    start, end, range_size = extract_range(parts)
+    view = RangePaginationView(
+        df=output,
+        range_size=range_size,
         title=title,
-        lines=lines,
-        page=1,
-        total=1
+        shorten_tank=shorten_tank
     )
+    slice_df = output.iloc[start-1:end]
+    slice_df = add_index(slice_df)
+    lines = dataframe_to_markdown_aligned(slice_df, shorten_tank)
+    embed = Embed(
+        title=title,
+        description=f"```text\n{chr(10).join(lines)}\n```",
+        color=discord.Color.dark_grey()
+    )
+    embed.set_footer(text=f"Rows {start}-{min(end, len(output))} / {len(output)}")
+    await message.channel.send(embed=embed, view=view)
+
+
 
 
 if __name__ == "__main__":
