@@ -268,7 +268,7 @@ async def on_message(message):
         if len(parts) < 3:
             await message.channel.send("Tank name required.")
             return
-        output = (handle_tank(df, parts[2])
+        output = handle_tank(df, parts[2])
 
     
     elif cmd == "d":
