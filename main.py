@@ -102,7 +102,7 @@ class RangePaginationView(ui.View):
 
 
 
-def shorten_name(name: str, max_len: int = 11) -> str:
+def shorten_name(name: str, max_len: int = 10) -> str:
     """
     Shortens player name to max_len characters.
     Capitalizes each word for readability.
@@ -151,7 +151,7 @@ def dataframe_to_markdown_aligned(df, shorten_tank=True):
         df["Date"] = df["Date"].astype(str).str[:10]
         
     if "True Name" in df.columns:
-        df["True Name"] = df["True Name"].apply(lambda n: shorten_name(n, 11))
+        df["True Name"] = df["True Name"].apply(lambda n: shorten_name(n, 10))
     
     if shorten_tank and "Tank Type" in df.columns:
         df["Tank Type"] = (
@@ -174,7 +174,7 @@ def dataframe_to_markdown_aligned(df, shorten_tank=True):
 
     return (
         [fmt(df.columns)]
-        + ["- " + " - ".join("-" * w for w in widths) + " -"]
+        + ["-" + "-".join("-" * w for w in widths) + " -"]
         + [fmt(r) for r in df.values]
     )
 
