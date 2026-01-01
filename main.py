@@ -93,7 +93,7 @@ def dataframe_to_markdown_aligned(df, shorten_tank=True):
     widths = [max(wcswidth(str(r[i])) for r in rows) for i in range(len(df.columns))]
 
     def fmt(row):
-        return " " + " ".join(
+        return " " + " | ".join(
             str(v) + " " * (widths[i] - wcswidth(str(v)))
             for i, v in enumerate(row)
         ) + " "
