@@ -52,25 +52,23 @@ class RangePaginationView(ui.View):
     def __init__(self, df, start_index, range_size, title, shorten_tank):
         super().__init__(timeout=300)
         self.df = df.reset_index(drop=True)
-        self.start_index = start_index - 1  # 0-based
         self.range_size = range_size
         self.title = title
         self.shorten_tank = shorten_tank
 
-        # How many rows from start_index to end of df
-        self.total_from_start = len(self.df) - self.start_index
-        self.page = 0
-        self.max_page = (self.total_from_start - 1) // range_size
+        # Page calculation: page = (start_index-1) // range_size
+        self.page = (start_index - 1) // range_size
+        self.max_page = (len(self.df) - 1) // range_size
 
     def get_slice(self):
-        start = self.start_index + self.page * self.range_size
+        start = self.page * self.range_size
         end = min(start + self.range_size, len(self.df))
         return self.df.iloc[start:end], start, end
 
     async def update(self, interaction: Interaction):
         slice_df, start, end = self.get_slice()
 
-        # Global numbering
+        # Use global numbering
         slice_df = slice_df.copy()
         slice_df["Ņ"] = range(start + 1, end + 1)
 
@@ -89,13 +87,13 @@ class RangePaginationView(ui.View):
     async def prev(self, interaction: Interaction, _):
         if self.page > 0:
             self.page -= 1
-        await self.update(interaction)
+            await self.update(interaction)
 
     @ui.button(label="Next ➡", style=discord.ButtonStyle.secondary)
     async def next(self, interaction: Interaction, _):
         if self.page < self.max_page:
             self.page += 1
-        await self.update(interaction)
+            await self.update(interaction)
 
 
 
