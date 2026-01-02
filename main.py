@@ -246,7 +246,7 @@ def extract_range(parts, max_range=15, total_len=0):
 @bot.event
 async def on_message(message):
     if message.author == bot.user: return
-    if not message.content.startswith("!olymp;"): return
+    if not message.content.startswith("!o;"): return
 
     now = time.time()
     if now - user_cooldowns.get(message.author.id, 0) < COOLDOWN_SECONDS:
@@ -276,7 +276,7 @@ async def on_message(message):
         
     elif cmd == "n":
         if len(parts) < 3:
-            await message.channel.send("❌ Usage: !olymp;n;PlayerName;1-15")
+            await message.channel.send("❌ Usage: !o;n;PlayerName;1-15")
             return
         name = parts[2].strip()
         output = handle_name(df, name)
@@ -296,7 +296,7 @@ async def on_message(message):
     
     elif cmd == "d":
         if len(parts) < 3:
-            await message.channel.send("❌ Usage: !olymp;d;YYYY-MM-DD or DD-MM-YYYY")
+            await message.channel.send("❌ Usage: !o;d;YYYY-MM-DD or DD-MM-YYYY")
             return
         raw = parts[2]
         if re.match(r"\d{2}-\d{2}-\d{4}", raw):
@@ -320,13 +320,15 @@ async def on_message(message):
     elif cmd == "help":
         help_message = (
                 "Commands:\n"
-                "!olymp;b;1-15               - Best scores of each player\n"
-                "!olymp;n;Player;1-15        - Best scores of specific player\n"
-                "!olymp;c;1-15               - Best per tank\n"
-                "!olymp;p;1-15               - Part of scoreboard\n"
-                "!olymp;t;TankName;1-15      - Best score of a tank\n"
-                "!olymp;d;YYYY-MM-DD         - Scores from that date\n"
-                "!olymp;r                    - Random recommendation\n"
+                "!o;p;1-15               - Part of the scoreboard\n"            
+                "!o;t;TankName;1-15      - Best score of a tank\n"
+                "!o;n;Player;1-15        - Best scores of a specific player\n"
+                "!o;d;YYYY-MM-DD         - Scores from a specific date\n"
+            
+                "!o;c;1-15               - Best tank list\n"
+                "!o;b;1-15               - Best player list\n"
+
+                "!o;r                    - Random recommendation\n"
                 
             )
         await message.channel.send(help_message)
@@ -334,7 +336,11 @@ async def on_message(message):
             
     elif cmd == "r":
         if len(parts) == 2:
-            await message.channel.send("!olymp;r;a | b | r")
+            await message.channel.send(
+                "**!o;r;a** for a tank with a player record!\n"
+                "**!o;r;b** for the tank with no score!\n"
+                "**!o;r;r** for a fully random tank!"
+            )
             return
         sub = parts[2].lower()
         if sub == "a":
