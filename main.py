@@ -290,8 +290,17 @@ def extract_range(parts, max_range=15, total_len=0):
 
 @bot.event
 async def on_message(message):
-    if message.author == bot.user: return
-    if not message.content.startswith("!o;"): return
+    print("Received message:", message.content)  # <<< debug
+
+    if message.author == bot.user:
+        print("Ignoring self")
+        return
+
+    if not message.content.startswith("!o;"):
+        print("Ignoring non-command")
+        return
+
+    # Continue with rest of command logic...
 
     now = time.time()
     if now - user_cooldowns.get(message.author.id, 0) < COOLDOWN_SECONDS:
@@ -302,10 +311,9 @@ async def on_message(message):
     cmd = parts[1].lower()
 
     df = read_excel_cached()
+    print("Excel rows loaded:", len(df))
     if df.empty:
-        await message.channel.send(
-            "Curses, data rate-limited! Try again in a few minutes."
-        )
+        await message.channel.send("Curses, data rate-limited! Try again in a few minutes.")
         return
     df.columns = df.columns.str.strip()
 
