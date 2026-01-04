@@ -47,12 +47,19 @@ def read_excel_cached():
             try:
                 r = requests.get(url, headers=HEADERS, timeout=10)
                 r.raise_for_status()
+
+                # If response is HTML, likely Cloudflare block
+                content_type = r.headers.get("Content-Type", "").lower()
+                if "html" in content_type:
+                    print("Excel fetch returned HTML — possible Cloudflare block")
+                    return "html_error"
+
                 DATAFRAME_CACHE = pd.read_excel(BytesIO(r.content))
                 LAST_FETCH = now
                 print("Excel cache refreshed")
             except Exception as e:
                 print("Excel fetch failed:", e)
-                return pd.DataFrame()
+                return "fetch_error"
 
     return DATAFRAME_CACHE.copy()
 
@@ -60,23 +67,27 @@ def read_excel_cached():
 
 
 TANK_NAMES = []
-
 def load_tanks():
     global TANK_NAMES
-    # Return cached list if already loaded
     if TANK_NAMES:
         return TANK_NAMES
 
     try:
         r = requests.get(TANKS_JSON_URL, timeout=10)
         r.raise_for_status()
+
+        if "html" in r.headers.get("Content-Type", "").lower():
+            print("Tank JSON fetch returned HTML — possible GitHub/Cloudflare issue")
+            return "html_error"
+
         TANK_NAMES = r.json()["tanks"]
         print("Tank list loaded from GitHub")
     except Exception as e:
         print("Tank list load failed:", e)
-        TANK_NAMES = []
+        return "fetch_error"
 
     return TANK_NAMES
+
 
 
 @bot.event
@@ -311,10 +322,16 @@ async def on_message(message):
     cmd = parts[1].lower()
 
     df = read_excel_cached()
-    print("Excel rows loaded:", len(df))
+    if isinstance(df, str):
+        if df == "html_error":
+            await message.channel.send("Curses, data rate-limited! Try again in a few minutes.")
+        else:
+            await message.channel.send("If you are reading this, Tejm messed up.")
+        return
     if df.empty:
         await message.channel.send("Curses, data rate-limited! Try again in a few minutes.")
         return
+    
     df.columns = df.columns.str.strip()
 
     output = None
