@@ -7,9 +7,13 @@ import os, time, json, random, re
 from keep_alive import keep_alive
 from discord import Embed
 from discord import ui, Interaction
+from threading import Lock
+
+FETCH_LOCK = Lock()
 
 DRIVE_FILE_ID = "1YMzE4FXjH4wctFektINwhCDjzZ0xqCP6"
-TANKS_JSON_FILE_ID = "1pGcmeDcTqx2h_HXA_R24JbaqQiBHhYMQ"
+TANKS_JSON_URL = "https://raw.githubusercontent.com/Tejmq/OlympusBot/refs/heads/main/data/tanks.json"
+
 
 COLUMNS_DEFAULT = ["Ņ", "Score", "True Name", "Tank Type", "Date"]
 COLUMNS_C = ["Ņ", "Tank Type", "True Name", "Score", "Date"]
@@ -27,43 +31,64 @@ DATAFRAME_CACHE = None
 LAST_FETCH = 0
 CACHE_TTL = 300  # 5 minutes
 
-
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (compatible; DiscordBot/1.0)",
+    "Accept": "*/*"
+}
 
 def read_excel_cached():
     global DATAFRAME_CACHE, LAST_FETCH
-    now = time.time()
 
-    if DATAFRAME_CACHE is None or now - LAST_FETCH > CACHE_TTL:
-        url = f"https://drive.google.com/uc?id={DRIVE_FILE_ID}&export=download"
-        r = requests.get(url, timeout=10)
-        r.raise_for_status()
-        DATAFRAME_CACHE = pd.read_excel(BytesIO(r.content))
-        LAST_FETCH = now
+    now = time.time()
+    url = f"https://drive.google.com/uc?id={DRIVE_FILE_ID}&export=download"
+
+    with FETCH_LOCK:
+        if DATAFRAME_CACHE is None or now - LAST_FETCH > CACHE_TTL:
+            try:
+                r = requests.get(url, headers=HEADERS, timeout=10)
+                r.raise_for_status()
+                DATAFRAME_CACHE = pd.read_excel(BytesIO(r.content))
+                LAST_FETCH = now
+                print("Excel cache refreshed")
+            except Exception as e:
+                print("Excel fetch failed:", e)
+                return pd.DataFrame()
 
     return DATAFRAME_CACHE.copy()
 
 
-def read_excel():
-    try:
-        url = f"https://drive.google.com/uc?id={DRIVE_FILE_ID}&export=download"
-        r = requests.get(url)
-        r.raise_for_status()
-        return pd.read_excel(BytesIO(r.content))
-    except:
-        return pd.DataFrame()
 
-def load_tanks():
-    url = f"https://drive.google.com/uc?export=download&id={TANKS_JSON_FILE_ID}"
-    r = requests.get(url)
-    r.raise_for_status()
-    return json.loads(r.text)["tanks"]
 
 TANK_NAMES = []
 
+def load_tanks():
+    global TANK_NAMES
+    # Return cached list if already loaded
+    if TANK_NAMES:
+        return TANK_NAMES
+
+    try:
+        r = requests.get(TANKS_JSON_URL, timeout=10)
+        r.raise_for_status()
+        TANK_NAMES = r.json()["tanks"]
+        print("Tank list loaded from GitHub")
+    except Exception as e:
+        print("Tank list load failed:", e)
+        TANK_NAMES = []
+
+    return TANK_NAMES
+
+
 @bot.event
 async def on_ready():
+    try:
+        read_excel_cached()
+        print("Initial data load OK")
+    except Exception as e:
+        print("Initial data load failed:", e)
+
     global TANK_NAMES
-    TANK_NAMES = load_tanks()
+    TANK_NAMES = load_tanks() 
     print(f"Logged in as {bot.user}")
 
 
@@ -278,7 +303,9 @@ async def on_message(message):
 
     df = read_excel_cached()
     if df.empty:
-        await message.channel.send("Failed to load data.")
+        await message.channel.send(
+            "Curses, data rate-limited! Try again in a few minutes."
+        )
         return
     df.columns = df.columns.str.strip()
 
