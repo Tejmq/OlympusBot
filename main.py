@@ -16,12 +16,32 @@ COLUMNS_C = ["Ņ", "Tank Type", "True Name", "Score", "Date"]
 
 FIRST_COLUMN = "Score"
 LEGENDS = 1000
-COOLDOWN_SECONDS = 5
+COOLDOWN_SECONDS = 7
 user_cooldowns = {}
 
 intents = discord.Intents.default()
 intents.message_content = True
 bot = discord.Client(intents=intents)
+
+DATAFRAME_CACHE = None
+LAST_FETCH = 0
+CACHE_TTL = 300  # 5 minutes
+
+
+
+def read_excel_cached():
+    global DATAFRAME_CACHE, LAST_FETCH
+    now = time.time()
+
+    if DATAFRAME_CACHE is None or now - LAST_FETCH > CACHE_TTL:
+        url = f"https://drive.google.com/uc?id={DRIVE_FILE_ID}&export=download"
+        r = requests.get(url, timeout=10)
+        r.raise_for_status()
+        DATAFRAME_CACHE = pd.read_excel(BytesIO(r.content))
+        LAST_FETCH = now
+
+    return DATAFRAME_CACHE.copy()
+
 
 def read_excel():
     try:
@@ -256,7 +276,7 @@ async def on_message(message):
     parts = message.content.split(";")
     cmd = parts[1].lower()
 
-    df = read_excel()
+    df = read_excel_cached()
     if df.empty:
         await message.channel.send("Failed to load data.")
         return
