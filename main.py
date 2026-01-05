@@ -8,6 +8,8 @@ from keep_alive import keep_alive
 from discord import Embed
 from discord import ui, Interaction
 from threading import Lock
+import asyncio
+from discord.errors import HTTPException
 
 FETCH_LOCK = Lock()
 
@@ -35,6 +37,18 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (compatible; DiscordBot/1.0)",
     "Accept": "*/*"
 }
+
+async def safe_send(channel, **kwargs):
+    try:
+        return await channel.send(**kwargs)
+    except HTTPException as e:
+        if e.status == 429:
+            retry_after = getattr(e, "retry_after", 5)
+            print(f"Rate limited — sleeping {retry_after}s")
+            await asyncio.sleep(retry_after)
+            return await channel.send(**kwargs)
+        raise
+
 
 def read_excel_cached():
     global DATAFRAME_CACHE, LAST_FETCH
@@ -106,7 +120,7 @@ async def on_ready():
 
 class RangePaginationView(ui.View):
     def __init__(self, df, start_index, range_size, title, shorten_tank):
-        super().__init__(timeout=300)
+        super().__init__(timeout=180)
         self.df = df.reset_index(drop=True)
         self.range_size = range_size
         self.title = title
@@ -116,6 +130,14 @@ class RangePaginationView(ui.View):
         self.page = (start_index - 1) // range_size
         self.max_page = (len(self.df) - 1) // range_size
 
+    async def on_timeout(self):
+        for item in self.children:
+            item.disabled = True
+        try:
+            await self.message.edit(view=self)
+        except:
+            pass
+    
     def get_slice(self):
         start = self.page * self.range_size
         end = min(start + self.range_size, len(self.df))
@@ -124,23 +146,23 @@ class RangePaginationView(ui.View):
             start, end = 0, min(self.range_size, len(self.df))
         return self.df.iloc[start:end], start, end
 
-    async def update(self, interaction: Interaction):
-        slice_df, start, end = self.get_slice()
 
-        # Global numbering
+    async def update(self, interaction: Interaction):
+        if interaction.response.is_done():
+            return
+        slice_df, start, end = self.get_slice()
         slice_df = slice_df.copy()
         slice_df["Ņ"] = range(start + 1, end + 1)
-
         lines = dataframe_to_markdown_aligned(slice_df, self.shorten_tank)
-
         embed = Embed(
             title=self.title,
             description=f"```text\n{chr(10).join(lines)}\n```",
             color=discord.Color.dark_grey()
         )
         embed.set_footer(text=f"Rows {start+1}-{end} / {len(self.df)}")
-
         await interaction.response.edit_message(embed=embed, view=self)
+        await asyncio.sleep(0.8)
+    
 
     @ui.button(label="⬅ Prev", style=discord.ButtonStyle.secondary)
     async def prev(self, interaction: Interaction, _):
@@ -301,17 +323,11 @@ def extract_range(parts, max_range=15, total_len=0):
 
 @bot.event
 async def on_message(message):
-    print("Received message:", message.content)  # <<< debug
-
     if message.author == bot.user:
-        print("Ignoring self")
         return
 
     if not message.content.startswith("!o;"):
-        print("Ignoring non-command")
         return
-
-    # Continue with rest of command logic...
 
     now = time.time()
     if now - user_cooldowns.get(message.author.id, 0) < COOLDOWN_SECONDS:
@@ -319,17 +335,20 @@ async def on_message(message):
     user_cooldowns[message.author.id] = now
 
     parts = message.content.split(";")
+    if len(parts) < 2:
+        return
+
     cmd = parts[1].lower()
 
     df = read_excel_cached()
     if isinstance(df, str):
         if df == "html_error":
-            await message.channel.send("Curses, data rate-limited! Try again in a few minutes.")
+            await safe_send(message.channel, content="Curses, data rate-limited! Try again in a few minutes.")
         else:
-            await message.channel.send("If you are reading this, Tejm messed up.")
+            await safe_send(message.channel, content="If you are reading this, Tejm messed up.")
         return
     if df.empty:
-        await message.channel.send("Curses, data rate-limited! Try again in a few minutes.")
+        await safe_send(message.channel, content="Curses, data rate-limited! Try again in a few minutes.")
         return
     
     df.columns = df.columns.str.strip()
@@ -339,7 +358,7 @@ async def on_message(message):
 
     if cmd == "a":
         if not is_tejm(message.author):
-            await message.channel.send("Restricted command.")
+            await safe_send(message.channel, content="Restricted command.")
             return
         output = df.copy()
 
@@ -348,7 +367,7 @@ async def on_message(message):
         
     elif cmd == "n":
         if len(parts) < 3:
-            await message.channel.send("❌ Usage: !o;n;PlayerName;1-15")
+            await safe_send(message.channel, content="❌ Usage: !o;n;PlayerName;1-15")
             return
         name = parts[2].strip()
         output = handle_name(df, name)
@@ -361,14 +380,14 @@ async def on_message(message):
 
     elif cmd == "t":
         if len(parts) < 3:
-            await message.channel.send("Tank name required.")
+            await safe_send(message.channel, content="Tank name required.")
             return
         output = handle_tank(df, parts[2])
 
     
     elif cmd == "d":
         if len(parts) < 3:
-            await message.channel.send("❌ Usage: !o;d;YYYY-MM-DD or DD-MM-YYYY")
+            await safe_send(message.channel, content="❌ Usage: !o;d;YYYY-MM-DD or DD-MM-YYYY")
             return
         raw = parts[2]
         if re.match(r"\d{2}-\d{2}-\d{4}", raw):
@@ -377,12 +396,12 @@ async def on_message(message):
         elif re.match(r"\d{4}-\d{2}-\d{2}", raw):
             target = raw
         else:
-            await message.channel.send("❌ Invalid date format")
+            await safe_send(message.channel, content="❌ Invalid date format")
             return
         df["Date"] = df["Date"].astype(str).str[:10]
         output = normalize_score(df[df["Date"] == target])
         if output.empty:
-            await message.channel.send(f"❌ No results for {target}")
+            await safe_send(message.channel, content=f"❌ No results for {target}")
             return
         output = add_index(output)
         shorten_tank = True
@@ -403,42 +422,45 @@ async def on_message(message):
                 "!o;r                    - Random recommendation\n"
                 
             )
-        await message.channel.send(help_message)
+        await safe_send(message.channel, content=help_message)
         return
             
     elif cmd == "r":
         if len(parts) == 2:
-            await message.channel.send(
-                "**!o;r;a** for a tank with a player record!\n"
-                "**!o;r;b** for the tank with no score!\n"
-                "**!o;r;r** for a fully random tank!"
+            await safe_send(
+                message.channel,
+                content=(
+                    "**!o;r;a** for a tank with a player record!\n"
+                    "**!o;r;b** for the tank with no score!\n"
+                    "**!o;r;r** for a fully random tank!"
+                )
             )
             return
         sub = parts[2].lower()
         if sub == "a":
             row = df.sample(1).iloc[0]
-            await message.channel.send(f"{row['True Name']} recommends {row['Tank Type']}")
+            await safe_send(message.channel, content=f"{row['True Name']} recommends {row['Tank Type']}")
             return
         if sub == "b":
             used = set(df["Tank Type"].str.lower())
             unused = [t for t in TANK_NAMES if t.lower() not in used]
             if not unused:
-                await message.channel.send("No tanks left.")
+                await safe_send(message.channel, content="No tanks left.")
                 return
-            await message.channel.send(f"Mountain recommends {random.choice(unused)}")
+            await safe_send(message.channel, content=f"Mountain recommends {random.choice(unused)}")
             return
             
         if sub == "r":
-            await message.channel.send(f"Mountain recommends {random.choice(TANK_NAMES)}")
+            await safe_send(message.channel, content=f"Mountain recommends {random.choice(TANK_NAMES)}")           
             return
-        await message.channel.send("Unknown r command.")
+        await safe_send(message.channel, content="Unknown r command.")
         return
 
     else:
         return
 
     if output is None or output.empty:
-        await message.channel.send("No results.")
+        await safe_send(message.channel, content="No results.")
         return
 
     cols = COLUMNS_C if cmd in {"c", "t"} else COLUMNS_DEFAULT
@@ -457,8 +479,7 @@ async def on_message(message):
     title = title_map.get(cmd, "Olymp Leaderboard")
 
     start, end, range_size, warning = extract_range(parts, max_range=15, total_len=len(output))
-    if warning:
-        await message.channel.send(warning)
+
 
     view = RangePaginationView(
         df=output,
@@ -474,9 +495,17 @@ async def on_message(message):
         title=title,
         description=f"```text\n{chr(10).join(lines)}\n```",
         color=discord.Color.dark_grey()
+        
     )
-    embed.set_footer(text=f"Rows {start}-{min(end, len(output))} / {len(output)}")
-    await message.channel.send(embed=embed, view=view)
+    footer = f"Rows {start}-{min(end, len(output))} / {len(output)}"
+    if warning:
+        footer = f"{warning} • {footer}"
+
+    embed.set_footer(text=footer)
+
+
+    msg = await safe_send(message.channel, embed=embed, view=view)
+    view.message = msg
 
 
 
