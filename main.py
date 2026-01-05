@@ -42,12 +42,22 @@ async def safe_send(channel, **kwargs):
     try:
         return await channel.send(**kwargs)
     except HTTPException as e:
+        # Check if this is a Cloudflare block (HTML 429)
+        text = getattr(e, "text", "") or ""
+        if e.status == 429 and "DOCTYPE html" in text:
+            print("Blocked by Cloudflare, cannot send message.")
+            return None  # Don't crash; just skip
+        # Normal Discord 429 handling
         if e.status == 429:
             retry_after = getattr(e, "retry_after", 5)
             print(f"Rate limited — sleeping {retry_after}s")
             await asyncio.sleep(retry_after)
-            return await channel.send(**kwargs)
-        raise
+            try:
+                return await channel.send(**kwargs)
+            except Exception as inner_e:
+                print("Retry failed:", inner_e)
+                return None
+        raise  # re-raise any other exception
 
 
 def read_excel_cached():
