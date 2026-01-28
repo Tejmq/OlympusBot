@@ -17,8 +17,8 @@ DRIVE_FILE_ID = "1YMzE4FXjH4wctFektINwhCDjzZ0xqCP6"
 TANKS_JSON_URL = "https://raw.githubusercontent.com/Tejmq/OlympusBot/refs/heads/main/data/tanks.json"
 
 
-COLUMNS_DEFAULT = ["Ņ", "Score", "Name in game", "Tank", "Date", "Id"]
-COLUMNS_C = ["Ņ", "Tank", "Name in game", "Score", "Date", "Id"]
+COLUMNS_DEFAULT = ["Ņ", "Score", "Name", "Tank", "Date", "Id"]
+COLUMNS_C = ["Ņ", "Tank", "Name", "Score", "Date", "Id"]
 
 FIRST_COLUMN = "Score"
 LEGENDS = 1000
@@ -124,6 +124,7 @@ async def send_info_embed(channel, df, info_id):
         await safe_send(channel, content="❌ No entry with that Id.")
         return
     row = row.iloc[0]
+    name1 = safe_val(row, "Name", "Unknown")
     name = safe_val(row, "Name in game", "Unknown")
     tank = safe_val(row, "Tank", "Unknown")
     killer = safe_val(row, "Killer", "Unknown")
@@ -139,7 +140,7 @@ async def send_info_embed(channel, df, info_id):
     date = str(safe_val(row, "Date", "Unknown"))[:10]
     ratio = round(score / playtime, 2) if playtime > 0 else 0
     description = (
-        f"**{name}**\n"
+        f"**{name1}**\n"
         f"{name} got **{int(score):,}** with **{tank}**.\n"
         f"It took **{playtime}** on **{date}**, "
         f"with a ratio of **{ratio}**.\n"
@@ -151,7 +152,7 @@ async def send_info_embed(channel, df, info_id):
         color=discord.Color.dark_grey()
     )
     # Image (optional)
-    path = f"data/screenshots/id_{info_id}.png"
+    path = f"data/Screenshots/id_{info_id}.png"
     if os.path.isfile(path):
         file = discord.File(path, filename=f"id_{info_id}.png")
         embed.set_image(url=f"attachment://id_{info_id}.png")
@@ -312,8 +313,8 @@ def dataframe_to_markdown_aligned(df, shorten_tank=True):
     if "Date" in df.columns:
         df["Date"] = df["Date"].astype(str).str[:10]
         
-    if "Name in game" in df.columns:
-        df["Name in game"] = df["Name in game"].apply(lambda n: shorten_name(n, 10))
+    if "Name" in df.columns:
+        df["Name"] = df["Name"].apply(lambda n: shorten_name(n, 10))
     
     if shorten_tank and "Tank" in df.columns:
         df["Tank"] = (
@@ -363,14 +364,14 @@ def handle_best(df):
     df = normalize_score(df)
     return (
         df.sort_values("Score", ascending=False)
-          .drop_duplicates("Name in game")
+          .drop_duplicates("Name")
     )
 
 
 def handle_name(df, name):
     df = normalize_score(df)
     return (
-        df[df["Name in game"].str.lower() == name.lower()]
+        df[df["Name"].str.lower() == name.lower()]
         .sort_values("Score", ascending=False)
     )
 
@@ -579,7 +580,7 @@ async def on_message(message):
             return
             
         if sub == "r":
-            await safe_send(message.channel, content=f"Mountain recommends {random.choice(TANK_NAMES)}")           
+            await safe_send(message.channel, content=f"Siege Emperor recommends {random.choice(TANK_NAMES)}")           
             return
         await safe_send(message.channel, content="Unknown r command.")
         return
