@@ -88,6 +88,20 @@ def read_excel_cached():
     return DATAFRAME_CACHE.copy()
 
 
+async def send_screenshot(channel, screenshot_id):
+    path = f"data/screenshots/id_{screenshot_id}.png"
+    if not os.path.isfile(path):
+        await safe_send(channel, content="❌ Screenshot not found.")
+        return
+    file = discord.File(path, filename=f"id_{screenshot_id}.png")
+    embed = Embed(
+        description="**Your screenshot!**",
+        color=discord.Color.dark_grey()
+    )
+    embed.set_image(url=f"attachment://id_{screenshot_id}.png")
+    await channel.send(embed=embed, file=file)
+
+
 
 
 TANK_NAMES = []
@@ -349,8 +363,22 @@ async def on_message(message):
         return
 
     cmd = parts[1].lower()
-
+    # --- SCREENSHOT COMMAND (NO DATAFRAME NEEDED) ---
+    if cmd == "s":
+        if len(parts) < 3 or not parts[2].isdigit():
+            await safe_send(
+                message.channel,
+                content="❌ Usage: !o;s;100"
+            )
+            return
+        screenshot_id = parts[2]
+        await send_screenshot(message.channel, screenshot_id)
+        return
+    # --- EVERYTHING BELOW NEEDS THE DATAFRAME ---
     df = read_excel_cached()
+
+
+    
     if isinstance(df, str):
         if df == "html_error":
             await safe_send(message.channel, content="Curses, data rate-limited! Try again in a few minutes.")
@@ -393,6 +421,19 @@ async def on_message(message):
             await safe_send(message.channel, content="Tank name required.")
             return
         output = handle_tank(df, parts[2])
+
+    elif cmd == "s":
+        if len(parts) < 3 or not parts[2].isdigit():
+            await safe_send(
+                message.channel,
+                content="❌ Usage: !o;s;100"
+            )
+            return
+
+        screenshot_id = parts[2]
+        await send_screenshot(message.channel, screenshot_id)
+        return
+
 
     
     elif cmd == "d":
