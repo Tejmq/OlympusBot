@@ -60,6 +60,16 @@ async def safe_send(channel, **kwargs):
         raise  # re-raise any other exception
 
 
+def safe_val(row, key, default="Unknown"):
+    try:
+        v = row.get(key, default)
+        if pd.isna(v) or v in ("?", "", None):
+            return default
+        return v
+    except Exception:
+        return default
+
+
 def read_excel_cached():
     global DATAFRAME_CACHE, LAST_FETCH
 
@@ -104,39 +114,51 @@ async def send_screenshot(channel, screenshot_id):
 
 
 async def send_info_embed(channel, df, info_id):
-    # Find row by Id
+    # Ensure Id column exists
+    if "Id" not in df.columns:
+        await safe_send(channel, content="❌ No Id column in data.")
+        return
+    # Match base64 Id as string
     row = df[df["Id"].astype(str) == str(info_id)]
     if row.empty:
         await safe_send(channel, content="❌ No entry with that Id.")
         return
     row = row.iloc[0]
-    # Image path
-    path = f"data/screenshots/id_{info_id}.png"
-    if not os.path.isfile(path):
-        await safe_send(channel, content="❌ Screenshot not found.")
-        return
-    # Extract values
-    name = row["True Name"]
-    score = float(row["Score"])
-    tank = row["Tank Type"]
-    playtime = float(row["Playtime"])
-    date = str(row["Date"])[:10]
-    killer = row.get("Killer", "Unknown")
+    name = safe_val(row, "True Name", "Unknown")
+    tank = safe_val(row, "Tank Type", "Unknown")
+    killer = safe_val(row, "Killer", "Unknown")
+    # Numeric fields (safe)
+    try:
+        score = float(safe_val(row, "Score", 0))
+    except:
+        score = 0
+    try:
+        playtime = float(safe_val(row, "Playtime", 0))
+    except:
+        playtime = 0
+    date = str(safe_val(row, "Date", "Unknown"))[:10]
     ratio = round(score / playtime, 2) if playtime > 0 else 0
-    file = discord.File(path, filename=f"id_{info_id}.png")
+    description = (
+        f"**{name}**\n"
+        f"{name} got **{int(score):,}** with **{tank}**.\n"
+        f"It took **{playtime}** on **{date}**, "
+        f"with a ratio of **{ratio}**.\n"
+        f"{name} died to **{killer}**."
+    )
     embed = Embed(
         title=f"Score number {info_id}",
-        description=(
-            f"**{name}**\n"
-            f"{name} got **{int(score):,}** with **{tank}**.\n"
-            f"It took **{playtime}** on **{date}**, "
-            f"with a ratio of **{ratio}**.\n"
-            f"{name} died to **{killer}**."
-        ),
+        description=description,
         color=discord.Color.dark_grey()
     )
-    embed.set_image(url=f"attachment://id_{info_id}.png")
-    await channel.send(embed=embed, file=file)
+    # Image (optional)
+    path = f"data/screenshots/id_{info_id}.png"
+    if os.path.isfile(path):
+        file = discord.File(path, filename=f"id_{info_id}.png")
+        embed.set_image(url=f"attachment://id_{info_id}.png")
+        await channel.send(embed=embed, file=file)
+    else:
+        # No image → text-only embed
+        await channel.send(embed=embed)
 
 
 
@@ -474,22 +496,21 @@ async def on_message(message):
 
 
 
-    # --- INFO COMMAND (USES DATAFRAME) ---
     elif cmd == "i":
-        if len(parts) < 3 or not parts[2].isdigit():
+        if len(parts) < 3:
             await safe_send(
                 message.channel,
-                content="❌ Usage: !o;i;100"
+                content="❌ Usage: !o;i;<Id>"
             )
             return
-        info_id = parts[2]
+        info_id = parts[2].strip()
         df = read_excel_cached()
         if isinstance(df, str) or df.empty:
             await safe_send(message.channel, content="❌ Data unavailable.")
             return
         df.columns = df.columns.str.strip()
         await send_info_embed(message.channel, df, info_id)
-        return    
+        return   
 
 
     elif cmd == "d":
