@@ -165,8 +165,12 @@ async def send_info_embed(channel, df, info_id):
     except:
         playtime = 0
 
+    date = str(safe_val(row, "Date", "Unknown"))[:10]
+    playtime1 = round((playtime / 3600), 2) 
+    ratio = round(score / (playtime / 3600), 0) if playtime > 0 else 0
+
     # Playtime display
-    if playtime_seconds > 0:
+    if playtime > 0:
         playtime_display = f"{round(playtime_seconds / 3600, 2)}"
     else:
         playtime_display = "Unknown"
@@ -177,10 +181,8 @@ async def send_info_embed(channel, df, info_id):
         ratio_display = f"{int(ratio):,}"
     else:
         ratio_display = "Unknown"
+
     
-    date = str(safe_val(row, "Date", "Unknown"))[:10]
-    playtime1 = round((playtime / 3600), 2) 
-    ratio = round(score / (playtime / 3600), 0) if playtime > 0 else 0
     description = (
         f"**{name1}**\n"
         f"{name} got **{int(score):,}** with **{tank}**.\n"
