@@ -171,7 +171,7 @@ async def send_info_embed(channel, df, info_id):
 
     # Playtime display
     if playtime > 0:
-        playtime_display = f"{round(playtime_seconds / 3600, 2)}"
+        playtime_display = f"{round(playtime / 3600, 2)}"
     else:
         playtime_display = "Unknown"
 
