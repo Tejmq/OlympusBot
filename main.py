@@ -99,16 +99,16 @@ def read_excel_cached():
 
 
 async def send_screenshot(channel, screenshot_id):
-    path = f"data/Screenshots/id_{screenshot_id}.png"
+    path = f"data/Screenshots/id_{screenshot_id}.jpg"
     if not os.path.isfile(path):
         await safe_send(channel, content="❌ Screenshot not found.")
         return
-    file = discord.File(path, filename=f"id_{screenshot_id}.png")
+    file = discord.File(path, filename=f"id_{screenshot_id}.jpg")
     embed = Embed(
         description="**Your screenshot!**",
         color=discord.Color.dark_grey()
     )
-    embed.set_image(url=f"attachment://id_{screenshot_id}.png")
+    embed.set_image(url=f"attachment://id_{screenshot_id}.jpg")
     await channel.send(embed=embed, file=file)
 
 
@@ -155,7 +155,7 @@ async def send_info_embed(channel, df, info_id):
     except:
         playtime = 0
     date = str(safe_val(row, "Date", "Unknown"))[:10]
-    ratio = round(score / (playtime_seconds / 3600), 2) if playtime_seconds > 0 else 0
+    ratio = round(score / (playtime / 3600), 2) if playtime > 0 else 0
     description = (
         f"**{name1}**\n"
         f"{name} got **{int(score):,}** with **{tank}**.\n"
@@ -169,10 +169,10 @@ async def send_info_embed(channel, df, info_id):
         color=discord.Color.dark_grey()
     )
     # Image (optional)
-    path = f"data/Screenshots/id_{info_id}.png"
+    path = f"data/Screenshots/id_{info_id}.jpg"
     if os.path.isfile(path):
-        file = discord.File(path, filename=f"id_{info_id}.png")
-        embed.set_image(url=f"attachment://id_{info_id}.png")
+        file = discord.File(path, filename=f"id_{info_id}.jpg")
+        embed.set_image(url=f"attachment://id_{info_id}.jpg")
         await channel.send(embed=embed, file=file)
     else:
         # No image → text-only embed
