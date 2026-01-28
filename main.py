@@ -174,9 +174,9 @@ async def send_info_embed(channel, df, info_id):
 
     # Ratio display
     if ratio > 0:
-    ratio_display = f"{int(ratio):,}"
+        ratio_display = f"{int(ratio):,}"
     else:
-    ratio_display = "Unknown"
+        ratio_display = "Unknown"
     
     date = str(safe_val(row, "Date", "Unknown"))[:10]
     playtime1 = round((playtime / 3600), 2) 
