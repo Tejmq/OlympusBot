@@ -17,8 +17,8 @@ DRIVE_FILE_ID = "1YMzE4FXjH4wctFektINwhCDjzZ0xqCP6"
 TANKS_JSON_URL = "https://raw.githubusercontent.com/Tejmq/OlympusBot/refs/heads/main/data/tanks.json"
 
 
-COLUMNS_DEFAULT = ["Ņ", "Score", "Name", "Tank", "Date", "Id"]
-COLUMNS_C = ["Ņ", "Tank", "Name", "Score", "Date", "Id"]
+COLUMNS_DEFAULT = ["Ņ", "Score", "Name", "Tank", "Id"]
+COLUMNS_C = ["Ņ", "Tank", "Name", "Score", "Id"]
 
 FIRST_COLUMN = "Score"
 LEGENDS = 1000
@@ -112,6 +112,23 @@ async def send_screenshot(channel, screenshot_id):
     await channel.send(embed=embed, file=file)
 
 
+def parse_playtime(v):
+    try:
+        if pd.isna(v) or v in ("?", "", None):
+            return 0.0
+        # If pandas already converted it to timedelta
+        if isinstance(v, pd.Timedelta):
+            return v.total_seconds()
+        # String format [h]:mm:ss
+        parts = str(v).split(":")
+        if len(parts) == 3:
+            h, m, s = map(int, parts)
+            return h * 3600 + m * 60 + s
+        return 0.0
+    except:
+        return 0.0
+    
+
 
 async def send_info_embed(channel, df, info_id):
     # Ensure Id column exists
@@ -134,11 +151,11 @@ async def send_info_embed(channel, df, info_id):
     except:
         score = 0
     try:
-        playtime = float(safe_val(row, "Playtime", 0))
+        playtime = parse_playtime(safe_val(row, "Playtime", 0))
     except:
         playtime = 0
     date = str(safe_val(row, "Date", "Unknown"))[:10]
-    ratio = round(score / playtime, 2) if playtime > 0 else 0
+    ratio = round(score / (playtime_seconds / 3600), 2) if playtime_seconds > 0 else 0
     description = (
         f"**{name1}**\n"
         f"{name} got **{int(score):,}** with **{tank}**.\n"
