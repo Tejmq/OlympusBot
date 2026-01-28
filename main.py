@@ -127,7 +127,17 @@ def parse_playtime(v):
         return 0.0
     except:
         return 0.0
-    
+
+
+
+def parse_score(v):
+    try:
+        if pd.isna(v) or v in ("?", "", None):
+            return 0.0
+        return float(str(v).replace(",", ""))
+    except:
+        return 0.0
+
 
 
 async def send_info_embed(channel, df, info_id):
@@ -147,7 +157,7 @@ async def send_info_embed(channel, df, info_id):
     killer = safe_val(row, "Killer", "Unknown")
     # Numeric fields (safe)
     try:
-        score = float(safe_val(row, "Score", 0))
+        score = parse_score(safe_val(row, "Score", 0))
     except:
         score = 0
     try:
@@ -159,8 +169,8 @@ async def send_info_embed(channel, df, info_id):
     description = (
         f"**{name1}**\n"
         f"{name} got **{int(score):,}** with **{tank}**.\n"
-        f"It took **{playtime}** on **{date}**, "
-        f"with a ratio of **{ratio}**.\n"
+        f"It took **{(playtime / 3600), 2)}** hours, on **{date}**, "
+        f"with a ratio of **{ratio}** per hour.\n"
         f"{name} died to **{killer}**."
     )
     embed = Embed(
