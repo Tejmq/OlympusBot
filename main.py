@@ -171,7 +171,7 @@ async def send_info_embed(channel, df, info_id):
         f"**{name1}**\n"
         f"{name} got **{int(score):,}** with **{tank}**.\n"
         f"It took **{playtime1}** hours, on **{date}**, "
-        f"with a ratio of **{ratio}** per hour.\n"
+        f"with a ratio of **{int(ratio):,}** per hour.\n"
         f"{name} died to **{killer}**."
     )
     embed = Embed(
