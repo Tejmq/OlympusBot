@@ -89,7 +89,7 @@ def read_excel_cached():
 
 
 async def send_screenshot(channel, screenshot_id):
-    path = f"data/screenshots/id_{screenshot_id}.png"
+    path = f"data/Screenshots/id_{screenshot_id}.png"
     if not os.path.isfile(path):
         await safe_send(channel, content="❌ Screenshot not found.")
         return
