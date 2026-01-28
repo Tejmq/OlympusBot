@@ -17,8 +17,8 @@ DRIVE_FILE_ID = "1YMzE4FXjH4wctFektINwhCDjzZ0xqCP6"
 TANKS_JSON_URL = "https://raw.githubusercontent.com/Tejmq/OlympusBot/refs/heads/main/data/tanks.json"
 
 
-COLUMNS_DEFAULT = ["Ņ", "Score", "True Name", "Tank", "Date", "Id"]
-COLUMNS_C = ["Ņ", "Tank", "True Name", "Score", "Date", "Id"]
+COLUMNS_DEFAULT = ["Ņ", "Score", "Name in game", "Tank", "Date", "Id"]
+COLUMNS_C = ["Ņ", "Tank", "Name in game", "Score", "Date", "Id"]
 
 FIRST_COLUMN = "Score"
 LEGENDS = 1000
@@ -124,7 +124,7 @@ async def send_info_embed(channel, df, info_id):
         await safe_send(channel, content="❌ No entry with that Id.")
         return
     row = row.iloc[0]
-    name = safe_val(row, "True Name", "Unknown")
+    name = safe_val(row, "Name in game", "Unknown")
     tank = safe_val(row, "Tank", "Unknown")
     killer = safe_val(row, "Killer", "Unknown")
     # Numeric fields (safe)
@@ -312,8 +312,8 @@ def dataframe_to_markdown_aligned(df, shorten_tank=True):
     if "Date" in df.columns:
         df["Date"] = df["Date"].astype(str).str[:10]
         
-    if "True Name" in df.columns:
-        df["True Name"] = df["True Name"].apply(lambda n: shorten_name(n, 10))
+    if "Name in game" in df.columns:
+        df["Name in game"] = df["Name in game"].apply(lambda n: shorten_name(n, 10))
     
     if shorten_tank and "Tank" in df.columns:
         df["Tank"] = (
@@ -363,14 +363,14 @@ def handle_best(df):
     df = normalize_score(df)
     return (
         df.sort_values("Score", ascending=False)
-          .drop_duplicates("True Name")
+          .drop_duplicates("Name in game")
     )
 
 
 def handle_name(df, name):
     df = normalize_score(df)
     return (
-        df[df["True Name"].str.lower() == name.lower()]
+        df[df["Name in game"].str.lower() == name.lower()]
         .sort_values("Score", ascending=False)
     )
 
@@ -567,7 +567,7 @@ async def on_message(message):
         sub = parts[2].lower()
         if sub == "a":
             row = df.sample(1).iloc[0]
-            await safe_send(message.channel, content=f"{row['True Name']} recommends {row['Tank']}")
+            await safe_send(message.channel, content=f"{row['Name in game']} recommends {row['Tank']}")
             return
         if sub == "b":
             used = set(df["Tank"].str.lower())
