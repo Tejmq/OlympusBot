@@ -103,6 +103,44 @@ async def send_screenshot(channel, screenshot_id):
 
 
 
+async def send_info_embed(channel, df, info_id):
+    # Find row by Id
+    row = df[df["Id"].astype(str) == str(info_id)]
+    if row.empty:
+        await safe_send(channel, content="❌ No entry with that Id.")
+        return
+    row = row.iloc[0]
+    # Image path
+    path = f"data/screenshots/id_{info_id}.png"
+    if not os.path.isfile(path):
+        await safe_send(channel, content="❌ Screenshot not found.")
+        return
+    # Extract values
+    name = row["True Name"]
+    score = float(row["Score"])
+    tank = row["Tank Type"]
+    playtime = float(row["Playtime"])
+    date = str(row["Date"])[:10]
+    killer = row.get("Killer", "Unknown")
+    ratio = round(score / playtime, 2) if playtime > 0 else 0
+    file = discord.File(path, filename=f"id_{info_id}.png")
+    embed = Embed(
+        title=f"Score number {info_id}",
+        description=(
+            f"**{name}**\n"
+            f"{name} got **{int(score):,}** with **{tank}**.\n"
+            f"It took **{playtime}** on **{date}**, "
+            f"with a ratio of **{ratio}**.\n"
+            f"{name} died to **{killer}**."
+        ),
+        color=discord.Color.dark_grey()
+    )
+    embed.set_image(url=f"attachment://id_{info_id}.png")
+    await channel.send(embed=embed, file=file)
+
+
+
+
 
 TANK_NAMES = []
 def load_tanks():
@@ -435,7 +473,25 @@ async def on_message(message):
         return
 
 
-    
+
+    # --- INFO COMMAND (USES DATAFRAME) ---
+    elif cmd == "i":
+        if len(parts) < 3 or not parts[2].isdigit():
+            await safe_send(
+                message.channel,
+                content="❌ Usage: !o;i;100"
+            )
+            return
+        info_id = parts[2]
+        df = read_excel_cached()
+        if isinstance(df, str) or df.empty:
+            await safe_send(message.channel, content="❌ Data unavailable.")
+            return
+        df.columns = df.columns.str.strip()
+        await send_info_embed(message.channel, df, info_id)
+        return    
+
+
     elif cmd == "d":
         if len(parts) < 3:
             await safe_send(message.channel, content="❌ Usage: !o;d;YYYY-MM-DD or DD-MM-YYYY")
