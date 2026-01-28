@@ -166,7 +166,7 @@ async def send_info_embed(channel, df, info_id):
         playtime = 0
     date = str(safe_val(row, "Date", "Unknown"))[:10]
     playtime1 = round((playtime / 3600), 2) 
-    ratio = round(score / (playtime / 3600), 2) if playtime > 0 else 0
+    ratio = round(score / (playtime / 3600), 0) if playtime > 0 else 0
     description = (
         f"**{name1}**\n"
         f"{name} got **{int(score):,}** with **{tank}**.\n"
@@ -175,7 +175,7 @@ async def send_info_embed(channel, df, info_id):
         f"{name} died to **{killer}**."
     )
     embed = Embed(
-        title=f"Score number {info_id}",
+        title=f"Score id: {info_id}",
         description=description,
         color=discord.Color.dark_grey()
     )
