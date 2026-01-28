@@ -10,6 +10,7 @@ from discord import ui, Interaction
 from threading import Lock
 import asyncio
 from discord.errors import HTTPException
+import re
 
 FETCH_LOCK = Lock()
 
@@ -98,17 +99,37 @@ def read_excel_cached():
     return DATAFRAME_CACHE.copy()
 
 
+import re
+
 async def send_screenshot(channel, screenshot_id):
-    path = f"data/Screenshots/id_{screenshot_id}.jpg"
-    if not os.path.isfile(path):
+    # Ensure base64 id is treated as string
+    raw_id = str(screenshot_id)
+
+    # Sanitize for filesystem (VERY important for base64)
+    safe_id = re.sub(r"[^A-Za-z0-9_-]", "_", raw_id)
+
+    # Try common extensions
+    possible_paths = [
+        f"data/Screenshots/id_{safe_id}.jpg",
+        f"data/Screenshots/id_{safe_id}.png",
+        f"data/Screenshots/id_{safe_id}.jpeg",
+    ]
+
+    path = next((p for p in possible_paths if os.path.isfile(p)), None)
+
+    if not path:
         await safe_send(channel, content="❌ Screenshot not found.")
         return
-    file = discord.File(path, filename=f"id_{screenshot_id}.jpg")
+
+    filename = os.path.basename(path)
+    file = discord.File(path, filename=filename)
+
     embed = Embed(
         description="**Your screenshot!**",
         color=discord.Color.dark_grey()
     )
-    embed.set_image(url=f"attachment://id_{screenshot_id}.jpg")
+    embed.set_image(url=f"attachment://{filename}")
+
     await channel.send(embed=embed, file=file)
 
 
@@ -141,6 +162,7 @@ def parse_score(v):
 
 
 async def send_info_embed(channel, df, info_id):
+    safe_id = re.sub(r"[^A-Za-z0-9_-]", "_", str(info_id))
     # Ensure Id column exists
     if "Id" not in df.columns:
         await safe_send(channel, content="❌ No Id column in data.")
@@ -196,13 +218,20 @@ async def send_info_embed(channel, df, info_id):
         color=discord.Color.dark_grey()
     )
     # Image (optional)
-    path = f"data/Screenshots/id_{info_id}.jpg"
-    if os.path.isfile(path):
-        file = discord.File(path, filename=f"id_{info_id}.jpg")
-        embed.set_image(url=f"attachment://id_{info_id}.jpg")
+    possible_paths = [
+        f"data/Screenshots/id_{safe_id}.jpg",
+        f"data/Screenshots/id_{safe_id}.png",
+        f"data/Screenshots/id_{safe_id}.jpeg",
+    ]
+
+    path = next((p for p in possible_paths if os.path.isfile(p)), None)
+
+    if path:
+        filename = os.path.basename(path)
+        file = discord.File(path, filename=filename)
+        embed.set_image(url=f"attachment://{filename}")
         await channel.send(embed=embed, file=file)
     else:
-        # No image → text-only embed
         await channel.send(embed=embed)
 
 
@@ -470,7 +499,7 @@ async def on_message(message):
     cmd = parts[1].lower()
     # --- SCREENSHOT COMMAND (NO DATAFRAME NEEDED) ---
     if cmd == "s":
-        if len(parts) < 3 or not parts[2].isdigit():
+        if len(parts) < 3:
             await safe_send(
                 message.channel,
                 content="❌ Usage: !o;s;100"
@@ -528,7 +557,7 @@ async def on_message(message):
         output = handle_tank(df, parts[2])
 
     elif cmd == "s":
-        if len(parts) < 3 or not parts[2].isdigit():
+        if len(parts) < 3:
             await safe_send(
                 message.channel,
                 content="❌ Usage: !o;s;100"
