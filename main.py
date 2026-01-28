@@ -164,14 +164,28 @@ async def send_info_embed(channel, df, info_id):
         playtime = parse_playtime(safe_val(row, "Playtime", 0))
     except:
         playtime = 0
+
+    # Playtime display
+    if playtime_seconds > 0:
+        playtime_display = f"{round(playtime_seconds / 3600, 2)}"
+    else:
+        playtime_display = "Unknown"
+
+
+# Ratio display
+if ratio > 0:
+ratio_display = f"{int(ratio):,}"
+else:
+ratio_display = "Unknown"
+    
     date = str(safe_val(row, "Date", "Unknown"))[:10]
     playtime1 = round((playtime / 3600), 2) 
     ratio = round(score / (playtime / 3600), 0) if playtime > 0 else 0
     description = (
         f"**{name1}**\n"
         f"{name} got **{int(score):,}** with **{tank}**.\n"
-        f"It took **{playtime1}** hours, on **{date}**, "
-        f"with a ratio of **{int(ratio):,}** per hour.\n"
+        f"It took **{playtime_display}** hours, on **{date}**, "
+        f"with a ratio of **{ratio_display}** per hour.\n"
         f"{name} died to **{killer}**."
     )
     embed = Embed(
