@@ -165,11 +165,12 @@ async def send_info_embed(channel, df, info_id):
     except:
         playtime = 0
     date = str(safe_val(row, "Date", "Unknown"))[:10]
+    playtime1 = round((playtime / 3600), 2) 
     ratio = round(score / (playtime / 3600), 2) if playtime > 0 else 0
     description = (
         f"**{name1}**\n"
         f"{name} got **{int(score):,}** with **{tank}**.\n"
-        f"It took **{(playtime / 3600), 2)}** hours, on **{date}**, "
+        f"It took **{playtime1}** hours, on **{date}**, "
         f"with a ratio of **{ratio}** per hour.\n"
         f"{name} died to **{killer}**."
     )
