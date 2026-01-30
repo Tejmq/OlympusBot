@@ -14,7 +14,8 @@ import re
 
 FETCH_LOCK = Lock()
 
-DRIVE_FILE_ID = "1YMzE4FXjH4wctFektINwhCDjzZ0xqCP6"
+EXCEL_GITHUB_URL = "https://raw.githubusercontent.com/Tejmq/OlympusBot/main/data/Olympus.xlsx"
+LOCAL_EXCEL_PATH = "data/Olympus.xlsx"
 TANKS_JSON_URL = "https://raw.githubusercontent.com/Tejmq/OlympusBot/refs/heads/main/data/tanks.json"
 
 
@@ -35,8 +36,8 @@ LAST_FETCH = 0
 CACHE_TTL = 300  # 5 minutes
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (compatible; DiscordBot/1.0)",
-    "Accept": "*/*"
+    "User-Agent": "OlympusBot/1.0 (contact: tejm)",
+    "Accept": "application/octet-stream"
 }
 
 async def safe_send(channel, **kwargs):
@@ -75,62 +76,74 @@ def read_excel_cached():
     global DATAFRAME_CACHE, LAST_FETCH
 
     now = time.time()
-    url = f"https://drive.google.com/uc?id={DRIVE_FILE_ID}&export=download"
 
     with FETCH_LOCK:
-        if DATAFRAME_CACHE is None or now - LAST_FETCH > CACHE_TTL:
+        # 1️⃣ Use in-memory cache if valid
+        if DATAFRAME_CACHE is not None and now - LAST_FETCH < CACHE_TTL:
+            return DATAFRAME_CACHE.copy()
+
+        # 2️⃣ Load from disk if exists
+        if os.path.isfile(LOCAL_EXCEL_PATH):
             try:
-                r = requests.get(url, headers=HEADERS, timeout=10)
-                r.raise_for_status()
-
-                # If response is HTML, likely Cloudflare block
-                content_type = r.headers.get("Content-Type", "").lower()
-                if "html" in content_type:
-                    print("Excel fetch returned HTML — possible Cloudflare block")
-                    return "html_error"
-
-                DATAFRAME_CACHE = pd.read_excel(BytesIO(r.content))
+                DATAFRAME_CACHE = pd.read_excel(LOCAL_EXCEL_PATH)
                 LAST_FETCH = now
-                print("Excel cache refreshed")
+                print("Excel loaded from disk")
+                return DATAFRAME_CACHE.copy()
             except Exception as e:
-                print("Excel fetch failed:", e)
-                return "fetch_error"
+                print("Failed to load Excel from disk:", e)
 
-    return DATAFRAME_CACHE.copy()
+        # 3️⃣ Fetch from GitHub RAW (last resort)
+        try:
+            print("Fetching Excel from GitHub...")
+            r = requests.get(EXCEL_GITHUB_URL, headers=HEADERS, timeout=15)
+            r.raise_for_status()
+
+            content_type = r.headers.get("Content-Type", "").lower()
+            if "html" in content_type:
+                print("GitHub returned HTML — blocked or rate-limited")
+                return "html_error"
+
+            with open(LOCAL_EXCEL_PATH, "wb") as f:
+                f.write(r.content)
+
+            DATAFRAME_CACHE = pd.read_excel(BytesIO(r.content))
+            LAST_FETCH = now
+            print("Excel fetched and cached")
+
+            return DATAFRAME_CACHE.copy()
+
+        except Exception as e:
+            print("Excel fetch failed:", e)
+            return "fetch_error"
+            
 
 
-import re
-
-async def send_screenshot(channel, screenshot_id):
-    # Ensure base64 id is treated as string
-    raw_id = str(screenshot_id)
-
-    # Sanitize for filesystem (VERY important for base64)
-    safe_id = re.sub(r"[^A-Za-z0-9_-]", "_", raw_id)
-
-    # Try common extensions
-    possible_paths = [
-        f"data/Screenshots/id_{safe_id}.jpg",
-        f"data/Screenshots/id_{safe_id}.png",
-        f"data/Screenshots/id_{safe_id}.jpeg",
-    ]
-
-    path = next((p for p in possible_paths if os.path.isfile(p)), None)
-
-    if not path:
-        await safe_send(channel, content="❌ Screenshot not found.")
+async def send_screenshot(channel, df, screenshot_id):
+    # Ensure Id column exists
+    if "Id" not in df.columns:
+        await safe_send(channel, content="❌ No Id column in data.")
         return
 
-    filename = os.path.basename(path)
-    file = discord.File(path, filename=filename)
+    # Match Id as string
+    row = df[df["Id"].astype(str) == str(screenshot_id)]
+    if row.empty:
+        await safe_send(channel, content="❌ No screenshot with that Id.")
+        return
+
+    row = row.iloc[0]
+
+    cdn_url = safe_val(row, "CDN", None)
+    if not cdn_url or not isinstance(cdn_url, str):
+        await safe_send(channel, content="❌ No screenshot available for this entry.")
+        return
 
     embed = Embed(
-        description="**Your screenshot!**",
+        title=f"Screenshot ID: {screenshot_id}",
         color=discord.Color.dark_grey()
     )
-    embed.set_image(url=f"attachment://{filename}")
+    embed.set_image(url=cdn_url)
 
-    await channel.send(embed=embed, file=file)
+    await safe_send(channel, embed=embed)
 
 
 def parse_playtime(v):
@@ -217,22 +230,12 @@ async def send_info_embed(channel, df, info_id):
         description=description,
         color=discord.Color.dark_grey()
     )
-    # Image (optional)
-    possible_paths = [
-        f"data/Screenshots/id_{safe_id}.jpg",
-        f"data/Screenshots/id_{safe_id}.png",
-        f"data/Screenshots/id_{safe_id}.jpeg",
-    ]
+    # Image 
+    cdn_url = safe_val(row, "CDN", None)
+    if cdn_url and isinstance(cdn_url, str):
+        embed.set_image(url=cdn_url)
 
-    path = next((p for p in possible_paths if os.path.isfile(p)), None)
-
-    if path:
-        filename = os.path.basename(path)
-        file = discord.File(path, filename=filename)
-        embed.set_image(url=f"attachment://{filename}")
-        await channel.send(embed=embed, file=file)
-    else:
-        await channel.send(embed=embed)
+    await safe_send(channel, embed=embed)
 
 
 
@@ -495,21 +498,10 @@ async def on_message(message):
     parts = message.content.split(";")
     if len(parts) < 2:
         return
-
     cmd = parts[1].lower()
-    # --- SCREENSHOT COMMAND (NO DATAFRAME NEEDED) ---
-    if cmd == "s":
-        if len(parts) < 3:
-            await safe_send(
-                message.channel,
-                content="❌ Usage: !o;s;100"
-            )
-            return
-        screenshot_id = parts[2]
-        await send_screenshot(message.channel, screenshot_id)
-        return
-    # --- EVERYTHING BELOW NEEDS THE DATAFRAME ---
     df = read_excel_cached()
+    
+
 
 
     
@@ -560,12 +552,18 @@ async def on_message(message):
         if len(parts) < 3:
             await safe_send(
                 message.channel,
-                content="❌ Usage: !o;s;100"
+                content="❌ Usage: !o;s;<Id>"
             )
             return
 
-        screenshot_id = parts[2]
-        await send_screenshot(message.channel, screenshot_id)
+        df = read_excel_cached()
+        if isinstance(df, str) or df.empty:
+            await safe_send(message.channel, content="❌ Data unavailable.")
+            return
+
+        df.columns = df.columns.str.strip()
+        screenshot_id = parts[2].strip()
+        await send_screenshot(message.channel, df, screenshot_id)
         return
 
 
