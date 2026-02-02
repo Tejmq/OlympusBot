@@ -4,7 +4,7 @@ import requests
 from io import BytesIO
 from wcwidth import wcswidth
 import os, time, json, random, re
-
+from keep_alive import keep_alive
 from discord import Embed
 from discord import ui, Interaction
 from threading import Lock
@@ -741,5 +741,5 @@ async def on_message(message):
 
 
 if __name__ == "__main__":
-
+    keep_alive()
     bot.run(os.getenv("DISCORD_TOKEN"))
