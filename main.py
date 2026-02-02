@@ -117,6 +117,21 @@ def read_excel_cached():
             return "fetch_error"
             
 
+def extract_gt(parts, valid=None):
+    """
+    Extract GT filter letter (A, R, F, etc.)
+    Returns (gt_letter or None)
+    """
+    if valid is None:
+        valid = {"a", "r", "f"}
+
+    for p in parts:
+        p = p.strip().lower()
+        if len(p) == 1 and p in valid:
+            return p.upper()
+    return None
+
+
 
 async def send_screenshot(channel, df, screenshot_id):
     # Ensure Id column exists
@@ -663,6 +678,22 @@ async def on_message(message):
         await safe_send(message.channel, content="No results.")
         return
 
+
+    # ---------------- GT FILTER HERE ----------------
+    gt_filter = extract_gt(parts)
+    if gt_filter and "GT" in output.columns:
+        output = output[
+            output["GT"].astype(str).str.upper() == gt_filter
+        ]
+    if output.empty:
+        await safe_send(
+            message.channel,
+            content=f"No results for GT={gt_filter}."
+        )
+        return
+    # ------------------------------------------------
+
+    
     cols = COLUMNS_C if cmd in {"c", "t"} else COLUMNS_DEFAULT
     output = output[[c for c in cols if c in output]]
 
