@@ -100,11 +100,11 @@ class DidYouMeanView(ui.View):
         df,
         parts,
         index,
-        resolver,      # <—— NEW
+        resolver,      
         title,
         columns
     ):
-        super().__init__(timeout=30)
+        super().__init__(timeout=30)  # 30s timeout
         self.cmd = cmd
         self.channel = channel
         self.df = df
@@ -113,6 +113,19 @@ class DidYouMeanView(ui.View):
         self.resolver = resolver
         self.title = title
         self.columns = columns
+        self.message = None  # will store the sent message for editing
+
+    async def on_timeout(self):
+        # Disable all buttons when timeout occurs
+        for item in self.children:
+            item.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except Exception as e:
+                print("DidYouMeanView timeout edit failed:", e)
+
+
 
 
 class DidYouMeanButton(ui.Button):
@@ -124,6 +137,15 @@ class DidYouMeanButton(ui.Button):
     async def callback(self, interaction: Interaction):
         view: DidYouMeanView = self.view
         output = view.resolver(view.df, self.label)
+
+        # Reapply GT filter if any
+        gt_filter = extract_gt(view.parts)
+        if gt_filter and "GT" in output.columns:
+            output = output[output["GT"].astype(str).str.upper() == gt_filter]
+        # Apply range slice
+        start, end, range_size, warning = extract_range(view.parts, max_range=15, total_len=len(output))
+        cols = [c for c in view.columns if c in output.columns]
+        output = add_index(output[cols].iloc[start-1:end])
         if output is None or output.empty:
             await interaction.response.edit_message(
                 content="❌ No results after correction.",
@@ -580,7 +602,8 @@ async def fuzzy_or_abort(
     )
     for m in matches:
         original = lookup[m]
-        embed.add_field(name=original, value="‎", inline=False)
+        # Don't use a value; buttons are interactive
+        embed.add_field(name=original, value="\u200b", inline=True)  # optional, just to keep field
         view.add_item(DidYouMeanButton(original))
     await safe_send(
         message.channel,
