@@ -353,18 +353,8 @@ class RangePaginationView(ui.View):
 
 
 
-
-
-
 def shorten_name(name: str, max_len: int = 10) -> str:
-    """
-    Shortens player name to max_len characters.
-    Capitalizes each word for readability.
-    """
     name = str(name).strip()
-    # Capitalize each word
-    name = " ".join(w.capitalize() for w in name.split())
-    # Truncate to max_len
     if len(name) > max_len:
         name = name[:max_len]
     return name
