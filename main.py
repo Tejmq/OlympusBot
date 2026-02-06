@@ -92,40 +92,57 @@ def fuzzy_matches(query, choices, max_results=5, cutoff=0.7):
 
 
 class DidYouMeanView(ui.View):
-    def __init__(self, bot, original_message, cmd, suggestions):
+    def __init__(self, *, cmd, channel, df, parts, index):
         super().__init__(timeout=30)
-        self.bot = bot
-        self.original_message = original_message
         self.cmd = cmd
+        self.channel = channel
+        self.df = df
+        self.parts = parts      # original split command
+        self.index = index      # which part is being corrected
 
-        for s in suggestions:
-            self.add_item(DidYouMeanButton(s, cmd))
 
 
 
 class DidYouMeanButton(ui.Button):
-    def __init__(self, suggestion, cmd):
+    def __init__(self, label):
         super().__init__(
-            label=suggestion,
+            label=label,
             style=discord.ButtonStyle.primary
         )
-        self.suggestion = suggestion
-        self.cmd = cmd
 
     async def callback(self, interaction: Interaction):
-        fixed_command = f"!o;{self.cmd};{self.suggestion}"
+        view: DidYouMeanView = self.view
 
-        await interaction.response.send_message(
-            content=f"🔁 Running: `{fixed_command}`",
-            ephemeral=True
+        # Fix the argument
+        view.parts[view.index] = self.label
+
+        # Re-run logic inline (no fake messages)
+        output = handle_tank(view.df, self.label)
+
+        if output.empty:
+            await interaction.response.edit_message(
+                content="❌ No results after correction.",
+                embed=None,
+                view=None
+            )
+            return
+
+        output = output[["Ņ", "Tank", "Name", "Score", "Id"]]
+        output = add_index(output)
+
+        lines = dataframe_to_markdown_aligned(output.iloc[:15])
+
+        embed = Embed(
+            title="Tank Scores",
+            description=f"```text\n{chr(10).join(lines)}\n```",
+            color=discord.Color.dark_grey()
         )
 
-        # Fake a new message object
-        fake = interaction.message
-        fake.content = fixed_command
-        fake.author = interaction.user
+        await interaction.response.edit_message(
+            embed=embed,
+            view=None   # remove buttons
+        )
 
-        await interaction.client.dispatch("message", fake)
 
 
 
@@ -504,24 +521,20 @@ from difflib import get_close_matches
 
 async def fuzzy_or_abort(
     *,
-    channel,
-    bot,
-    original_message,
+    message,
+    df,
     cmd,
     user_input,
     choices,
+    arg_index,
     max_results=5,
     cutoff=0.65,
     title="Did you mean…?"
 ):
-    """
-    Returns corrected value OR None if suggestions were shown.
-    """
-    # Exact match (case-insensitive)
     lookup = {c.lower(): c for c in choices}
+    # Exact match
     if user_input.lower() in lookup:
         return lookup[user_input.lower()]
-    # Fuzzy matches
     matches = get_close_matches(
         user_input.lower(),
         lookup.keys(),
@@ -530,7 +543,7 @@ async def fuzzy_or_abort(
     )
     if not matches:
         await safe_send(
-            channel,
+            message.channel,
             content=f"❌ No match found for `{user_input}`."
         )
         return None
@@ -541,12 +554,16 @@ async def fuzzy_or_abort(
         color=discord.Color.orange()
     )
     view = DidYouMeanView(
-        bot=bot,
-        original_message=original_message,
         cmd=cmd,
-        suggestions=suggestions
+        channel=message.channel,
+        df=df,
+        parts=message.content.split(";"),
+        index=arg_index
     )
-    await safe_send(channel, embed=embed, view=view)
+    for s in suggestions:
+        view.add_item(DidYouMeanButton(s))
+    sent = await safe_send(message.channel, embed=embed, view=view)
+    view.message = sent
     return None
 
 
@@ -697,17 +714,16 @@ async def on_message(message):
             return
         tank_input = parts[2].strip()
         tank = await fuzzy_or_abort(
-            channel=message.channel,
-            bot=bot,
-            original_message=message,
+            message=message,
+            df=df,
             cmd="t",
             user_input=tank_input,
-            choices=df["Tank"].dropna().unique()
+            choices=df["Tank"].dropna().unique(),
+            arg_index=2
         )
         if tank is None:
             return
         output = handle_tank(df, tank)
-
 
 
     
@@ -774,16 +790,19 @@ async def on_message(message):
     elif cmd == "help":
         help_message = (
                 "Commands:\n"
-                "!o;p;1-15               - Part of the scoreboard\n"            
-                "!o;t;TankName;1-15      - Best score of a tank\n"
-                "!o;n;Player;1-15        - Best scores of a specific player\n"
+                "!o;p              - Part of the scoreboard\n"            
+                "!o;t;TankName     - Best score of a tank\n"
+                "!o;n;Player       - Best scores of a specific player\n"
                 "!o;d;YYYY-MM-DD         - Scores from a specific date\n"
             
-                "!o;c;1-15               - Best tank list\n"
-                "!o;b;1-15               - Best player list\n"
+                "!o;c             - Best tank list\n"
+                "!o;b              - Best player list\n"
 
-                "!o;r                    - Random recommendation\n"
-                
+                ";1-15    -to imput range      ;r    -to pick category \n"
+            
+                "!o;s;id                 - Random recommendation\n"
+                "!o;i;id                 - Random recommendation\n"
+                "!o;r                    - Random recommendation\n" 
             )
         await safe_send(message.channel, content=help_message)
         return
