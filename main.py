@@ -127,25 +127,13 @@ class DidYouMeanView(ui.View):
 
 
 
-
 class DidYouMeanButton(ui.Button):
     def __init__(self, label: str):
-        super().__init__(
-            label=label,
-            style=discord.ButtonStyle.secondary
-        )
+        super().__init__(label=label, style=discord.ButtonStyle.secondary)
     async def callback(self, interaction: Interaction):
         view: DidYouMeanView = self.view
+        # 1️⃣ Get the full corrected dataset from resolver
         output = view.resolver(view.df, self.label)
-
-        # Reapply GT filter if any
-        gt_filter = extract_gt(view.parts)
-        if gt_filter and "GT" in output.columns:
-            output = output[output["GT"].astype(str).str.upper() == gt_filter]
-        # Apply range slice
-        start, end, range_size, warning = extract_range(view.parts, max_range=15, total_len=len(output))
-        cols = [c for c in view.columns if c in output.columns]
-        output = add_index(output[cols].iloc[start-1:end])
         if output is None or output.empty:
             await interaction.response.edit_message(
                 content="❌ No results after correction.",
@@ -153,28 +141,51 @@ class DidYouMeanButton(ui.Button):
                 view=None
             )
             return
-        output = add_index(output[view.columns])
+        # 2️⃣ Re-apply GT filter if present
+        gt_filter = extract_gt(view.parts)
+        if gt_filter and "GT" in output.columns:
+            output = output[output["GT"].astype(str).str.upper() == gt_filter]
+        if output.empty:
+            await interaction.response.edit_message(
+                content=f"❌ No results for GT={gt_filter}.",
+                embed=None,
+                view=None
+            )
+            return
+        # 3️⃣ Columns & title
+        cols = [c for c in view.columns if c in output.columns]
+        output = output[cols]
+        # 4️⃣ Extract range from original command parts
+        start, end, range_size, warning = extract_range(
+            view.parts,
+            max_range=15,
+            total_len=len(output)
+        )
+        # 5️⃣ Create pagination view for full filtered output
         paged_view = RangePaginationView(
             df=output,
-            start_index=1,
-            range_size=min(15, len(output)),
+            start_index=start,
+            range_size=range_size,
             title=view.title,
             shorten_tank=True
         )
-        slice_df = output.iloc[:paged_view.range_size].copy()
-        slice_df["Ņ"] = range(1, len(slice_df) + 1)
+        # 6️⃣ Display only first slice initially
+        slice_df = output.iloc[start-1:end].copy()
+        slice_df["Ņ"] = range(start, min(end, len(output)) + 1)
         lines = dataframe_to_markdown_aligned(slice_df)
         embed = Embed(
             title=view.title,
             description=f"```text\n{chr(10).join(lines)}\n```",
             color=discord.Color.dark_grey()
         )
-        embed.set_footer(text=f"Rows 1-{len(slice_df)} / {len(output)}")
-        await interaction.response.edit_message(
-            embed=embed,
-            view=paged_view
-        )
+        footer = f"Rows {start}-{min(end, len(output))} / {len(output)}"
+        if warning:
+            footer = f"{warning} • {footer}"
+        embed.set_footer(text=footer)
+        # 7️⃣ Update message
+        await interaction.response.edit_message(embed=embed, view=paged_view)
         paged_view.message = await interaction.original_response()
+
 
 
 
