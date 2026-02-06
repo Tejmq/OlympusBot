@@ -118,36 +118,41 @@ class DidYouMeanView(ui.View):
 
 
 
-class DidYouMeanButton(ui.Button):
-    def __init__(self, label):
-        super().__init__(
-            label=label,
-            style=discord.ButtonStyle.primary
-        )
-    async def callback(self, interaction: Interaction):
-        view: DidYouMeanView = self.view
-        # Fix the argument
-        view.parts[view.index] = self.label
-        # Re-run correct handler
-        output = view.resolver(view.df, self.label)
-        if output is None or output.empty:
-            await interaction.response.edit_message(
-                content="❌ No results after correction.",
-                embed=None,
-                view=None
-            )
-            return
-        output = add_index(output[view.columns])
-        lines = dataframe_to_markdown_aligned(output.iloc[:15])
-        embed = Embed(
-            title=view.title,
-            description=f"```text\n{chr(10).join(lines)}\n```",
-            color=discord.Color.dark_grey()
-        )
+async def callback(self, interaction: Interaction):
+    view: DidYouMeanView = self.view
+    # Resolve corrected output
+    output = view.resolver(view.df, self.label)
+    if output is None or output.empty:
         await interaction.response.edit_message(
-            embed=embed,
+            content="❌ No results after correction.",
+            embed=None,
             view=None
         )
+        return
+    output = add_index(output[view.columns])
+    # Build pagination view
+    paged_view = RangePaginationView(
+        df=output,
+        start_index=1,
+        range_size=min(15, len(output)),
+        title=view.title,
+        shorten_tank=True
+    )
+    slice_df = output.iloc[:paged_view.range_size].copy()
+    slice_df["Ņ"] = range(1, len(slice_df) + 1)
+    lines = dataframe_to_markdown_aligned(slice_df)
+    embed = Embed(
+        title=view.title,
+        description=f"```text\n{chr(10).join(lines)}\n```",
+        color=discord.Color.dark_grey()
+    )
+    embed.set_footer(text=f"Rows 1-{len(slice_df)} / {len(output)}")
+    await interaction.response.edit_message(
+        embed=embed,
+        view=paged_view
+    )
+    paged_view.message = await interaction.original_response()
+
 
 
 
@@ -539,41 +544,19 @@ async def fuzzy_or_abort(
     max_results=5,
     cutoff=0.65
 ):
-    lookup = {c.lower(): c for c in choices}
-    if user_input.lower() in lookup:
-        return lookup[user_input.lower()]
+    lookup = {str(c).lower(): str(c) for c in choices if pd.notna(c)}
+
+    key = user_input.lower()
+    if key in lookup:
+        return lookup[key]
+
     matches = get_close_matches(
-        user_input.lower(),
+        key,
         lookup.keys(),
         n=max_results,
         cutoff=cutoff
     )
-    if not matches:
-        await safe_send(
-            message.channel,
-            content=f"❌ No match found for `{user_input}`."
-        )
-        return None
-    suggestions = [lookup[m] for m in matches]
-    embed = Embed(
-        title=title,
-        description="\n".join(f"• **{s}**" for s in suggestions),
-        color=discord.Color.orange()
-    )
-    view = DidYouMeanView(
-        cmd=None,
-        channel=message.channel,
-        df=df,
-        parts=message.content.split(";"),
-        index=arg_index,
-        resolver=resolver,
-        title=result_title,
-        columns=columns
-    )
-    for s in suggestions:
-        view.add_item(DidYouMeanButton(s))
-    await safe_send(message.channel, embed=embed, view=view)
-    return None
+
 
 
 
