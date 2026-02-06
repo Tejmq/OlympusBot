@@ -115,6 +115,46 @@ class DidYouMeanView(ui.View):
         self.columns = columns
 
 
+class DidYouMeanButton(ui.Button):
+    def __init__(self, label: str):
+        super().__init__(
+            label=label,
+            style=discord.ButtonStyle.secondary
+        )
+
+    async def callback(self, interaction: Interaction):
+        view: DidYouMeanView = self.view
+        output = view.resolver(view.df, self.label)
+        if output is None or output.empty:
+            await interaction.response.edit_message(
+                content="❌ No results after correction.",
+                embed=None,
+                view=None
+            )
+            return
+        output = add_index(output[view.columns])
+        paged_view = RangePaginationView(
+            df=output,
+            start_index=1,
+            range_size=min(15, len(output)),
+            title=view.title,
+            shorten_tank=True
+        )
+        slice_df = output.iloc[:paged_view.range_size].copy()
+        slice_df["Ņ"] = range(1, len(slice_df) + 1)
+        lines = dataframe_to_markdown_aligned(slice_df)
+        embed = Embed(
+            title=view.title,
+            description=f"```text\n{chr(10).join(lines)}\n```",
+            color=discord.Color.dark_grey()
+        )
+        embed.set_footer(text=f"Rows 1-{len(slice_df)} / {len(output)}")
+        await interaction.response.edit_message(
+            embed=embed,
+            view=paged_view
+        )
+        paged_view.message = await interaction.original_response()
+
 
 
 
@@ -581,12 +621,8 @@ async def fuzzy_or_abort(
     for m in matches:
         original = lookup[m]
         embed.add_field(name=original, value="‎", inline=False)
-        view.add_item(
-            ui.Button(
-                label=original,
-                style=discord.ButtonStyle.secondary
-            )
-        )
+        view.add_item(DidYouMeanButton(original))
+
     # attach callbacks
     for item in view.children:
         item.callback = callback
