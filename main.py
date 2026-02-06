@@ -92,13 +92,28 @@ def fuzzy_matches(query, choices, max_results=5, cutoff=0.7):
 
 
 class DidYouMeanView(ui.View):
-    def __init__(self, *, cmd, channel, df, parts, index):
+    def __init__(
+        self,
+        *,
+        cmd,
+        channel,
+        df,
+        parts,
+        index,
+        resolver,      # <—— NEW
+        title,
+        columns
+    ):
         super().__init__(timeout=30)
         self.cmd = cmd
         self.channel = channel
         self.df = df
-        self.parts = parts      # original split command
-        self.index = index      # which part is being corrected
+        self.parts = parts
+        self.index = index
+        self.resolver = resolver
+        self.title = title
+        self.columns = columns
+
 
 
 
@@ -109,39 +124,31 @@ class DidYouMeanButton(ui.Button):
             label=label,
             style=discord.ButtonStyle.primary
         )
-
     async def callback(self, interaction: Interaction):
         view: DidYouMeanView = self.view
-
         # Fix the argument
         view.parts[view.index] = self.label
-
-        # Re-run logic inline (no fake messages)
-        output = handle_tank(view.df, self.label)
-
-        if output.empty:
+        # Re-run correct handler
+        output = view.resolver(view.df, self.label)
+        if output is None or output.empty:
             await interaction.response.edit_message(
                 content="❌ No results after correction.",
                 embed=None,
                 view=None
             )
             return
-
-        output = output[["Ņ", "Tank", "Name", "Score", "Id"]]
-        output = add_index(output)
-
+        output = add_index(output[view.columns])
         lines = dataframe_to_markdown_aligned(output.iloc[:15])
-
         embed = Embed(
-            title="Tank Scores",
+            title=view.title,
             description=f"```text\n{chr(10).join(lines)}\n```",
             color=discord.Color.dark_grey()
         )
-
         await interaction.response.edit_message(
             embed=embed,
-            view=None   # remove buttons
+            view=None
         )
+
 
 
 
@@ -292,7 +299,7 @@ async def send_info_embed(channel, df, info_id):
 
     date = str(safe_val(row, "Date", "Unknown"))[:10]
     playtime1 = round((playtime / 3600), 2) 
-    ratio = round(score / (playtime / 3600), 0) if playtime > 0 else 0
+    ratio = score / (playtime / 3600) if playtime > 0 else None
 
     # Playtime display
     if playtime > 0:
@@ -301,9 +308,8 @@ async def send_info_embed(channel, df, info_id):
         playtime_display = "Unknown"
 
 
-    # Ratio display
-    if ratio > 0:
-        ratio_display = f"{int(ratio):,}"
+    if ratio is not None:
+        ratio_display = f"{ratio:,.0f}"
     else:
         ratio_display = "Unknown"
 
@@ -523,16 +529,17 @@ async def fuzzy_or_abort(
     *,
     message,
     df,
-    cmd,
     user_input,
     choices,
     arg_index,
+    resolver,
+    title,
+    result_title,
+    columns,
     max_results=5,
-    cutoff=0.65,
-    title="Did you mean…?"
+    cutoff=0.65
 ):
     lookup = {c.lower(): c for c in choices}
-    # Exact match
     if user_input.lower() in lookup:
         return lookup[user_input.lower()]
     matches = get_close_matches(
@@ -554,17 +561,21 @@ async def fuzzy_or_abort(
         color=discord.Color.orange()
     )
     view = DidYouMeanView(
-        cmd=cmd,
+        cmd=None,
         channel=message.channel,
         df=df,
         parts=message.content.split(";"),
-        index=arg_index
+        index=arg_index,
+        resolver=resolver,
+        title=result_title,
+        columns=columns
     )
     for s in suggestions:
         view.add_item(DidYouMeanButton(s))
-    sent = await safe_send(message.channel, embed=embed, view=view)
-    view.message = sent
+    await safe_send(message.channel, embed=embed, view=view)
     return None
+
+
 
 
 
@@ -664,10 +675,27 @@ async def on_message(message):
         
     elif cmd == "n":
         if len(parts) < 3:
-            await safe_send(message.channel, content="❌ Usage: !o;n;PlayerName;1-15")
+            await safe_send(
+                message.channel,
+                content="❌ Usage: !o;n;PlayerName"
+            )
             return
-        name = parts[2].strip()
+        name_input = parts[2].strip()
+        name = await fuzzy_or_abort(
+            message=message,
+            df=df,
+            user_input=name_input,
+            choices=df["Name"].dropna().unique(),
+            arg_index=2,
+            resolver=handle_name,
+            title="Player not found — did you mean?",
+            result_title="Player Scores",
+            columns=["Ņ", "Tank", "Name", "Score", "Id"]
+        )
+        if name is None:
+            return
         output = handle_name(df, name)
+
 
     elif cmd == "c":
         output = normalize_score(df).sort_values("Score", ascending=False).drop_duplicates("Tank")
@@ -675,24 +703,22 @@ async def on_message(message):
     elif cmd == "p":
         output = normalize_score(df).sort_values("Score", ascending=False)
 
-    
     elif cmd == "t":
-        if len(parts) < 3:
-            await safe_send(message.channel, content="Tank name required.")
-            return
         tank_input = parts[2].strip()
         tank = await fuzzy_or_abort(
             message=message,
             df=df,
-            cmd="t",
             user_input=tank_input,
             choices=df["Tank"].dropna().unique(),
-            arg_index=2
+            arg_index=2,
+            resolver=handle_tank,
+            title="Tank not found — did you mean?",
+            result_title="Tank Scores",
+            columns=["Ņ", "Tank", "Name", "Score", "Id"]
         )
         if tank is None:
             return
         output = handle_tank(df, tank)
-
 
     
     elif cmd == "s":
@@ -768,8 +794,8 @@ async def on_message(message):
 
                 ";1-15    -to imput range      ;r    -to pick category \n"
             
-                "!o;s;id                 - Random recommendation\n"
-                "!o;i;id                 - Random recommendation\n"
+                "!o;s;id                 - Screenshot of the score\n"
+                "!o;i;id                 - Detailed description\n"
                 "!o;r                    - Random recommendation\n" 
             )
         await safe_send(message.channel, content=help_message)
