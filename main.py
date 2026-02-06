@@ -549,13 +549,54 @@ async def fuzzy_or_abort(
     key = user_input.lower()
     if key in lookup:
         return lookup[key]
-
     matches = get_close_matches(
         key,
         lookup.keys(),
         n=max_results,
         cutoff=cutoff
     )
+    # ❌ No matches at all
+    if not matches:
+        await safe_send(
+            message.channel,
+            content=f"❌ `{user_input}` not found."
+        )
+        return None
+    # 🤔 Did you mean?
+    embed = Embed(
+        title=title,
+        description="Did you mean one of these?",
+        color=discord.Color.dark_grey()
+    )
+    view = DidYouMeanView(
+        cmd=message.content,
+        channel=message.channel,
+        df=df,
+        parts=message.content.split(";"),
+        index=arg_index,
+        resolver=resolver,
+        title=result_title,
+        columns=columns
+    )
+    for m in matches:
+        original = lookup[m]
+        embed.add_field(name=original, value="‎", inline=False)
+        view.add_item(
+            ui.Button(
+                label=original,
+                style=discord.ButtonStyle.secondary
+            )
+        )
+    # attach callbacks
+    for item in view.children:
+        item.callback = callback
+    await safe_send(
+        message.channel,
+        embed=embed,
+        view=view
+    )
+    return None
+
 
 
 
