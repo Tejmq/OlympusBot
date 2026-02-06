@@ -11,6 +11,7 @@ from threading import Lock
 import asyncio
 from discord.errors import HTTPException
 import re
+from difflib import get_close_matches
 
 FETCH_LOCK = Lock()
 
@@ -70,6 +71,63 @@ def safe_val(row, key, default="Unknown"):
         return v
     except Exception:
         return default
+
+
+def fuzzy_matches(query, choices, max_results=5, cutoff=0.7):
+    """
+    Returns up to max_results close matches.
+    cutoff ~ similarity (0.0–1.0)
+    """
+    query = query.lower()
+    choices_lower = {c.lower(): c for c in choices}
+    matches = get_close_matches(
+        query,
+        choices_lower.keys(),
+        n=max_results,
+        cutoff=cutoff
+    )
+    return [choices_lower[m] for m in matches]
+
+
+
+
+class DidYouMeanView(ui.View):
+    def __init__(self, bot, original_message, cmd, suggestions):
+        super().__init__(timeout=30)
+        self.bot = bot
+        self.original_message = original_message
+        self.cmd = cmd
+
+        for s in suggestions:
+            self.add_item(DidYouMeanButton(s, cmd))
+
+
+
+class DidYouMeanButton(ui.Button):
+    def __init__(self, suggestion, cmd):
+        super().__init__(
+            label=suggestion,
+            style=discord.ButtonStyle.primary
+        )
+        self.suggestion = suggestion
+        self.cmd = cmd
+
+    async def callback(self, interaction: Interaction):
+        fixed_command = f"!o;{self.cmd};{self.suggestion}"
+
+        await interaction.response.send_message(
+            content=f"🔁 Running: `{fixed_command}`",
+            ephemeral=True
+        )
+
+        # Fake a new message object
+        fake = interaction.message
+        fake.content = fixed_command
+        fake.author = interaction.user
+
+        await interaction.client.dispatch("message", fake)
+
+
 
 
 def read_excel_cached():
@@ -438,6 +496,91 @@ async def send_embed_table(channel, title, lines, page=1, total=1):
     await channel.send(embed=embed)
 
 
+from difflib import get_close_matches
+
+
+
+
+
+async def fuzzy_or_abort(
+    *,
+    channel,
+    bot,
+    original_message,
+    cmd,
+    user_input,
+    choices,
+    max_results=5,
+    cutoff=0.65,
+    title="Did you mean…?"
+):
+    """
+    Returns corrected value OR None if suggestions were shown.
+    """
+    # Exact match (case-insensitive)
+    lookup = {c.lower(): c for c in choices}
+    if user_input.lower() in lookup:
+        return lookup[user_input.lower()]
+    # Fuzzy matches
+    matches = get_close_matches(
+        user_input.lower(),
+        lookup.keys(),
+        n=max_results,
+        cutoff=cutoff
+    )
+    if not matches:
+        await safe_send(
+            channel,
+            content=f"❌ No match found for `{user_input}`."
+        )
+        return None
+    suggestions = [lookup[m] for m in matches]
+    embed = Embed(
+        title=title,
+        description="\n".join(f"• **{s}**" for s in suggestions),
+        color=discord.Color.orange()
+    )
+    view = DidYouMeanView(
+        bot=bot,
+        original_message=original_message,
+        cmd=cmd,
+        suggestions=suggestions
+    )
+    await safe_send(channel, embed=embed, view=view)
+    return None
+
+
+
+
+class DidYouMeanView(ui.View):
+    def __init__(self, bot, original_message, cmd, suggestions):
+        super().__init__(timeout=30)
+        self.bot = bot
+        self.original_message = original_message
+        self.cmd = cmd
+        for s in suggestions:
+            self.add_item(DidYouMeanButton(s, cmd))
+
+
+class DidYouMeanButton(ui.Button):
+    def __init__(self, suggestion, cmd):
+        super().__init__(
+            label=suggestion,
+            style=discord.ButtonStyle.primary
+        )
+        self.suggestion = suggestion
+        self.cmd = cmd
+    async def callback(self, interaction: Interaction):
+        fixed_command = f"!o;{self.cmd};{self.suggestion}"
+        await interaction.response.send_message(
+            content=f"🔁 Running `{fixed_command}`",
+            ephemeral=True
+        )
+        fake = interaction.message
+        fake.content = fixed_command
+        fake.author = interaction.user
+        await interaction.client.dispatch("message", fake)
+
 
 
 
@@ -547,12 +690,27 @@ async def on_message(message):
     elif cmd == "p":
         output = normalize_score(df).sort_values("Score", ascending=False)
 
+    
     elif cmd == "t":
         if len(parts) < 3:
             await safe_send(message.channel, content="Tank name required.")
             return
-        output = handle_tank(df, parts[2])
+        tank_input = parts[2].strip()
+        tank = await fuzzy_or_abort(
+            channel=message.channel,
+            bot=bot,
+            original_message=message,
+            cmd="t",
+            user_input=tank_input,
+            choices=df["Tank"].dropna().unique()
+        )
+        if tank is None:
+            return
+        output = handle_tank(df, tank)
 
+
+
+    
     elif cmd == "s":
         if len(parts) < 3:
             await safe_send(
