@@ -198,7 +198,7 @@ def extract_gt(parts, valid=None):
     Returns (gt_letter or None)
     """
     if valid is None:
-        valid = {"a", "r", "f"}
+        valid = {"a", "r", "f", "l"}
 
     for p in parts:
         p = p.strip().lower()
@@ -565,38 +565,6 @@ async def fuzzy_or_abort(
     sent = await safe_send(message.channel, embed=embed, view=view)
     view.message = sent
     return None
-
-
-
-
-class DidYouMeanView(ui.View):
-    def __init__(self, bot, original_message, cmd, suggestions):
-        super().__init__(timeout=30)
-        self.bot = bot
-        self.original_message = original_message
-        self.cmd = cmd
-        for s in suggestions:
-            self.add_item(DidYouMeanButton(s, cmd))
-
-
-class DidYouMeanButton(ui.Button):
-    def __init__(self, suggestion, cmd):
-        super().__init__(
-            label=suggestion,
-            style=discord.ButtonStyle.primary
-        )
-        self.suggestion = suggestion
-        self.cmd = cmd
-    async def callback(self, interaction: Interaction):
-        fixed_command = f"!o;{self.cmd};{self.suggestion}"
-        await interaction.response.send_message(
-            content=f"🔁 Running `{fixed_command}`",
-            ephemeral=True
-        )
-        fake = interaction.message
-        fake.content = fixed_command
-        fake.author = interaction.user
-        await interaction.client.dispatch("message", fake)
 
 
 
