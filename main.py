@@ -158,7 +158,7 @@ class DidYouMeanButton(ui.Button):
         # 4️⃣ Extract range from original command parts
         start, end, range_size, warning = extract_range(
             view.parts,
-            max_range=15,
+            max_range=20,
             total_len=len(output)
         )
         # 5️⃣ Create pagination view for full filtered output
@@ -647,14 +647,16 @@ def handle_tank(df, tank):
     df = normalize_score(df)
     return df[df["Tank"].str.lower() == tank.lower()].sort_values("Score", ascending=False)
 
-def extract_range(parts, max_range=15, total_len=0):
+def extract_range(parts, max_range=20, total_len=0):
     """
     Extract start, end, and size from user input like '1-5'.
     Returns (start, end, size, warning)
     """
     warning = None
-    start, end = 1, 1  # default to 1 row
-    size = 1
+    start = 1
+    end = min(20, total_len)
+    size = end - start + 1
+
 
     for p in parts:
         if "-" in p:
