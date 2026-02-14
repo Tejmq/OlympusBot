@@ -290,11 +290,11 @@ async def handle_branch_command(message, branch_name: str):
         await safe_send(message.channel, content="❌ Tank list unavailable.")
         return
 
-    # If it’s a list, wrap it in a default branch
+    # Wrap list into a default branch if needed
     if isinstance(tanks_json2, list):
         tanks_json2 = {"Default": tanks_json2}
 
-    # Find branch
+    # Find branch key
     branch_key = None
     for key, branch_list in tanks_json2.items():
         if key.lower() == branch_name.lower() or branch_name.lower() in map(str.lower, branch_list):
@@ -307,7 +307,7 @@ async def handle_branch_command(message, branch_name: str):
 
     branch_tanks = tanks_json2[branch_key]
 
-    # Load Excel data
+    # Load Excel
     df = read_excel_cached()
     if isinstance(df, str) or df.empty:
         await safe_send(message.channel, content="❌ Data unavailable.")
@@ -315,7 +315,7 @@ async def handle_branch_command(message, branch_name: str):
     df.columns = df.columns.str.strip()
     df = normalize_score(df)
 
-    # Build display rows
+    # Build rows: top 1 score per tank
     rows = []
     for tank in branch_tanks:
         tank_rows = df[df["Tank"].str.lower() == tank.lower()]
@@ -330,24 +330,30 @@ async def handle_branch_command(message, branch_name: str):
                 "Id": best.get("Id", "")
             })
 
-    # Sort by Score descending
+    # Sort descending by Score
     rows.sort(key=lambda x: x["Score"], reverse=True)
 
-    # Create DataFrame for formatting
+    # Limit to top 15 tanks
+    rows = rows[:15]
+
+    # Create DataFrame
     display_df = pd.DataFrame(rows)
     display_df["Ņ"] = range(1, len(display_df) + 1)
     display_df = display_df[["Ņ", "Tank", "Name", "Score", "Id"]]
 
-    # Convert to aligned markdown
+    # Convert to markdown-aligned lines
     lines = dataframe_to_markdown_aligned(display_df)
 
+    # Send embed
     embed = Embed(
         title=f"{branch_key} Branch",
         description=f"```text\n{chr(10).join(lines)}\n```",
         color=discord.Color.dark_grey()
     )
-    embed.set_footer(text=f"Branch contains {len(display_df)} tanks")
+    embed.set_footer(text=f"Showing top {len(display_df)} tanks in branch")
     await safe_send(message.channel, embed=embed)
+
+
 
 
 
