@@ -1,0 +1,396 @@
+{
+  "basic": [
+    "Basic",
+    "Twin",
+    "Sniper",
+    "Machine Gun",
+    "Flank Guard",
+    "Director",
+    "Pounder",
+    "Trapper",
+    "Smasher",
+    "Single",
+    "Healer"
+  ],
+
+  "twin": [
+    "Twin",
+    "Double Twin",
+    "Triple Twin",
+    "Quad Twin",
+    "Auto-Triple Twin",
+    "Bent Triple",
+    "Hewn Triple",
+    "Triple Flank Twin",
+    "Triple Gunner",
+    "Warkwarkwark",
+    "Hewn Double",
+    "Auto-Hewn Double",
+    "Cleft",
+    "Skewn Double",
+    "Hewn Flank Double",
+    "Hewn Gunner",
+    "Warkwawarkrk",
+    "Auto-Double",
+    "Mega Auto-Double",
+    "Triple Auto-Double",
+    "Auto-Bent Double",
+    "Auto-Double Flank Twin",
+    "Auto-Double Gunner",
+    "Auto-Warkwark",
+    "Bent Double",
+    "Penta Double",
+    "Double Triplet",
+    "Double Spreadshot",
+    "Bent Flank Double",
+    "Bent Double Gunner",
+    "Bent Double Minigun",
+    "Split Double",
+    "Waarrkwaarrk",
+    "Double Flank Twin",
+    "Double Flank Gunner",
+    "Hipwatch",
+    "Scuffler",
+    "Warkwawawark",
+    "Double Gunner",
+    "Double Nailgun",
+    "Double Machine Gunner",
+    "Overdouble Gunner",
+    "Double Battery",
+    "Double Rimfire",
+    "Double Volley",
+    "Double Equalizer",
+    "Warkwark"
+  ],
+
+  "triple_shot": [
+    "Triple Shot",
+    "Penta Shot",
+    "Hepta Shot",
+    "Quintuplet",
+    "Crackshot",
+    "Auto-Penta Shot",
+    "Flexed Gunner",
+    "Flexed Minigun",
+    "Deficiency",
+    "Waarararrk",
+    "Spreadshot",
+    "Smearer",
+    "Auto-Spreadshot",
+    "Dauber",
+    "Ballista",
+    "Bozo",
+    "Fungus",
+    "Bent Hybrid",
+    "Overshot",
+    "Bent Synthesis",
+    "Hatcher",
+    "Bent Hybriddrive",
+    "Bent Crossbreed",
+    "Split Hybrid",
+    "Auto-Bent Hybrid",
+    "Spambrid",
+    "Junker",
+    "Triprid",
+    "Bent Catcher"
+  ],
+
+  "triplet": [
+    "Triplet",
+    "Quintuplet",
+    "Triprid",
+    "Auto-Triplet",
+    "Lasher",
+    "Minilet",
+    "Nitwit",
+    "Warklet"
+  ],
+
+  "split_shot": [
+    "Split Shot",
+    "Slit Shot",
+    "Split Hybrid",
+    "Split Double",
+    "Auto-Split Shot",
+    "Hackshot",
+    "Dork",
+    "Splinter Shot"
+  ],
+
+  "gunner": [
+    "Gunner",
+    "Hexa Tank",
+    "Bent Gunner",
+    "Flexed Gunner",
+    "Spambird",
+    "Bent Double Gunner",
+    "Auto-Bent Gunner",
+    "Dagger",
+    "Bent Volley",
+    "Donkey"
+  ],
+
+  "minigun": [
+    "Bent Minigun",
+    "Flexed Minigun",
+    "Bent Double Minigun",
+    "Bent Streamliner",
+    "Bent Barricade",
+    "Bent Subverter",
+    "Jerker",
+    "Sizzler",
+    "Auto-Bent Minigun",
+    "Bent Widget"
+  ],
+
+  "defect": [
+    "Defect",
+    "Deficiency",
+    "Bozo",
+    "Nitwit",
+    "Dork",
+    "Donkey",
+    "Mangle",
+    "Loon",
+    "Klutz",
+    "Jerker",
+    "Fault",
+    "Auto-Defect"
+  ],
+
+  "trap": [
+    "Waarrk",
+    "Waarararrk",
+    "Fungus",
+    "Bent Catcher",
+    "Waarrkwaarrk",
+    "Warklet",
+    "Splinter Shot",
+    "Auto-Waarrk",
+    "Dagger",
+    "Bent Barricade",
+    "Bent Bulwark",
+    "Brig",
+    "Yard",
+    "Spitter"
+  ],
+
+  "dual": [
+    "Dual",
+    "Threefold",
+    "Double Dual",
+    "Ravisher",
+    "Vulture",
+    "Nimrod",
+    "Auto-Dual",
+    "Bifold",
+    "Dyadic"
+  ],
+
+  "bulwark": [
+    "Bulwark",
+    "Parapet",
+    "Partition",
+    "Thrasher",
+    "Dam",
+    "Striker",
+    "Bent Bulwark",
+    "Auto-Bulwark",
+    "Stockade",
+    "Fencer",
+    "Impeder",
+    "Quadwark"
+  ],
+
+  "musket": [
+    "Musket",
+    "Double Musket",
+    "Flintlock",
+    "Arbalest",
+    "Matchlock",
+    "Auto-Musket",
+    "Duelist",
+    "Bifold",
+    "Duo"
+  ]
+}
+{
+  "sniper": [
+    "Sniper"
+  ],
+
+  "assassin": [
+    "Assassin",
+    "Auto-Assassin",
+    "Mega Auto-Assassin",
+    "Triple Auto-Assassin",
+    "Overassassin",
+    "Hitman",
+    "Auto-Hitman",
+    "Hitmandrive",
+    "Contractor",
+    "Gunman",
+    "Formulator",
+    "Slayer",
+    "Immolater",
+    "Executor",
+    "Finger"
+  ],
+
+  "ranger": [
+    "Ranger",
+    "Vindicator",
+    "Maverick",
+    "Acquirer",
+    "Examiner",
+    "Auto-Ranger"
+  ],
+
+  "falcon": [
+    "Falcon",
+    "Merlin",
+    "Peregrine",
+    "Auto-Falcon",
+    "Harpy",
+    "Sparrow",
+    "Caracara",
+    "Merganser",
+    "Cassowary"
+  ],
+
+  "stalker": [
+    "Stalker",
+    "Pursuer",
+    "Auto-Stalker",
+    "Creeper",
+    "Hawker",
+    "Owl",
+    "Trailer",
+    "Tailer",
+    "Scruntiner"
+  ],
+
+  "drone": [
+    "Doorman",
+    "Mercenary",
+    "Rustler",
+    "Poacher",
+    "Overhunter",
+    "Plunderer",
+    "Maker",
+    "Poacherdrive",
+    "Nabber"
+  ],
+
+  "sniper3": [
+    "Sniper-3",
+    "Assassin-3",
+    "Sniper-5",
+    "Auto-Sniper-3",
+    "Rifle-3",
+    "Hunter-3"
+  ],
+
+  "hunter": [
+    "Hunter",
+    "Predator",
+    "Carnivore",
+    "Auto-Hunter",
+    "Mega Hunter",
+    "Ultra Hunter",
+    "Mega Predator",
+    "Auto-Predator",
+    "Presage",
+    "Garroter",
+    "Flicher",
+    "Courser",
+    "Auto-Courser",
+    "Mega Courser"
+  ],
+
+  "ordnance": [
+    "Ordnance",
+    "Auto-Ordnance",
+    "Mega Ordnance",
+    "Firepower",
+    "Carnage",
+    "Lyncher",
+    "Broadsider",
+    "Escort",
+    "Ruiner",
+    "Arsenal",
+    "Huntsman"
+  ],
+
+  "dual": [
+    "Dual",
+    "Threefold",
+    "Double Dual",
+    "Ravisher",
+    "Vulture",
+    "Nimrod",
+    "Auto-Dual",
+    "Bifold",
+    "Dyadic"
+  ],
+
+  "musket": [
+    "Musket",
+    "Double Musket",
+    "Flintlock",
+    "Arbalest",
+    "Matchlock",
+    "Auto-Musket",
+    "Duelist"
+  ],
+
+  "crossbow": [
+    "Crossbow",
+    "Recurver",
+    "Ballista",
+    "Auto-Crossbow",
+    "Pique"
+  ],
+
+  "rifle": [
+    "Rifle",
+    "Enforcer",
+    "Prober",
+    "Auto-Rifle",
+    "Mega Auto-Rifle",
+    "Triple Auto-Rifle"
+  ],
+
+  "armsman": [
+    "Armsman",
+    "Overrifle",
+    "Partisan",
+    "Copier",
+    "Vendor",
+    "Auto-Armsman",
+    "Slayer",
+    "Pilfer"
+  ],
+
+  "bushwhacker": [
+    "Bushwhacker",
+    "Butcher",
+    "Tommy",
+    "Ransacker",
+    "Raider",
+    "Molder",
+    "Thrasher",
+    "Auto-Bushwhacker"
+  ],
+
+  "railgun": [
+    "Railgun",
+    "Thunderclap",
+    "Reverberator",
+    "Auto-Railgun",
+    "Deadeye",
+    "Raven",
+    "Covert",
+    "Sharpshooter"
+  ]
+}
