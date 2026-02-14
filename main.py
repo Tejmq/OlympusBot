@@ -18,7 +18,7 @@ FETCH_LOCK = Lock()
 EXCEL_GITHUB_URL = "https://raw.githubusercontent.com/Tejmq/OlympusBot/main/data/Olympus.xlsx"
 LOCAL_EXCEL_PATH = "data/Olympus.xlsx"
 TANKS_JSON_URL = "https://raw.githubusercontent.com/Tejmq/OlympusBot/refs/heads/main/data/tanks.json"
-TANKS_JSON2_URL = "https://raw.githubusercontent.com/Tejmq/OlympusBot/refs/heads/main/data/branches.json"
+TANKS_JSON2_URL = "https://raw.githubusercontent.com/Tejmq/OlympusBot/main/data/branches.json"
 
 COLUMNS_DEFAULT = ["Ņ", "Score", "Name", "Tank", "Id"]
 COLUMNS_C = ["Ņ", "Tank", "Name", "Score", "Id"]
@@ -283,36 +283,40 @@ async def send_screenshot(channel, df, screenshot_id):
 
 
 
-BRANCHES = {}
-async def load_branches():
-    global BRANCHES
-    if BRANCHES:
-        return BRANCHES
+BRANCHES_JSON = []
+def load_branches():
+    global BRANCHES_JSON
+    if BRANCHES_JSON:
+        return BRANCHES_JSON
 
     try:
         r = requests.get(TANKS_JSON2_URL, timeout=10)
         r.raise_for_status()
         if "html" in r.headers.get("Content-Type", "").lower():
-            print("Branches JSON fetch returned HTML — possible rate-limit")
+            print("Branches JSON fetch returned HTML — possible wrong URL")
             return "html_error"
-        BRANCHES = r.json()
-        print("Branches loaded from GitHub")
+        BRANCHES_JSON = r.json()
     except Exception as e:
-        print("Branches load failed:", e)
+        print("Branch list load failed:", e)
         return "fetch_error"
-    return BRANCHES
+    return BRANCHES_JSON
+
 
 
 
 
 
 async def handle_branch_command(message, branch_name: str):
-    branches = await load_branches()
+    branches = load_branches()
     if isinstance(branches, str):
         await safe_send(message.channel, content="❌ Branch list unavailable.")
         return
 
-    # Find branch
+    if not isinstance(branches, dict):
+        await safe_send(message.channel, content="❌ Invalid branch data.")
+        return
+
+    # branch matching
     branch_key = None
     for key, branch_list in branches.items():
         if key.lower() == branch_name.lower() or branch_name.lower() in map(str.lower, branch_list):
@@ -322,7 +326,6 @@ async def handle_branch_command(message, branch_name: str):
     if not branch_key:
         await safe_send(message.channel, content=f"❌ Branch `{branch_name}` not found.")
         return
-
     branch_tanks = branches[branch_key]
 
     # Load Excel
