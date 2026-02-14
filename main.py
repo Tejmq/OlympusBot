@@ -283,20 +283,38 @@ async def send_screenshot(channel, df, screenshot_id):
 
 
 
+BRANCHES = {}
+async def load_branches():
+    global BRANCHES
+    if BRANCHES:
+        return BRANCHES
+
+    try:
+        r = requests.get(TANKS_JSON2_URL, timeout=10)
+        r.raise_for_status()
+        if "html" in r.headers.get("Content-Type", "").lower():
+            print("Branches JSON fetch returned HTML — possible rate-limit")
+            return "html_error"
+        BRANCHES = r.json()
+        print("Branches loaded from GitHub")
+    except Exception as e:
+        print("Branches load failed:", e)
+        return "fetch_error"
+    return BRANCHES
+
+
+
+
 
 async def handle_branch_command(message, branch_name: str):
-    tanks_json2 = load_tanks()
-    if isinstance(tanks_json2, str):
-        await safe_send(message.channel, content="❌ Tank list unavailable.")
+    branches = await load_branches()
+    if isinstance(branches, str):
+        await safe_send(message.channel, content="❌ Branch list unavailable.")
         return
 
-    # Wrap list into a default branch if needed
-    if isinstance(tanks_json2, list):
-        tanks_json2 = {"Default": tanks_json2}
-
-    # Find branch key
+    # Find branch
     branch_key = None
-    for key, branch_list in tanks_json2.items():
+    for key, branch_list in branches.items():
         if key.lower() == branch_name.lower() or branch_name.lower() in map(str.lower, branch_list):
             branch_key = key
             break
@@ -305,7 +323,7 @@ async def handle_branch_command(message, branch_name: str):
         await safe_send(message.channel, content=f"❌ Branch `{branch_name}` not found.")
         return
 
-    branch_tanks = tanks_json2[branch_key]
+    branch_tanks = branches[branch_key]
 
     # Load Excel
     df = read_excel_cached()
@@ -332,19 +350,14 @@ async def handle_branch_command(message, branch_name: str):
 
     # Sort descending by Score
     rows.sort(key=lambda x: x["Score"], reverse=True)
-
-    # Limit to top 15 tanks
     rows = rows[:15]
 
-    # Create DataFrame
     display_df = pd.DataFrame(rows)
     display_df["Ņ"] = range(1, len(display_df) + 1)
     display_df = display_df[["Ņ", "Tank", "Name", "Score", "Id"]]
 
-    # Convert to markdown-aligned lines
     lines = dataframe_to_markdown_aligned(display_df)
 
-    # Send embed
     embed = Embed(
         title=f"{branch_key} Branch",
         description=f"```text\n{chr(10).join(lines)}\n```",
