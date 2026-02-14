@@ -283,22 +283,30 @@ async def send_screenshot(channel, df, screenshot_id):
 
 
 
-# --- Branch command function ---
+
 async def handle_branch_command(message, branch_name: str):
     tanks_json2 = load_tanks()
     if isinstance(tanks_json2, str):
         await safe_send(message.channel, content="❌ Tank list unavailable.")
         return
-    # Find matching branch
+
+    # If it’s a list, wrap it in a default branch
+    if isinstance(tanks_json2, list):
+        tanks_json2 = {"Default": tanks_json2}
+
+    # Find branch
     branch_key = None
     for key, branch_list in tanks_json2.items():
         if key.lower() == branch_name.lower() or branch_name.lower() in map(str.lower, branch_list):
             branch_key = key
             break
+
     if not branch_key:
         await safe_send(message.channel, content=f"❌ Branch `{branch_name}` not found.")
         return
+
     branch_tanks = tanks_json2[branch_key]
+
     # Load Excel data
     df = read_excel_cached()
     if isinstance(df, str) or df.empty:
@@ -306,6 +314,7 @@ async def handle_branch_command(message, branch_name: str):
         return
     df.columns = df.columns.str.strip()
     df = normalize_score(df)
+
     # Build display rows
     rows = []
     for tank in branch_tanks:
@@ -320,14 +329,18 @@ async def handle_branch_command(message, branch_name: str):
                 "Name": best.get("Name", ""),
                 "Id": best.get("Id", "")
             })
+
     # Sort by Score descending
     rows.sort(key=lambda x: x["Score"], reverse=True)
+
     # Create DataFrame for formatting
     display_df = pd.DataFrame(rows)
     display_df["Ņ"] = range(1, len(display_df) + 1)
     display_df = display_df[["Ņ", "Tank", "Name", "Score", "Id"]]
+
     # Convert to aligned markdown
     lines = dataframe_to_markdown_aligned(display_df)
+
     embed = Embed(
         title=f"{branch_key} Branch",
         description=f"```text\n{chr(10).join(lines)}\n```",
@@ -335,13 +348,6 @@ async def handle_branch_command(message, branch_name: str):
     )
     embed.set_footer(text=f"Branch contains {len(display_df)} tanks")
     await safe_send(message.channel, embed=embed)
-
-
-
-
-
-
-
 
 
 
