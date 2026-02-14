@@ -1,4 +1,4 @@
-{
+
   "basic": [
     "Basic",
     "Twin",
@@ -214,7 +214,7 @@
     "Duo"
   ]
 }
-{
+
   "sniper": [
     "Sniper"
   ],
@@ -393,4 +393,4 @@
     "Covert",
     "Sharpshooter"
   ]
-}
+
