@@ -1,4 +1,4 @@
-
+{
   "basic": [
     "Basic",
     "Twin",
@@ -212,8 +212,7 @@
     "Duelist",
     "Bifold",
     "Duo"
-  ]
-}
+  ],
 
   "sniper": [
     "Sniper"
@@ -322,28 +321,6 @@
     "Huntsman"
   ],
 
-  "dual": [
-    "Dual",
-    "Threefold",
-    "Double Dual",
-    "Ravisher",
-    "Vulture",
-    "Nimrod",
-    "Auto-Dual",
-    "Bifold",
-    "Dyadic"
-  ],
-
-  "musket": [
-    "Musket",
-    "Double Musket",
-    "Flintlock",
-    "Arbalest",
-    "Matchlock",
-    "Auto-Musket",
-    "Duelist"
-  ],
-
   "crossbow": [
     "Crossbow",
     "Recurver",
@@ -393,4 +370,4 @@
     "Covert",
     "Sharpshooter"
   ]
-
+}
