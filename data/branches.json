@@ -777,7 +777,7 @@
 	"Auto-Sniper-3",
 	"Alloy",
 	"Rifle-3",
-	"Hunter-3 "
+	"Hunter-3"
   ],
 
         "Enforcer": [
@@ -982,7 +982,7 @@
 	"Hammer"
   ],
 
-        "Cropduster": [
+        "Crop Duster": [
     "Overminigun",
 	"Trimmer",
 	"Shearer",
@@ -2613,7 +2613,6 @@
 	"Inventor",
 	"Septa-Mech",
 	"Septa-Trap Guard"
-	""
   ],
 
         "Tri-Pen": [
@@ -2908,7 +2907,8 @@
     "Paramedic",
 	"Therapist",
 	"Clinician"
-
+  ],
+  
         "Tri-Healer": [
     "Ambulance",
 	"Healer-3",
