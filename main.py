@@ -353,7 +353,7 @@ async def handle_branch_command(message, branch_name: str):
 
     # Sort descending by Score
     rows.sort(key=lambda x: x["Score"], reverse=True)
-    rows = rows[:15]
+    rows = rows[:16]
 
     display_df = pd.DataFrame(rows)
     display_df["Ņ"] = range(1, len(display_df) + 1)
@@ -366,7 +366,7 @@ async def handle_branch_command(message, branch_name: str):
         description=f"```text\n{chr(10).join(lines)}\n```",
         color=discord.Color.dark_grey()
     )
-    embed.set_footer(text=f"Showing top {len(display_df)} tanks in branch")
+    embed.set_footer(text=f" {len(display_df)} tanks in this branch")
     await safe_send(message.channel, embed=embed)
 
 
@@ -903,12 +903,13 @@ async def on_message(message):
 
 
     # --- Call in on_message ---
-    elif cmd == "branch":
+    elif cmd == "br":
         if len(parts) < 3:
-            await safe_send(message.channel, content="❌ Usage: !o;branch;<branchname>")
+            await safe_send(message.channel, content="❌ Usage: !o;br;<branchname>")
             return
         branch_name = parts[2].strip()
         await handle_branch_command(message, branch_name)
+        return
 
 
     elif cmd == "d":
@@ -941,6 +942,7 @@ async def on_message(message):
                 "!o;t;TankName     - Best score of a tank\n"
                 "!o;n;Player       - Best scores of a specific player\n"
                 "!o;d;YYYY-MM-DD         - Scores from a specific date\n"
+                "!o;br;BranchName    - Highscores of every tank in a branch\n"
             
                 "!o;c             - Best tank list\n"
                 "!o;b              - Best player list\n"
