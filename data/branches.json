@@ -569,8 +569,166 @@
 	"Bent Catcher"
   ],
   
+      "Bent Double": [
+    "Bent Triple",
+	"Penta Double",
+	"Auto-Bent Double",
+	"Double Triplet",
+	"Cleft",
+	"Double Spreadshot",
+	"Bent Flank Double",
+	"Bent Double Gunner",
+	"Bent Double Minigun",
+	"Split Double",
+	"Waarrkwaarrk"
+  ],
+    
+      "Quintuplet": [
+    "Double Triplet",
+	"Triprid",
+	"Auto-Triplet",
+	"Lasher",
+	"Minilet",
+	"Nitwit",
+	"Warklet"
+  ],
+    
+      "Split Shot": [
+    "Slit Shot",
+	"Crackshot",
+	"Split Hybrid",
+	"Split Double",
+	"Auto-Split Shot",
+	"Hackshot",
+	"Dork",
+	"Splinter Shot"
+  ],
+    
+      "Auto-Triple Shot": [
+    "Mega-Auto Triplet",
+	"Triple Auto-Triple Shot",
+	"Auto-Penta Shot",
+	"Auto-Spreadshot",
+	"Auto-Bent Hybrid",
+	"Auto-Triplet",
+	"Auto-Split Shot",
+	"Auto-Bent Gunner",
+	"Auto-Bent Minigun",
+	"Auto-Defect",
+	"Auto-Waarrk"
+  ],
+    
+      "Bent Gunner": [
+    "Flexed Gunner",
+	"Spambird",
+	"Bent Double Gunner",
+	"Auto-Bent Gunner",
+	"Dagger",
+	"Bent Volley",
+	"Donkey"
+  ],
+    
+      "Bent Minigun": [
+    "Flexed Minigun",
+	"Bent Double Minigun",
+	"Junker",
+	"Hackshot",
+	"Minilet",
+	"Bent Streamliner",
+	"Bent Barricade",
+	"Bent Subverter",
+	"Jerker",
+	"Sizzler",
+	"Auto-Bent Minigun",
+	"Bent Widget"
+  ],
+    
+      "Defect": [
+    "Deficiency",
+	"Bozo",
+	"Nitwit",
+	"Dork",
+	"Donkey",
+	"Mangle",
+	"Loon",
+	"Klutz",
+	"Jerker",
+	"Fault",
+	"Auto-Defect"
+  ],
+    
+      "Waarrk": [
+    "Waarararrk",
+	"Fungus",
+	"Bent Catcher",
+	"Waarrkwaarrk",
+	"Warklet",
+	"Splinter Shot",
+	"Auto-Waarrk",
+	"Dagger",
+	"Bent Barricade",
+	"Fault",
+	"Bent Bulwark",
+	"Brig",
+	"Yard",
+	"Spitter"
+  ],
+    
+      "Dual": [
+    "Threefold",
+	"Double Dual",
+	"Ravisher",
+	"Vulture",
+	"Nimrod",
+	"Auto-Dual",
+	"Bifold",
+	"Dyadic"
+  ],
+    
+      "Bulwark": [
+    "Parapet",
+	"Partition",
+	"Thrasher",
+	"Dam",
+	"Striker",
+	"Bent Bulwark",
+	"Auto-Bulwark",
+	"Stockade",
+	"Fencer",
+	"Impeder",
+	"Quadwark"
+  ],
+    
+      "Musket": [
+    "Double Musket",
+	"Flintlock",
+	"Arbalest",
+	"Matchlock",
+	"Auto-Musket",
+	"Duelist",
+	"Bifold"
+  ],
+    
       "AutoDouble": [
     "",
+	"",
+	"",
+	"",
+	"",
+	"",
+	"",
+	"",
+	"",
+	"",
+	""
+  ],
+    
+      "AutoDouble": [
+    "",
+	"",
+	"",
+	"",
+	"",
 	"",
 	"",
 	"",
