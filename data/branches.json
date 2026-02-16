@@ -709,7 +709,264 @@
 	"Bifold"
   ],
     
-      "AutoDouble": [
+      "Ranger": [
+    "Vindicator",
+	"Peregrine",
+	"Auto-Ranger",
+	"Marine",
+	"Hawker",
+	"Doorman",
+	"Maverick",
+	"Acquirer"
+  ],
+    
+      "Falcon": [
+    "Merlin",
+	"Peregrine",
+	"Owl",
+	"Auto-Falcon",
+	"Harpy",
+	"Sparrow",
+	"Caracara",
+	"Merganser",
+	"Cassowary"
+  ],
+    
+      "Stalker": [
+    "Pursuer",
+	"Owl",
+	"Auto-Stalker",
+	"Hawker",
+	"Trailer",
+	"Tailer",
+	"Examiner",
+	"Scruntiner"
+  ],    
+      "Auto-Assassin": [
+    "Mega Auto-Assassin",
+	"Triple Auto-Assassin",
+	"Auto-Ranger",
+	"Auto-Falcon",
+	"Auto-Stalker",
+	"Auto-Buttbuttin",
+	"Auto-Hitman",
+	"Auto-Sniper-3",
+	"Auto-Enforcer",
+	"Auto-Courser"
+  ],
+
+        "Buttbuttin": [
+	"Baton",
+	"Marine",
+	"Harpy",
+	"Tailer",
+	"Fang",
+	"Barber",
+	"Mercenary",
+	"Auto-Buttbuttin",
+	"Armament",
+	"Sifter"
+  ],
+
+        "Hitman": [
+    "Overassassin",
+	"Gunman",
+	"Formulator",
+	"Hitmandrive",
+	"Contractor",
+	"Doorman",
+	"Trailer",
+	"Auto-Hitman",
+	"Mercenary",
+	"Slayer",
+	"Immolater"
+  ],
+
+        "Sniper-3": [
+    "Assassin-3",
+	"Creeper",
+	"Sniper-5",
+	"Phantom",
+	"Lever",
+	"Auto-Sniper-3",
+	"Alloy",
+	"Rifle-3",
+	"Hunter-3 "
+  ],
+
+        "Enforcer": [
+    "Maverick",
+	"Examiner",
+	"Pique",
+	"Slayer",
+	"Auto-Enforcer",
+	"Rifle-3",
+	"Duelist",
+	"Armament",
+	"Merganser",
+	"Flicher"
+  ],
+
+        "Courser": [
+    "Sifter",
+	"Hunter-3",
+	"Auto-Courser",
+	"Immolater",
+	"Scrutiner",
+	"Acquirer",
+	"Cassowary",
+	"Garroter",
+	"Lyncher",
+	"Dyadic",
+	"Mega Courser",
+	"Flicher"
+  ],
+
+        "Predator": [
+    "Carnivore",
+	"Arsenal",
+	"Rustler",
+	"Vulture",
+	"Auto-Predator",
+	"Mega Predator",
+	"Presage",
+	"Garroter"
+  ],
+
+        "Poacher": [
+    "Overhunter",
+	"Plunderer",
+	"Maker",
+	"Poacherdrive",
+	"Nabber",
+	"Rustler",
+	"Huntsman",
+	"Ravisher",
+	"Auto-Poacher",
+	"Mega Poacher",
+	"Pilfer",
+	"Immolater"
+  ],
+
+        "Ordnance": [
+    "Ruiner",
+	"Escort",
+	"Arsenal",
+	"Huntsman",
+	"Nimrod",
+	"Auto-Ordnance",
+	"Firepower",
+	"Mega Ordnance",
+	"Carnage",
+	"Lyncher",
+	"Broadsider"
+  ],
+
+        "Dual": [
+    "Threefold",
+	"Double Dual",
+	"Ravisher",
+	"Vulture",
+	"Nimrod",
+	"Auto-Dual",
+	"Bifold",
+	"Dyadic"
+  ],
+
+        "Auto-Hunter": [
+    "Mega Auto-Hunter",
+	"Triple Auto-Hunter",
+	"Auto-Predator",
+	"Auto-Ordnance",
+	"Auto-Poacher",
+	"Auto-Dual",
+	"Auto-Mega Hunter",
+	"Auto-Prober",
+	"Auto-Courser"
+  ],
+
+        "Mega Hunter": [
+    "Ultra Hunter",
+	"Slingshot",
+	"Mega Predator",
+	"Mega Ordnance",
+	"Mega Poacher",
+	"Auto-Mega Hunter",
+	"Mega Prober",
+	"Mega Courser"
+  ],
+
+        "Prober": [
+    "Presage",
+	"Bifold",
+	"Pilfer",
+	"Auto-Prober",
+	"Carnage",
+	"Mega Prober",
+	"Flicher"
+  ],
+
+        "Crossbow": [
+    "Recurver",
+	"Ballista",
+	"Arbalest",
+	"Harpoon",
+	"Auto-Crossbow",
+	"Pique",
+	"Carnage"
+  ],
+
+        "Armsman": [
+    "Overrifle",
+	"Partisan",
+	"Copier",
+	"Armsmandrive",
+	"Vendor",
+	"Matchlock",
+	"Harpoon",
+	"Auto-Armsman",
+	"Slayer",
+	"Pilfer"
+  ],
+
+        "Auto-Rifle": [
+    "Mega Auto-Rifle",
+	"Triple Auto-Rifle",
+	"Auto-Musket",
+	"Auto-Crossbow",
+	"Auto-Armsman",
+	"Auto-Enforcer",
+	"Auto-Prober"
+  ],
+
+        "Bushwhacker": [
+    "Executor",
+	"Anchor",
+	"Butcher",
+	"Tommy",
+	"Ransacker",
+	"Raider",
+	"Molder",
+	"Thrasher",
+	"Auto-Bushwhacker",
+	"Blowgun",
+	"Lockup",
+	"Watchman",
+	"Tri-Bushwacker"
+  ],
+
+        "Railgun": [
+    "Finger",
+	"Machgun",
+	"Thunderclap",
+	"Reverberator",
+	"Deadeye",
+	"Auto-Railgun",
+	"Raven",
+	"Covert"
+  ],
+
+        "Wowgowowo": [
     "",
 	"",
 	"",
@@ -722,8 +979,8 @@
 	"",
 	""
   ],
-    
-      "AutoDouble": [
+
+        "Wowowowo": [
     "",
 	"",
 	"",
