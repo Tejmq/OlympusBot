@@ -966,7 +966,666 @@
 	"Covert"
   ],
 
-        "Wowgowowo": [
+        "Streamliner": [
+    "Rationalizer",
+	"Disperser",
+	"Barricade",
+	"Auto-Streamliner",
+	"Stapler",
+	"Destabilizer",
+	"Stunner",
+	"Gusher",
+	"Bent Streamliner",
+	"Systematizer"
+  ],
+
+        "Nailgun": [
+    "Vulcan",
+	"Overnailer",
+	"Tacker",
+	"Auto-Nailgun",
+	"Stapler",
+	"Pincer",
+	"Pinner",
+	"Fang",
+	"Licker",
+	"Jolter",
+	"Bracer",
+	"Double Nailgun",
+	"Binder",
+	"Hammer"
+  ],
+
+        "Cropduster": [
+    "Overminigun",
+	"Trimmer",
+	"Shearer",
+	"Crop Dusterdrive",
+	"Sweeper",
+	"Disperser",
+	"Rampart",
+	"Deposer",
+	"Strapper",
+	"Junker",
+	"Auto-Crop Duster",
+	"Sandstorm"
+  ],
+
+        "Wowowowo": [
+    "",
+	"",
+	"",
+	"",
+	"",
+	"",
+	"",
+	"",
+	"",
+	"",
+	""
+  ],
+
+        "Taser": [
+    "Stunner",
+	"Jolter",
+	"Electrocutor",
+	"Osprey",
+	"Kicker",
+	"Shocker",
+	"Zapper",
+	"Auto-Taser",
+	"Fryer",
+	"Jerker",
+	"Magnet"
+  ],
+
+        "Zipper": [
+    "Gusher",
+	"Bracer",
+	"Strapper",
+	"Clasp",
+	"Degrader",
+	"Kicker",
+	"Colonizer",
+	"Hotbed",
+	"Auto-Zipper",
+	"Sizzler",
+	"Brio",
+	"Pipeline",
+	"Pepper"
+  ],
+
+        "Bent Minigun": [
+    "Flexed Minigun",
+	"Bent Double Minigun",
+	"Junker",
+	"Hackshot",
+	"Minilet",
+	"Bent Streamliner",
+	"Bent Barricade",
+	"Bent Subverter",
+	"Jerker",
+	"Sizzler",
+	"Auto-Bent Minigun",
+	"Bent Widget"
+  ],
+
+        "Auto-Minigun": [
+    "Mega Auto-Minigun",
+	"Triple Auto-Minigun",
+	"Auto-Streamliner",
+	"Auto-Nailgun",
+	"Auto-Crop Duster",
+	"Auto-Barricade",
+	"Auto-Subverter",
+	"Auto-Taser",
+	"Auto-Zipper",
+	"Auto-Bent Minigun",
+	"Auto-Widget"
+  ],
+
+        "Widget": [
+    "Roadblock",
+	"Gizmo",
+	"Tumble",
+	"Hammer",
+	"Auto-Widget",
+	"Pipeline",
+	"Magnet",
+	"Bent Widget",
+	"Systematizer",
+	"Sandstorm"
+  ],
+
+        "Auto-Gunner": [
+    "Mega Auto-Gunner",
+	"Auto-Equalizer",
+	"Triple Auto-Gunner",
+	"Auto-Nailgun",
+	"Auto-Auto-4",
+	"Auto-Machine Gunner",
+	"Auto-Gunner Trapper",
+	"Auto-Cyclone",
+	"Auto-Overgunner",
+	"Auto-Battery",
+	"Auto-Buttbuttin",
+	"Auto-Blower",
+	"Auto-Rimfire",
+	"Auto-Volley",
+	"Auto-Double Gunner"
+  ],
+
+        "Machine Gunner": [
+    "Contrivance",
+	"Clunker",
+	"Motor Gunner",
+	"Sprinkler",
+	"Auto-Machine Gunner",
+	"Salvo",
+	"Double Machine Gunner",
+	"Machine Volley"
+  ],
+
+        "Gunner Trapper": [
+    "Cleaver",
+	"Vallation",
+	"Lure",
+	"Tacker",
+	"Auto-Gunner Trapper",
+	"Gunner Builder",
+	"Oracle",
+	"Gunner Pen",
+	"Gunner Mech",
+	"Lavisher",
+	"Gunner Tri-Trapper"
+  ],
+
+        "Overgunner": [
+    "Harbinger",
+	"Overnailer",
+	"Oracle",
+	"Auto-Overgunner",
+	"Despot",
+	"Overgunnerdrive",
+	"Battlegunner",
+	"Capgunner",
+	"Foregunner",
+	"Over Double Gunner",
+	"Overequalizer"
+  ],
+
+        "Battery": [
+    "Cutlass",
+	"Stapler",
+	"Batter-4",
+	"Motor Gunner",
+	"Tempest",
+	"Lasher",
+	"Pummeler",
+	"Beater",
+	"Auto-Battery",
+	"Double Battery",
+	"Battery Hybrid"
+  ],
+
+        "Rimfire": [
+    "Brink",
+	"Pinner",
+	"Salvo",
+	"Lure",
+	"Harbinger",
+	"Beater",
+	"Barber",
+	"Walloper",
+	"Rimflak",
+	"Barrage",
+	"Double Rimfire",
+	"Auto-Rimfire"
+  ],
+
+        "Volley": [
+    "Cannonade",
+	"Volley-4",
+	"Tornado",
+	"Pummeler",
+	"Barrage",
+	"Auto-Volley",
+	"Double Volley",
+	"Machine Volley",
+	"Volley Hybrid"
+  ],
+
+        "Double Gunner": [
+    "Triple Gunner",
+	"Hewn Gunner",
+	"Auto-Double Gunner",
+	"Bent Double Gunner",
+	"Double Flank Gunner",
+	"Double Nailgun",
+	"Double Machine Gunner",
+	"Overdouble Gunner",
+	"Double Battery",
+	"Double Rimfire",
+	"Double Volley",
+	"Double Equalizer"
+  ],
+
+        "Bent Gunner": [
+	"Flexed Gunner",
+	"Spambrid",
+	"Bent Double Gunner",
+	"Auto-Bent Gunner",
+	"Dagger",
+	"Bent Volley",
+	"Donkey"
+  ],
+
+        "Jalopy": [
+    "Lorry",
+	"Contaminator",
+	"Jalopy Trapper",
+	"Auto-Jalopy",
+	"Clunker"
+
+        "Polluter": [
+    "Overdiesel",
+	"Depraver",
+	"Tainter",
+	"Polluterdrive",
+	"Befouler",
+	"Contaminator",
+	"Sprinkler",
+	"Blight",
+	"Auto-Polluter"
+  ],
+
+        "Auto-Diesel": [
+    "Mega Auto-Diesel",
+	"Triple Auto-Diesel",
+	"Auto-Machine Gunner",
+	"Auto-Jalopy",
+	"Auto-Diesel Trapper",
+	"Auto-Polluter"
+  ],
+
+        "Sprayer": [
+    "Duster",
+	"Frother",
+	"Scatterer",
+	"Foamer",
+	"Shower",
+	"Auto-Sprayer",
+	"Phoenix"
+  ],
+
+        "Octo Tank": [
+    "Deca Tank",
+	"Tempest",
+	"Gale",
+	"Octo-Trapper",
+	"Demise",
+	"Auto-Octo Tank",
+	"Consolidation"
+  ],
+
+        "Cyclone": [
+    "Tornado",
+	"Dust Storm",
+	"Auto-Cyclone",
+	"Tempest",
+	"Gale",
+	"Whirlwind",
+	"Trove"
+  ],
+
+        "Death Star": [
+    "Demise",
+	"Designer",
+	"Orbital Strike",
+	"Auto-Death Star",
+	"Unity",
+	"Sequence"
+  ],
+
+        "Auto-Hexa Tank": [
+    "Mega Auto-Hexa Tank",
+	"Triple Auto-Hexa Tank",
+	"Auto-Octo Tank",
+	"Auto-Cyclone",
+	"Auto-Death Star",
+	"Auto-Mingler",
+	"Auto-Combo"
+  ],
+
+        "Mingler": [
+    "Unity",
+	"Alloy",
+	"Gale",
+	"Cozen",
+	"Auto-Mingler"
+  ],
+
+        "Combo": [
+    "Consolidation",
+	"Sequence",
+	"Trove",
+	"Alloy ",
+	"Auto-Combo",
+	"Band"
+  ],
+
+        "Fighter": [
+    "Boxer",
+	"Brawler",
+	"Sparrow",
+	"Blitz",
+	"Auto-Figher",
+	"Strider",
+	"Griffin",
+	"Shocker",
+	"Cockatoo",
+	"Pug",
+	"Mangle",
+	"Scrimmer"
+  ],
+
+        "Booster": [
+    "Rocket",
+	"Brawler",
+	"Merlin",
+	"Assaulter",
+	"Auto-Booster",
+	"Soarer",
+	"Raptor",
+	"Zapper",
+	"Galah",
+	"Hightailer",
+	"Loon",
+	"Aspirer"
+  ],
+
+        "Falcon": [
+    "Merlin",
+    "Peregrine",
+	"Owl",
+	"Auto-Falcon",
+	"Harpy",
+	"Sparrow",
+	"Merganser",
+	"Cassowary"
+  ],
+
+        "Bomber": [
+    "Blockbuster",
+	"Shiver",
+	"Striker",
+	"Raider",
+	"Blitz",
+	"Assaulter",
+	"Auto-Bomber",
+	"Rider",
+	"Whizzer",
+	"Nuker",
+	"Bolter",
+	"Fleeter"
+  ],
+
+        "Auto-Tri-Angle": [
+    "Mega Auto-Tri-Angle",
+	"Triple Auto-Tri-Angle",
+	"Auto-Fighter",
+	"Auto-Booster",
+	"Auto-Falcon",
+	"Auto-Bomber",
+	"Auto-Surfer",
+	"Auto-Eagle",
+	"Auto-Taser",
+	"Auto-Cockatiel",
+	"Auto-Integrator",
+	"Auto-Defect",
+	"Auto-Quad-Angle"
+  ],
+
+        "Wowowowo": [
+    "Browser",
+	"Spindrift",
+	"Surferdrive",
+	"Roller",
+	"Soarer",
+	"Strider",
+	"Rider",
+	"Auto-Surfer",
+	"Condor",
+	"Fryer",
+	"Parrot",
+	"Skater",
+	"Klutz",
+	"Glider"
+  ],
+
+        "Eagle": [
+    "Harrier",
+	"Erne",
+	"Seriemas",
+	"Griffin",
+	"Raptor",
+	"Auto-Eagle",
+	"Condor",
+	"Osprey",
+	"Virago"
+  ],
+
+        "Taser": [
+    "Stunner",
+	"Jolter",
+	"Electrocutor",
+	"Osprey",
+	"Kicker",
+	"Shocker",
+	"Zapper",
+	"Auto-Taser",
+	"Fryer",
+	"Jerker",
+	"Magnet"
+  ],
+
+        "Cockatiel": [
+    "Parakeet",
+	"Quarrion",
+	"Cacatua",
+	"Cockatoo",
+	"Galah",
+	"Auto-Cockatiel",
+	"Parrot",
+	"Corella"
+  ],
+
+        "Wowowowo": [
+    "Overangle",
+	"Assimilator",
+	"Integratordrive",
+	"Consolidator",
+	"Pug",
+	"Hightailer",
+	"Auto-Integrator",
+	"Skater"
+  ],
+
+        "Quad-Angle": [
+    "Scrimmer",
+	"Aspirer",
+	"Fleeter",
+	"Auto-Quad-Angle",
+	"Glider",
+	"Conformer",
+	"Spoiler",
+	"Mandible",
+	"Waster"
+  ],
+
+        "Auto-5": [
+    "Auto-7",
+	"Mega-5",
+	"Auto-6",
+	"Spectre",
+	"Sniper-5",
+	"Pryer",
+	"Auto-Auto-5"
+  ],
+
+        "Mega-3": [
+    "Ultra-3",
+	"Queller-3",
+	"Hurler-3",
+	"Slinker-3",
+	"Mega-5",
+	"Volley-4",
+	"Spirit",
+	"Crank",
+	"Auto-Mega-3",
+	"Sequence"
+  ],
+
+        "Auto-4": [
+    "Auto-6",
+	"Batter-4",
+	"Auto-Auto-4",
+	"Wraith",
+	"Volley-4",
+	"Chisel",
+	"Trove"
+  ],
+
+        "Banshee": [
+    "Spectre ",
+	"Spirit",
+	"Wraith",
+	"Phantom",
+	"Auto-Banshee",
+	"Revenant",
+	"Bansheedrive",
+	"Shade"
+  ],
+
+        "Sniper-3": [
+    "Assassin-3",
+	"Creeper",
+	"Sniper-5",
+	"Phantom",
+	"Lever",
+	"Auto-Sniper-3",
+	"Alloy",
+	"Rifle-3",
+	"Hunter-3"
+  ],
+    
+      "Crowbar": [
+    "Pryer",
+	"Crank",
+	"Chisel",
+	"Lever",
+	"Spindle",
+	"Auto-Crowbar",
+	"Dualbar",
+	"Spanner",
+	"Wrench"
+  ],
+
+        "Auto-Auto-3": [
+    "Mega Auto-Auto-3",
+	"Triple Auto-Auto-3",
+	"Auto-Auto-5",
+	"Auto-Mega-3",
+	"Auto-Auto-4",
+	"Auto-Banshee",
+	"Auto-Sniper-3",
+	"Auto-Crowbar",
+	"Auto-Combo"
+  ],
+
+        "Peashooter": [
+    "Stockade",
+	"Fusil",
+	"Whizzer",
+	"Blowgun",
+	"Auto-Peashooter",
+	"Confiner",
+	"Patrol",
+	"Peashooterdrive",
+	"Pommel",
+	"Dotter",
+	"Tri-Peashooter"
+  ],
+
+        "Incarcerator": [
+    "Lockup",
+	"Picket",
+	"Gunner Pen",
+	"Nuker",
+	"Overthrower",
+	"Fencer",
+	"Confiner",
+	"Auto-Incarcerator",
+	"Jailer",
+	"Tri-Incarcerator"
+  ],
+
+        "Mech Guard": [
+    "Watchman",
+	"Shepherd",
+	"Gunner Mech",
+	"Bolter",
+	"Vanquisher",
+	"Impeder",
+	"Patrol",
+	"Auto-Mech Guard",
+	"Jailer",
+	"Tri-Mech Guard"
+  ],
+
+        "Auto-Trap Guard": [
+    "Mega Auto-Trap Guard",
+	"Triple Auto-Trap Guard",
+	"Auto-Bushwhacker",
+	"Auto-Gunner Trapper",
+	"Auto-Bomber",
+	"Auto-Conqueror",
+	"Auto-Bulwark",
+	"Auto-Peashooter",
+	"Auto-Incarcerator",
+	"Auto-Mech Guard",
+	"Auto-Machine Guard"
+  ],
+
+        "Machine Guard": [
+    "Fusil",
+	"Shepherd",
+	"Picket",
+	"Anchor",
+	"Partition",
+	"Shiver",
+	"Vallation",
+	"Equalizer Guard",
+	"Auto-Machine Guard",
+	"Restrainer",
+	"Tri-Machine Guard",
+	"Scout"
+  ],
+
+        "Tri-Trap Guard": [
+    "Tri-Bushwhacker",
+	"Gunner Tri-Trapper",
+	"Quadwark",
+	"Tri-Peashooter",
+	"Tri-Incarcerator",
+	"Tri-Mech Guard",
+	"Tri-Machine Guard",
+	"Hexa-Trap Guard",
+	"Septa-Trap Guard",
+	"Architect Guard"
+  ],
+
+        "Wowowowo": [
     "",
 	"",
 	"",
@@ -996,20 +1655,10 @@
 
   
   
-  
-  
-      "Crowbar": [
-    "Pryer",
-	"Crank",
-	"Chisel",
-	"Lever",
-	"Spindle",
-	"Auto-Crowbar",
-	"Dualbar",
-	"Spanner",
-	"Wrench"
+        "Test": [
+    "Big",
+	"Owawawa"
   ]
-
   
   
   
