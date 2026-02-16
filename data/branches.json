@@ -323,16 +323,6 @@
     "Superintendent"
   ],
 
-  "Underseer": [
-    "Necromancer",
-    "Malefictor",
-    "Auto-Underseer",
-    "Underdrive",
-    "Infestor",
-    "Pentaseer",
-    "Conductor"
-  ],
-
   "Spawner": [
     "Factory",
     "Auto-Spawner",
@@ -1626,18 +1616,850 @@
 	"Architect Guard"
   ],
 
-        "Wowowowo": [
-    "",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"",
+        "Overlord": [
+    "Overczar",
+	"Kingpin",
+	"Despot",
+	"Spectre",
+	"Auto-Overlord",
+	"Tyrant",
+	"General",
+	"Supervisor",
+	"Headman",
+	"Dopelord"
+  ],
+
+        "Auto-Overseer": [
+    "Mega Auto-Overseer",
+	"Triple Auto-Overseer",
+	"Auto-Overlord",
+	"Auto-Overtrapper",
+	"Auto-Overgunner",
+	"Auto-Banshee",
+	"Auto-Overdrive",
+	"Auto-Commander",
+	"Auto-Foreman",
+	"Auto-Dopeseer"
+  ],
+
+        "Overdrive": [
+    "Tyrant",
+	"Overtrapperdrive",
+	"Overgunnerdrive",
+	"Bansheedrive",
+	"Auto-Overdrive",
+	"Instructor",
+	"Overstorm",
+	"Foredrive",
+	"Dopeseerdrive"
 	""
+  ],
+
+        "Commander": [
+    "General",
+	"Auto-Commander",
+	"Instructor",
+	"Prescriber",
+	"Governer",
+	"Regulator",
+	"Revenant",
+	"Gaffer",
+	"Bidder",
+	"Adjurer"
+  ],
+
+        "Foreman": [
+    "Headman",
+	"Overcheese",
+	"Foredrive",
+	"Bidder",
+	"Auto-Foreman",
+	"Spirit",
+	"Stocker",
+	"Ganger",
+	"Doppelganger"
+  ],
+
+        "Dopeseer": [
+    "Briskseer",
+	"Dopelord",
+	"Shade",
+	"Auto-Dopeseer",
+	"Dopeseerdrive",
+	"Adjurer",
+	"Mogul",
+	"Ganger"
+  ],
+
+        "Carrier": [
+    "Conveyor",
+	"Carrierdrive",
+	"Auto-Carrier",
+	"General",
+	"Shronghold",
+	"Initiator",
+	"Epoch",
+	"Lugger"
+  ],
+
+        "Battleship": [
+    "Warship",
+	"Bastion",
+	"Regulator",
+	"Battletrapper",
+	"Battlegunner",
+	"Wraith",
+	"Auto-Battleship",
+	"Battledrive",
+	"Bismarck",
+	"Battlewagon",
+	"Man o' War"
+  ],
+
+        "Auto-Cruiser": [
+    "Mega Auto-Cruiser",
+	"Triple Auto-Cruiser",
+	"Auto-Carrier",
+	"Auto-Battleship",
+	"Auto-Commander",
+	"Auto-Cruiserdrive",
+	"Auto-Productionist",
+	"Auto-Baltimore",
+	"Auto-Mosey"
+  ],
+
+        "Productionist": [
+    "Initiator",
+	"Bismark",
+	"Auto-Productionist",
+	"Productiondrive",
+	"Manufacture",
+	"Dirigible",
+	"Palisade",
+	"Gaffer",
+	"Fabrication",
+	"Inducer"
+  ],
+
+        "Cruiserdrive": [
+    "Carrierdrive",
+	"Battledrive",
+	"Fortdrive",
+	"Auto-Cruiserdrive",
+	"Prescriber",
+	"Productionistdrive",
+	"Helipad",
+	"Baltimoredrive",
+	"Moseydrive"
+  ],
+
+        "Hangar": [
+    "Courier",
+	"Warlord",
+	"Aerodome",
+	"Auto-Hangar",
+	"Mega Hangar",
+	"Dirigible",
+	"Airfield",
+	"Helipad",
+	"Governer",
+	"Grinder",
+	"Barn",
+	"Reposit"
+  ],
+
+        "Baltimore": [
+    "Barn",
+	"Brio",
+	"Outpost",
+	"Baltimoredrive",
+	"Auto-Baltimore",
+	"Battlewagon",
+	"Epoch",
+	"Bidder",
+	"Fabrication",
+	"Big Swiss",
+	"Harbor"
+  ],
+
+        "Mosey": [
+    "Sailer",
+	"Lugger",
+	"Man o' War",
+	"Fortalice",
+	"Auto-Mosey",
+	"Adjurer",
+	"Inducer",
+	"Moseydrive",
+	"Reposit",
+	"Pepper",
+	"Harbor"
+  ],
+
+        "Underdrive": [
+    "Necrodrive",
+	"Hexer",
+	"Auto-Underdrive",
+	"Infestordrive",
+	"Pentadrive"
+  ],
+
+        "Factory": [
+    "Industry",
+	"Auto-Factory",
+	"Mega Factory",
+	"Factorydrive",
+	"Mandarin",
+	"Aerodome",
+	"Worker",
+	"Shopper",
+	"Manufacture",
+	"Facility"
+  ],
+
+        "Auto-Spawner": [
+    "Mega Auto-Spawner",
+	"Triple Auto-Spawner",
+	"Auto-Factory",
+	"Auto-Mega Spawner",
+	"Auto-Productionist",
+	"Auto-Spawnerdrive",
+	"Auto-Captain",
+	"Auto-Hangar",
+	"Auto-Laborer",
+	"Auto-Foundry",
+	"Auto-Issuer"
+  ],
+
+        "Mega Spawner": [
+    "Ultra Spawner",
+	"Mega Factory",
+	"Auto-Mega Spawner",
+	"Mega Spawnerdrive",
+	"Mega Captain",
+	"Mega Hangar",
+	"Mega Laborer",
+	"Mega Foundry",
+	"Mega Issuer"
+  ],
+
+        "Spawnerdrive": [
+    "Spawnerstorm",
+	"Factorydrive",
+	"Auto-Spawnerdrive",
+	"Mega Spawnerdrive",
+	"Productionistdrive",
+	"Captaindrive",
+	"Airfield",
+	"Labordrive",
+	"Foundrydrive",
+	"Issuerdrive"
+  ],
+
+        "Captain": [
+    "Supervisor",
+	"Mandarin",
+	"Auto-Captain",
+	"Mega Captain",
+	"Captaindrive",
+	"Governor",
+	"Toiler",
+	"Phantom",
+	"Stocker",
+	"Mogul"
+  ],
+
+        "Laborer": [
+    "Worker",
+	"Auto-Laborer",
+	"Mega Laborer",
+	"Labourdrive",
+	"Toiler",
+	"Grinder",
+	"Servicer",
+	"Endeavor",
+	"Slogger"
+  ],
+
+        "Foundry": [
+    "Top Banana",
+	"Shopper",
+	"Endeavor",
+	"Stocker",
+	"Auto-Foundry",
+	"Foundrydrive",
+	"Mega Foundry",
+	"Barn",
+	"Fabrication",
+	"Plant"
+  ],
+
+        "Issuer": [
+    "Circulator",
+	"Facility",
+	"Auto-Issuer",
+	"Mega Issuer",
+	"Inducer",
+	"Issuerdrive",
+	"Mogul",
+	"Reposit",
+	"Slogger",
+	"Plant"
+  ],
+
+        "Directorstorm": [
+    "Vortex",
+	"Overstorm",
+	"Spawnerstorm",
+	"Auto-Directordrive",
+	"Honchostorm",
+	"Downpourer",
+	"Doperstorm"
+  ],
+
+        "Auto-Directordrive": [
+    "Mega Auto-Directordrive",
+	"Triple Auto-Directordrive",
+	"Auto-Directorstorm",
+	"Auto-Overdrive",
+	"Auto-Cruiserdrive",
+	"Auto-Underdrive",
+	"Auto-Spawnerdrive"
+  ],
+
+        "Honchodrive": [
+    "Honchostorm",
+	"Foredrive",
+	"Baltimoredrive",
+	"Foundrydrive",
+	"Big Cheesedrive",
+	"Auto-Honchodrive",
+	"Junkiedrive"
+  ],
+
+        "Doperdrive": [
+    "Briskerdrive",
+	"Doperstorm",
+	"Dopeseerdrive",
+	"Moseydrive",
+	"Issuerdrive",
+	"Junkiedrive",
+	"Auto-Doperdrive"
+  ],
+
+        "Foreman": [
+    "Headman",
+	"Overcheese",
+	"Foredrive",
+	"Bidder",
+	"Auto-Foreman",
+	"Spirit",
+	"Stocker",
+	"Ganger",
+	"Doppelganger"
+  ],
+
+        "Big Cheese": [
+    "Bigger Cheese",
+	"Overcheese",
+	"Big Swiss",
+	"Top Banana",
+	"Big Cheesedrive",
+	"Auto-Big Cheese",
+	"Stoner"
+  ],
+
+        "Auto-Honcho": [
+    "Mega Auto-Honcho",
+	"Triple Auto-Honcho",
+	"Auto-Foreman",
+	"Auto-Baltimore",
+	"Auto-Foundry",
+	"Auto-Big Cheese",
+	"Auto-Honchodrive",
+	"Auto-Junkie"
+  ],
+
+        "Junkie": [
+    "Addict",
+	"Ganger",
+	"Harbor",
+	"Plant",
+	"Stoner",
+	"Junkiedrive",
+	"Auto-Junkie"
+  ],
+
+        "Brisker": [
+    "Adderall",
+	"Briskseer",
+	"Sailor",
+	"Circulator",
+	"Briskerdrive",
+	"Addict",
+	"Auto-Brisker "
+  ],
+
+        "Auto-Doper": [
+    "Mega Auto-Doper",
+	"Triple Auto-Doper",
+	"Auto-Dopeseer",
+	"Auto-Mosey",
+	"Auto-Issuer",
+	"Auto-Doperdrive",
+	"Auto-Junkie"
+  ],
+
+        "Manager": [
+    "Leader",
+	"Inspector",
+	"Superintendent",
+	"Minister",
+	"Handler",
+	"Conductor",
+	"Managerdrive",
+	"Auto-Manager",
+	"Controller"
+  ],
+
+        "Conqueror": [
+    "Obliterator",
+	"Overwhelmer",
+	"Vanquisher",
+	"Defeater",
+	"Annexer",
+	"Blusterer",
+	"Auto-Conqueror",
+	"Overthrower",
+	"Pulverizer",
+	"Overrunner",
+	"Massacer"
+  ],
+
+        "Annihilator": [
+    "Obliterator",
+	"Big Mac",
+	"Compound",
+	"Assembler",
+	"Wiper",
+	"Ultra Trapper",
+	"Stomper",
+	"Auto-Annihilator",
+	"Shaver",
+	"Eradicator"
+  ],
+
+        "Hybrid": [
+    "Overdestroyer",
+	"Synthesis",
+	"Enactor",
+	"Hybriddrive",
+	"Crossbreed",
+	"Compound",
+	"Meld",
+	"Puffer",
+	"Catcher",
+	"Cross",
+	"Auto-Hybrid",
+	"Mongrel",
+	"Amalgam"
+  ],
+
+        "Blower": [
+    "Blackjack",
+	"Blusterer",
+	"Wiper",
+	"Buster",
+	"Licker",
+	"Walloper",
+	"Puffer",
+	"Auto-Blower",
+	"Storm",
+	"Lavisher",
+	"Zephyr"
+  ],
+
+        "Queller": [
+    "Annexer",
+	"Stomper",
+	"Cross",
+	"Creator",
+	"Storm",
+	"Cornerer",
+	"Crusher",
+	"Represser",
+	"Auto-Queller",
+	"Clobber",
+	"Thwarter",
+	"Stifler"
+  ],
+
+        "Auto-Destroyer": [
+    "Mega Auto-Destroyer",
+	"Triple Auto-Destroyer",
+	"Auto-Conqueror",
+	"Auto-Annihilator",
+	"Auto-Hybrid",
+	"Auto-Constructor",
+	"Auto-Blower",
+	"Auto-Mega Trapper",
+	"Auto-Queller",
+	"Auto-Hurler",
+	"Auto-Slinker"
+  ],
+
+        "Hurler": [
+    "Shaver",
+	"Bazooka",
+	"Catapult",
+	"Myriad",
+	"Leviathan",
+	"Bulker",
+	"Bombard",
+	"Python",
+	"Claimant",
+	"Incline",
+	"Auto-Hurler",
+	"Mongrel",
+	"Bunger",
+	"Deliverer",
+	"Slingshot"
+  ],
+
+        "Slinker": [
+    "Rogue",
+	"Massacrer",
+	"Eradicator",
+	"Amalgam",
+	"Settler",
+	"Zephyr",
+	"Seizer",
+	"Thwarter",
+	"Auto-Slinker",
+	"Deliverer"
+  ],
+
+        "Mortar": [
+    "Sheller",
+	"Ruiner",
+	"Beemaster",
+	"Crusher",
+	"Caster",
+	"Rainmaker",
+	"Auto-Mortar",
+	"Plaster",
+	"Foctar",
+	"Fusillade"
+  ],
+
+        "Beekeeper": [
+    "Apiarist",
+	"Bumbler",
+	"Beemaster",
+	"Escort",
+	"Represser",
+	"Bounder",
+	"Carronade",
+	"Auto-Beekeeper",
+	"Apiculturist",
+	"Degrader"
+  ],
+
+        "Field Gun": [
+    "Skidder",
+	"Spinner",
+	"Packer",
+	"Anaconda",
+	"Aviator",
+	"Rainmaker",
+	"Carronade",
+	"Strafe",
+	"Embargo",
+	"Auto-Field Gun",
+	"Slinger",
+	"Howitzer",
+	"Magnum",
+	"Bulker",
+	"Conveyer",
+	"Flurry"
+  ],
+
+        "Force": [
+    "Overartillery",
+	"Mixer",
+	"Generator",
+	"Forcedrive",
+	"Energizer",
+	"Plaster",
+	"Huntsman",
+	"Apiculturist",
+	"Cross",
+	"Blend",
+	"Slinger",
+	"Auto-Force",
+	"Vigor",
+	"Vitality"
+  ],
+
+        "Auto-Artillery": [
+    "Mega Auto-Artillery",
+	"Triple Auto-Artillery",
+	"Auto-Mortar",
+	"Auto-Ordnance",
+	"Auto-Beekeeper",
+	"Auto-Queller",
+	"Auto-Forger",
+	"Auto-Field Gun",
+	"Auto-Force",
+	"Auto-Foctillery",
+	"Auto-Discharger"
+  ],
+
+        "Foctillery": [
+    "Foctar",
+	"Firepower",
+	"Clobberer",
+	"Shaper",
+	"Howitzer",
+	"Vigor",
+	"Auto-Foctillery",
+	"Pivoter"
+  ],
+
+        "Discharger": [
+    "Fusillade",
+	"Broadsider",
+	"Stifler",
+	"Melder",
+	"Flurry",
+	"Vitality",
+	"Auto-Discharger",
+	"Pivoter",
+	"Hatchet",
+	"Kitter",
+	"Concoctor"
+  ],
+
+        "Skimmer": [
+    "Auto-Skimmer",
+	"Dipper",
+	"Hyperskimmer",
+	"Ream",
+	"Ladle",
+	"Bazooka",
+	"Torpedo",
+	"Bowler",
+	"Grazer",
+	"Pit Viper",
+	"Skidder",
+	"Ticker",
+	"Scorcher"
+  ],
+
+        "Twister": [
+    "Auto-Twister",
+	"Spouter",
+	"Hypertwister",
+	"Helix",
+	"Spiral",
+	"Gyro",
+	"Rattler",
+	"Squaller",
+	"Spinner",
+	"Torison",
+	"Collision",
+	"Catapult",
+	"Grenade"
+  ],
+
+        "Swarmer": [
+    "Molotov",
+	"Hyperswarmer",
+	"Myriad",
+	"Torsion",
+	"Swarmerdrive",
+	"Voyage",
+	"Packer",
+	"Cartridge",
+	"Shoal",
+	"Flocker",
+	"Auto-Swarmer"
+  ],
+
+        "Sidewinder": [
+    "Veerer",
+	"Caduceus",
+	"Auto-Sidewinder",
+	"Hyperwinder",
+	"Pit Viper",
+	"Vermin",
+	"Boomslang",
+	"Anaconda",
+	"Mamba",
+	"Rattler",
+	"Python",
+	"Hognose"
+  ],
+
+        "Rocketeer": [
+    "Firework",
+	"ICBM",
+	"Venture",
+	"Leviathan",
+	"Scorcher",
+	"Mamba",
+	"Cartridge",
+	"Aviator",
+	"Careerer",
+	"Auto-Rocketeer",
+	"Pyromaniac"
+  ],
+
+        "Pitcher": [
+    "Chucker",
+	"Caduceus",
+	"Propeller",
+	"Dispatcher",
+	"Bowler",
+	"Gyro",
+	"Spieler",
+	"Auto-Pitcher",
+	"Magnum",
+	"Mine",
+	"Incline",
+	"Pyromaniac",
+	"Pleuron"
+  ],
+
+        "Cluster": [
+    "Auto-Cluster",
+	"Gimmicker",
+	"Nester",
+	"Hypercluster",
+	"Strafe",
+	"Molotov",
+	"Firework",
+	"Grenade",
+	"Ticker",
+	"Boomslang",
+	"Mine",
+	"Shell",
+	"Neutron",
+	"Bombard",
+	"Flock",
+	"Recursor"
+  ],
+
+        "Projector": [
+    "Auto-Projector",
+	"Resourcer",
+	"Jutter",
+	"Shell",
+	"Embargo",
+	"Ladle",
+	"Venture",
+	"Vermin",
+	"Hyperprojector",
+	"Guarder",
+	"Collision",
+	"Claimant",
+	"Pleuron"
+  ],
+
+        "Heaver": [
+    "Overlauncher",
+	"Lobber",
+	"Duper",
+	"Heaverdrive",
+	"Emitter",
+	"Dipper",
+	"Spouter",
+	"Flocker",
+	"Veerer",
+	"Careerer",
+	"Slinger",
+	"Spieler",
+	"Nester",
+	"Tosser",
+	"Jutter",
+	"Auto-Heave",
+	"Mongrel"
+  ],
+
+        "Auto-Launcher": [
+    "Mega Auto-Launcher",
+	"Triple Auto-Launcher",
+	"Auto-Inception",
+	"Auto-Skimmer",
+	"Auto-Twister",
+	"Auto-Swarmer",
+	"Auto-Sidewinder",
+	"Auto-Rocketeer",
+	"Auto-Field Gun",
+	"Auto-Pitcher",
+	"Auto-Cluster",
+	"Auto-Projector",
+	"Auto-Heaver",
+	"Auto-Hurler"
+  ],
+
+        "Hurler": [
+    "Shaver",
+	"Bazooka",
+	"Catapult",
+	"Myriad",
+	"Leviathan",
+	"Bulker",
+	"Bombard",
+	"Python",
+	"Claimant",
+	"Incline",
+	"Auto-Hurler",
+	"Mongrel",
+	"Bunger",
+	"Deliverer",
+	"Slingshot"
+  ],
+
+        "Inception": [
+    "Hyperinception",
+	"Ream",
+	"Helix",
+	"Tosser",
+	"Auto-Inception",
+	"Shoal",
+	"Hognose",
+	"ICBM",
+	"Conveyer",
+	"Bunger",
+	"Resourcer",
+	"Gimmicker",
+	"Propeller"
+  ],
+
+        "Shotgun": [
+    "Culverin",
+	"Buckshot",
+	"Boomstick",
+	"Sawed Off",
+	"Blare",
+	"Pumper",
+	"Carbine",
+	"Auto-Shotgun",
+	"Petrifier"
+  ],
+
+        "Subverter": [
+    "Destabalizer",
+	"Deposer",
+	"Blockade",
+	"Toppler",
+	"Auto-Subverter",
+	"Osprey",
+	"Degrader",
+	"Supplant",
+	"Bent Subverter",
+	"Tumble"
   ],
 
         "Wowowowo": [
