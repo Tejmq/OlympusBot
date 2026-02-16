@@ -318,8 +318,8 @@ async def handle_branch_command(message, branch_name: str):
 
     # branch matching
     branch_key = None
-    for key, branch_list in branches.items():
-        if key.lower() == branch_name.lower() or branch_name.lower() in map(str.lower, branch_list):
+    for key in branches.keys():
+        if key.lower() == branch_name.lower():
             branch_key = key
             break
 
