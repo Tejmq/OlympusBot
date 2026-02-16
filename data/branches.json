@@ -432,10 +432,6 @@
     "Renovator",
     "Physician"
   ],
-
-  "Single": [],
-  
-  
   
       "Triple Twin": [
     "Quad Twin",
@@ -1488,7 +1484,7 @@
   ],
 
         "Banshee": [
-    "Spectre ",
+    "Spectre",
 	"Spirit",
 	"Wraith",
 	"Phantom",
@@ -2461,27 +2457,502 @@
 	"Tumble"
   ],
 
-        "Wowowowo": [
-    "",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"",
-	"",
+        "Constructor": [
+    "Assembler",
+	"Auto-Constructor",
+	"Mechanic",
+	"Recoiler",
+	"Mastermind",
+	"Overwhelmer",
+	"Creator",
+	"Hurdle",
+	"Meld",
+	"Stormer",
+	"Settler"
+  ],
+
+        "Auto-Builder": [
+    "Mega Auto-Builder",
+	"Triple Auto-Builder",
+	"Auto-Constructor",
+	"Auto-Engineer",
+	"Auto-Boomer",
+	"Auto-Conqueror",
+	"Auto-Forger",
+	"Auto-Stall",
+	"Auto-Fashioner",
+	"Auto-Charger"
+  ],
+
+        "Engineer": [
+    "Mechanic",
+	"Auto-Engineer",
+	"Parryer",
+	"Originator",
+	"Vanquisher",
+	"Producer",
+	"Cubicle",
+	"Machinist",
+	"Driver",
+	"Specialist",
+	"Deviser"
+  ],
+
+        "Boomer": [
+    "Recoiler",
+	"Auto-Boomer",
+	"Parryer",
+	"Ricochet",
+	"Defeater",
+	"Rebounder",
+	"Fender",
+	"Bent Boomer",
+	"Delfector"
+  ],
+
+        "Architect": [
+    "Mastermind",
+	"Originator",
+	"Ricochet",
+	"Artist",
+	"Paddock",
+	"Castle",
+	"Inventor",
+	"Designer",
+	"Draftsman",
+	"Architect Guard"
+  ],
+
+        "Forger": [
+    "Creator",
+	"Auto-Forger",
+	"Producer",
+	"Rebounder",
+	"Planner",
+	"Annexer",
+	"Former",
+	"Caster",
+	"Bounder",
+	"Blend",
+	"Shaper",
+	"Modeler",
+	"Melder"
+  ],
+
+        "Stall": [
+    "Hurdle",
+	"Auto-Stall",
+	"Cubicle",
+	"Fender",
+	"Paddock",
+	"Overthrower",
+	"Former",
+	"Delayer",
+	"Compartment"
+  ],
+
+        "Fashioner": [
+    "Overbuilder",
+	"Stylist",
+	"Experimenter",
+	"Fashionerdrive",
+	"Methodist",
+	"Meld",
+	"Auto-Fashioner",
+	"Machinist",
+	"Deflector",
+	"Blend",
+	"Delayer",
+	"Rallyer"
+  ],
+
+        "Charger": [
+    "Assailer",
+	"Stormer",
+	"Auto-Charger",
+	"Draftsman",
+	"Overrunner",
+	"Modeler",
+	"Compartment",
+	"Rallyer",
+	"Deviser"
+  ],
+
+        "Fortress": [
+    "Corral",
+	"Bastion",
+	"Refuge",
+	"Castle",
+	"Stronghold",
+	"Bunker",
+	"Fortdrive",
+	"Palisade",
+	"Outpost",
+	"Fortalice"
+  ],
+
+        "Hexa-Trapper": [
+    "Mega Hexa-Trapper",
+	"Auto-Hexa-Trapper",
+	"Hexa-Machine",
+	"Octo-Trapper",
+	"Designer",
+	"Cozen",
+	"Refuge",
+	"Coop",
+	"Hexa-Mech",
+	"Hexa-Trap Guard",
+	"Band"
+  ],
+
+        "Septa-Trapper": [
+    "Nona-Trapper",
+	"Septa-Machine",
+	"Octo-Trapper",
+	"Whirlwind",
+	"Inventor",
+	"Septa-Mech",
+	"Septa-Trap Guard"
 	""
   ],
 
-  
+        "Tri-Pen": [
+    "Corral ",
+	"Tri-Encircler",
+	"Paddock",
+	"Coop",
+	"Tri-Operator",
+	"Tri-Incarcerator"
+  ],
+
+        "Tri-Mech": [
+    "Bunker",
+	"Hexa-Mech",
+	"Tri-Machine Mech",
+	"Septa-Mech",
+	"Originator",
+	"Tri-Operator",
+	"Tri-Mech Guard"
+  ],
+
+        "Tri-Machine": [
+    "Septa-Machine",
+	"Hexa-Machine",
+	"Donjon",
+	"Tri-Encircler",
+	"Tri-Machine Mech",
+	"Tri-Diesel Trapper",
+	"Tri-Machine Guard"
+  ],
+
+        "Tri-Trap Guard": [
+    "Tri-Bushwhacker",
+	"Gunner Tri-Trapper",
+	"Quadwark",
+	"Tri-Peashooter",
+	"Tri-Incarcerator",
+	"Tri-Mech Guard",
+	"Tri-Machine Guard",
+	"Hexa-Trap Guard",
+	"Septa-Trap Guard",
+	"Architect Guard"
+  ],
+
+        "Pen": [
+    "Stall",
+	"Tri-Pen",
+	"Encircler",
+	"Incarcerator",
+	"Operator",
+	"Cockatiel",
+	"Hutch",
+	"Interner",
+	"Auto-Pen",
+	"Fortifier",
+	"Sty"
+  ],
+
+        "Encircler": [
+    "Quarrion",
+	"Machete",
+	"Tri-Encircler",
+	"Picket",
+	"Exerter",
+	"Auto-Encircler",
+	"Environ",
+	"Landau",
+	"Kraal"
+  ],
+
+        "Operator": [
+    "Cubicle",
+	"Tri-Operator",
+	"Exerter",
+	"Jailer",
+	"Cacatua",
+	"Employer",
+	"Utilizer",
+	"Auto-Operator"
+  ],
+
+        "Hutch": [
+    "Kraal",
+	"Employer",
+	"Corella",
+	"Guardrail",
+	"Brig",
+	"Machete",
+	"Coop",
+	"Fencer",
+	"Retainer",
+	"Auto-Hutch"
+  ],
+
+        "Interner": [
+    "Overpen",
+	"Kettle",
+	"Ringer",
+	"Environ",
+	"Internerdrive",
+	"Probationer",
+	"Delayer",
+	"Utilizer",
+	"Auto-Interner",
+	"Retainer"
+  ],
+
+        "Auto-Pen": [
+	"Mega Auto-Pen",
+	"Triple Auto-Pen",
+	"Auto-Encircler",
+	"Auto-Stall",
+	"Auto-Incarcerator",
+	"Auto-Operator",
+	"Auto-Interner",
+	"Auto-Cockatiel",
+	"Auto-Hutch"
+  ],
+
+        "Mech": [
+    "Engineer",
+	"Tri-Mech",
+	"Machine Mech",
+	"Mech Guard",
+	"Operator",
+	"Cog",
+	"Cobbler",
+	"Auto-Mech",
+	"Propper",
+	"Technician"
+  ],
+
+        "Machine Mech": [
+    "Tri-Machine Mech",
+	"Shepherd",
+	"Exerter",
+	"Auto-Machine Mech",
+	"Repairman",
+	"Hardware",
+	"Artificer",
+	"Rigger"
+  ],
+
+        "Cog": [
+    "Sealer",
+	"Yard",
+	"Hardware",
+	"Hexa-Mech",
+	"Employer",
+	"Rigger",
+	"Impeder",
+	"Contriver",
+	"Auto-Cog"
+  ],
+
+        "Cobbler": [
+    "Overmech",
+	"Fuser",
+	"Repairman",
+	"Automation",
+	"Cobbledrive",
+	"Restorer",
+	"Machinist",
+	"Contriver",
+	"Utilizer",
+	"Auto-Cobbler"
+  ],
+
+        "Auto-Mech": [
+    "Mega Auto-Mech",
+	"Triple Auto-Mech",
+	"Auto-Machine Mech",
+	"Auto-Engineer",
+	"Auto-Mech Guard",
+	"Auto-Operator",
+	"Auto-Cobbler",
+	"Auto-Cog"
+  ],
+
+        "Expeller": [
+    "Setup",
+	"Spitter",
+	"Contrivance",
+	"Hexa-Machine",
+	"Kraal",
+	"Rigger",
+	"Stainer",
+	"Partition",
+	"Throttler",
+	"Auto-Expeller"
+  ],
+
+        "Auto-Machine Trapper": [
+    "Mega Auto-Machine Trapper",
+	"Triple Auto-Machine Trapper",
+	"Auto-Deviation",
+	"Auto-Diesel Trapper",
+	"Auto-Barricade",
+	"Auto-Equalizer",
+	"Auto-Encircler",
+	"Auto-Machine Mech",
+	"Auto-Machine Guard",
+	"Auto-Expeller"
+  ],
+
+        "Deviation": [
+    "Auto-Deviation",
+	"Anomaly",
+	"Sire",
+	"Deviationdrive",
+	"Overmach",
+	"Contradictor",
+	"Blight",
+	"Rampart",
+	"Environ",
+	"Repairman",
+	"Throttler"
+  ],
+
+        "Coalesce": [
+    "Overwark",
+	"Affiliator",
+	"Converger",
+	"Warkdrive",
+	"Commix",
+	"Bent Catcher",
+	"Retainer",
+	"Contriver",
+	"Throttler",
+	"Auto-Coalesce"
+  ],
+
+        "Auto-Wark": [
+    "Mega Auto-Wark",
+	"Triple Auto-Wark",
+	"Auto-Warkwark",
+	"Auto-Waarrk",
+	"Auto-Equalizer",
+	"Auto-Hutch",
+	"Auto-Cog",
+	"Auto-Expeller",
+	"Auto-Bulwark",
+	"Auto-Coalesce"
+  ],
+
+        "Overtrapper": [
+    "Kingpin",
+	"OverMach",
+	"Auto-Overtrapper",
+	"Overtrapperdrive",
+	"Battletrapper",
+	"Captrapper",
+	"Foretrapper",
+	"Overbuilder",
+	"Overtrap Guard",
+	"Overpen",
+	"Overmech",
+	"Overwark"
+  ],
+
+        "Mega Trapper": [
+    "Ultra Trapper",
+	"Assembler",
+	"Tri-Mega Trapper",
+	"Garrison",
+	"Sty",
+	"Technician",
+	"Pulverizer",
+	"Cornerer",
+	"Catcher",
+	"Auto-Mega Trapper",
+	"Machine Mega Trapper",
+	"Shoebill",
+	"Seizer",
+	"Mega Wark"
+  ],
+
+        "Medic": [
+    "Intern",
+	"Ointment",
+	"Injection",
+	"Actuary"
+  ],
+
+        "Scientist": [
+    "Surgeon",
+	"Professor",
+	"Chemist"
+  ],
+
+        "Nurse": [
+    "Paramedic",
+	"Therapist",
+	"Clinician"
+
+        "Tri-Healer": [
+    "Ambulance",
+	"Healer-3",
+	"Hexa-Healer",
+	"Chemist"
+  ],
+
+        "Analyzer": [
+    "Accountant",
+	"Clerk",
+	"Guru"
+  ],
+
+        "Psychiatrist": [
+    "Therapist",
+	"Guru",
+	"Actuary"
+  ],
+
+        "Soother": [
+    "Doctor",
+	"Antidote",
+	"Medicare"
+  ],
+
+        "Single": [
+    "Duo",
+	"Sharpshooter",
+	"Gadget Gun",
+	"Ternion",
+	"Coordinator",
+	"Bruiser",
+	"Tricker",
+	"Mono",
+	"Avian",
+	"Custodian",
+	"Assistant",
+	"Auto-Single"
+  ],
   
         "Test": [
     "Big",
 	"Owawawa"
   ]
-  
   
   
   
