@@ -338,8 +338,14 @@ async def handle_branch_command(message, branch_name: str):
             return
         # pick best fuzzy match
         branch_key = branch_lookup[matches[0]]
+    branch_tanks = branches.get(branch_key)
+    if not branch_tanks:
+        await safe_send(
+            message.channel,
+            content="❌ Branch has no tanks defined."
+        )
+        return
     # --------------------------------
-
 
     # Load Excel
     df = read_excel_cached()
