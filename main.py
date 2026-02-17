@@ -149,10 +149,10 @@ class DidYouMeanButton(ui.Button):
         )
         return
 
-            await interaction.response.edit_message(
-                content="❌ No results after correction.",
-                embed=None,
-                view=None
+        await interaction.response.edit_message(
+            content="❌ No results after correction.",
+            embed=None,
+            view=None
             )
             return
         # 2️⃣ Re-apply GT filter if present
