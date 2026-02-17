@@ -135,26 +135,20 @@ class DidYouMeanButton(ui.Button):
         # 1️⃣ Get the full corrected dataset from resolver
         output = view.resolver(view.df, self.label)
     # 🔀 BRANCH MODE (resolver returned a list)
-    if isinstance(output, list):
-        await handle_branch_command(
-            interaction.message,
-            self.label
-        )
-        return
-    if output is None or output.empty:
-        await interaction.response.edit_message(
-            content="❌ No results after correction.",
-            embed=None,
-            view=None
-        )
-        return
-
-        await interaction.response.edit_message(
-            content="❌ No results after correction.",
-            embed=None,
-            view=None
+        if isinstance(output, list):
+            await handle_branch_command(
+                interaction.message,
+                self.label
             )
             return
+        if output is None or output.empty:
+            await interaction.response.edit_message(
+                content="❌ No results after correction.",
+                embed=None,
+                view=None
+            )
+            return
+
         # 2️⃣ Re-apply GT filter if present
         gt_filter = extract_gt(view.parts)
         if gt_filter and "GT" in output.columns:
@@ -175,7 +169,7 @@ class DidYouMeanButton(ui.Button):
             max_range=20,
             total_len=len(output)
         )
-        # 5️⃣ Create pagination view for full filtered output
+        # 5️⃣ Pagination
         paged_view = RangePaginationView(
             df=output,
             start_index=start,
@@ -183,25 +177,26 @@ class DidYouMeanButton(ui.Button):
             title=view.title,
             shorten_tank=True
         )
-        # 6️⃣ Display only first slice initially
+
         slice_df = output.iloc[start-1:end].copy()
         slice_df["Ņ"] = range(start, min(end, len(output)) + 1)
+
         lines = dataframe_to_markdown_aligned(slice_df)
+
         embed = Embed(
             title=view.title,
             description=f"```text\n{chr(10).join(lines)}\n```",
             color=discord.Color.dark_grey()
         )
+
         footer = f"Rows {start}-{min(end, len(output))} / {len(output)}"
         if warning:
             footer = f"{warning} • {footer}"
+
         embed.set_footer(text=footer)
-        # 7️⃣ Update message
+
         await interaction.response.edit_message(embed=embed, view=paged_view)
         paged_view.message = await interaction.original_response()
-
-
-
 
 
 
@@ -249,7 +244,9 @@ def read_excel_cached():
         except Exception as e:
             print("Excel fetch failed:", e)
             return "fetch_error"
-            
+
+
+
 
 def extract_gt(parts, valid=None):
     """
@@ -318,9 +315,11 @@ def load_branches():
 
 
 def handle_branch(df, branch_key):
-    # df is unused but required for DidYouMeanView compatibility
     branches = load_branches()
+    if not isinstance(branches, dict):
+        return None
     return branches.get(branch_key)
+
 
 
 
@@ -743,11 +742,12 @@ async def fuzzy_or_abort(
         # Don't use a value; buttons are interactive
         embed.add_field(name=original, value="\u200b", inline=True)  # optional, just to keep field
         view.add_item(DidYouMeanButton(original))
-    await safe_send(
+    msg = await safe_send(
         message.channel,
         embed=embed,
         view=view
     )
+    view.message = msg
     return None
 
 
