@@ -134,7 +134,7 @@ class DidYouMeanButton(ui.Button):
         view: DidYouMeanView = self.view
         # 1️⃣ Get the full corrected dataset from resolver
         output = view.resolver(view.df, self.label)
-        if output is None or output.empty:
+        if output is None or (hasattr(output, "empty") and output.empty):
             await interaction.response.edit_message(
                 content="❌ No results after correction.",
                 embed=None,
@@ -303,6 +303,10 @@ def load_branches():
 
 
 
+def handle_branch(df, branch_key):
+    # df is unused but required for DidYouMeanView compatibility
+    branches = load_branches()
+    return branches.get(branch_key)
 
 
 
@@ -318,26 +322,22 @@ async def handle_branch_command(message, branch_name: str):
 
     # branch matching
     # --- FUZZY BRANCH MATCHING ---
-    branch_lookup = {k.lower(): k for k in branches.keys()}
-    key = branch_name.lower()
+    branch_key = await fuzzy_or_abort(
+        message=message,
+        df=None,  # branches are not dataframe-based
+        user_input=branch_name,
+        choices=branches.keys(),
+        arg_index=2,
+        resolver=handle_branch,
+        title="Branch not found — did you mean?",
+        result_title="Branch Highscores",
+        columns=["Ņ", "Tank", "Name", "Score", "Id"],
+        cutoff=0.6
+    )
+    if branch_key is None:
+        return
     # exact match
-    if key in branch_lookup:
-        branch_key = branch_lookup[key]
-    else:
-        matches = get_close_matches(
-            key,
-            branch_lookup.keys(),
-            n=5,
-            cutoff=0.6
-        )
-        if not matches:
-            await safe_send(
-                message.channel,
-                content=f"❌ Branch `{branch_name}` not found."
-            )
-            return
-        # pick best fuzzy match
-        branch_key = branch_lookup[matches[0]]
+
     branch_tanks = branches.get(branch_key)
     if not branch_tanks:
         await safe_send(
