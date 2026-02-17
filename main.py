@@ -134,7 +134,21 @@ class DidYouMeanButton(ui.Button):
         view: DidYouMeanView = self.view
         # 1️⃣ Get the full corrected dataset from resolver
         output = view.resolver(view.df, self.label)
-        if output is None or (hasattr(output, "empty") and output.empty):
+    # 🔀 BRANCH MODE (resolver returned a list)
+    if isinstance(output, list):
+        await handle_branch_command(
+            interaction.message,
+            self.label
+        )
+        return
+    if output is None or output.empty:
+        await interaction.response.edit_message(
+            content="❌ No results after correction.",
+            embed=None,
+            view=None
+        )
+        return
+
             await interaction.response.edit_message(
                 content="❌ No results after correction.",
                 embed=None,
