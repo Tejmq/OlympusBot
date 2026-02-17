@@ -317,16 +317,29 @@ async def handle_branch_command(message, branch_name: str):
         return
 
     # branch matching
-    branch_key = None
-    for key in branches.keys():
-        if key.lower() == branch_name.lower():
-            branch_key = key
-            break
+    # --- FUZZY BRANCH MATCHING ---
+    branch_lookup = {k.lower(): k for k in branches.keys()}
+    key = branch_name.lower()
+    # exact match
+    if key in branch_lookup:
+        branch_key = branch_lookup[key]
+    else:
+        matches = get_close_matches(
+            key,
+            branch_lookup.keys(),
+            n=5,
+            cutoff=0.6
+        )
+        if not matches:
+            await safe_send(
+                message.channel,
+                content=f"❌ Branch `{branch_name}` not found."
+            )
+            return
+        # pick best fuzzy match
+        branch_key = branch_lookup[matches[0]]
+    # --------------------------------
 
-    if not branch_key:
-        await safe_send(message.channel, content=f"❌ Branch `{branch_name}` not found.")
-        return
-    branch_tanks = branches[branch_key]
 
     # Load Excel
     df = read_excel_cached()
@@ -903,9 +916,9 @@ async def on_message(message):
 
 
     # --- Call in on_message ---
-    elif cmd == "br":
+    elif cmd == "bch":
         if len(parts) < 3:
-            await safe_send(message.channel, content="❌ Usage: !o;br;<branchname>")
+            await safe_send(message.channel, content="❌ Usage: !o;bch;<branchname>")
             return
         branch_name = parts[2].strip()
         await handle_branch_command(message, branch_name)
@@ -942,7 +955,7 @@ async def on_message(message):
                 "!o;t;TankName     - Best score of a tank\n"
                 "!o;n;Player       - Best scores of a specific player\n"
                 "!o;d;YYYY-MM-DD         - Scores from a specific date\n"
-                "!o;br;BranchName    - Highscores of every tank in a branch\n"
+                "!o;bch;BranchName    - Highscores of every tank in a branch\n"
             
                 "!o;c             - Best tank list\n"
                 "!o;b              - Best player list\n"
