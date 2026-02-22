@@ -131,6 +131,10 @@ class DidYouMeanButton(ui.Button):
     def __init__(self, label: str):
         super().__init__(label=label, style=discord.ButtonStyle.secondary)
     async def callback(self, interaction: Interaction):
+        if not interaction.response.is_done():
+            await interaction.response.defer()
+        view: DidYouMeanView = self.view
+        output = view.resolver(view.df, self.label)
         view: DidYouMeanView = self.view
         # 1️⃣ Get the full corrected dataset from resolver
         output = view.resolver(view.df, self.label)
@@ -323,24 +327,30 @@ def handle_branch(df, branch_key):
 
 
 
-
-async def handle_branch_command(message, branch_name: str, interaction: Interaction | None = None):
+async def handle_branch_command(
+    message,
+    branch_name: str,
+    interaction: Interaction | None = None
+):
+    # Load branches
     branches = load_branches()
-    if isinstance(branches, str):
-        await safe_send(message.channel, content="❌ Branch list unavailable.")
-        return
-
     if not isinstance(branches, dict):
+        content = "❌ Branch list unavailable."
+
         if interaction:
-            await interaction.response.edit_message(embed=embed, view=None)
+            await interaction.edit_original_response(
+                content=content,
+                embed=None,
+                view=None
+            )
         else:
-            await safe_send(message.channel, embed=embed)
+            await safe_send(message.channel, content=content)
         return
 
-    # branch matching
     # --- FUZZY BRANCH MATCHING ---
     branch_key = await fuzzy_or_abort(
         message=message,
+        interaction=interaction,
         df=None,  # branches are not dataframe-based
         user_input=branch_name,
         choices=branches.keys(),
@@ -353,26 +363,41 @@ async def handle_branch_command(message, branch_name: str, interaction: Interact
     )
     if branch_key is None:
         return
-    # exact match
+    # --------------------------------
 
     branch_tanks = branches.get(branch_key)
     if not branch_tanks:
-        await safe_send(
-            message.channel,
-            content="❌ Branch has no tanks defined."
-        )
+        content = "❌ Branch has no tanks defined."
+
+        if interaction:
+            await interaction.edit_original_response(
+                content=content,
+                embed=None,
+                view=None
+            )
+        else:
+            await safe_send(message.channel, content=content)
         return
-    # --------------------------------
 
     # Load Excel
     df = read_excel_cached()
     if isinstance(df, str) or df.empty:
-        await safe_send(message.channel, content="❌ Data unavailable.")
+        content = "❌ Data unavailable."
+
+        if interaction:
+            await interaction.edit_original_response(
+                content=content,
+                embed=None,
+                view=None
+            )
+        else:
+            await safe_send(message.channel, content=content)
         return
+
     df.columns = df.columns.str.strip()
     df = normalize_score(df)
 
-    # Build rows: top 1 score per tank
+    # Build rows: top score per tank
     rows = []
     for tank in branch_tanks:
         tank_rows = df[df["Tank"].str.lower() == tank.lower()]
@@ -387,7 +412,7 @@ async def handle_branch_command(message, branch_name: str, interaction: Interact
                 "Id": best.get("Id", "")
             })
 
-    # Sort descending by Score
+    # Sort + limit
     rows.sort(key=lambda x: x["Score"], reverse=True)
     rows = rows[:16]
 
@@ -402,10 +427,16 @@ async def handle_branch_command(message, branch_name: str, interaction: Interact
         description=f"```text\n{chr(10).join(lines)}\n```",
         color=discord.Color.dark_grey()
     )
-    embed.set_footer(text=f" {len(display_df)} tanks in this branch")
-    await safe_send(message.channel, embed=embed)
+    embed.set_footer(text=f"{len(display_df)} tanks in this branch")
 
-
+    # FINAL SEND / EDIT
+    if interaction:
+        await interaction.edit_original_response(
+            embed=embed,
+            view=None
+        )
+    else:
+        await safe_send(message.channel, embed=embed)
 
 
 
@@ -696,6 +727,7 @@ from difflib import get_close_matches
 async def fuzzy_or_abort(
     *,
     message,
+    interaction: Interaction | None = None,
     df,
     user_input,
     choices,
@@ -746,12 +778,12 @@ async def fuzzy_or_abort(
         # Don't use a value; buttons are interactive
         embed.add_field(name=original, value="\u200b", inline=True)  # optional, just to keep field
         view.add_item(DidYouMeanButton(original))
-    msg = await safe_send(
-        message.channel,
-        embed=embed,
-        view=view
-    )
-    view.message = msg
+    if interaction:
+        await interaction.edit_original_response(embed=embed, view=view)
+        view.message = await interaction.original_response()
+    else:
+        msg = await safe_send(message.channel, embed=embed, view=view)
+        view.message = msg
     return None
 
 
