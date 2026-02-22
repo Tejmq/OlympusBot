@@ -902,11 +902,15 @@ async def on_message(message):
             resolver=handle_name,
             title="Player not found — did you mean?",
             result_title="Player Scores",
-            columns=["Ņ", "Tank", "Name", "Score", "Id"]
+            columns=["Ņ", "Tank", "Score", "Date", "Id"]
         )
         if name is None:
             return
         output = handle_name(df, name)
+        # ✅ SET TITLE HERE
+        title = f"All scores of {name}"
+
+
 
 
     elif cmd == "c":
@@ -926,11 +930,13 @@ async def on_message(message):
             resolver=handle_tank,
             title="Tank not found — did you mean?",
             result_title="Tank Scores",
-            columns=["Ņ", "Tank", "Name", "Score", "Id"]
+            columns=["Ņ", "Name", "Score", "date", "Id"]
         )
         if tank is None:
             return
         output = handle_tank(df, tank)
+        # ✅ SET TITLE HERE
+        title = f"All scores of {tank}"
 
     
     elif cmd == "s":
@@ -1085,10 +1091,8 @@ async def on_message(message):
     title_map = {
         "a": "All Scores",
         "b": "Best Players",
-        "n": "Player Scores",
         "c": "Best Per Tank",
         "p": "Leaderboard",
-        "t": "Tank Scores",
         "d": "Scores by Date"
     }
 
