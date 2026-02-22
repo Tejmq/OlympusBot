@@ -200,7 +200,7 @@ class DidYouMeanButton(ui.Button):
 
         embed.set_footer(text=footer)
 
-        await interaction.response.edit_message(embed=embed, view=paged_view)
+        await interaction.edit_original_response(embed=embed, view=paged_view)
         paged_view.message = await interaction.original_response()
 
 
