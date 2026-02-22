@@ -138,7 +138,8 @@ class DidYouMeanButton(ui.Button):
         if isinstance(output, list):
             await handle_branch_command(
                 interaction.message,
-                self.label
+                self.label,
+                interaction=interaction
             )
             return
         if output is None or output.empty:
@@ -323,14 +324,17 @@ def handle_branch(df, branch_key):
 
 
 
-async def handle_branch_command(message, branch_name: str):
+async def handle_branch_command(message, branch_name: str, interaction: Interaction | None = None):
     branches = load_branches()
     if isinstance(branches, str):
         await safe_send(message.channel, content="❌ Branch list unavailable.")
         return
 
     if not isinstance(branches, dict):
-        await safe_send(message.channel, content="❌ Invalid branch data.")
+        if interaction:
+            await interaction.response.edit_message(embed=embed, view=None)
+        else:
+            await safe_send(message.channel, embed=embed)
         return
 
     # branch matching
