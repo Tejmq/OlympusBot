@@ -1088,14 +1088,14 @@ async def on_message(message):
     cols = COLUMNS_C if cmd in {"c", "t"} else COLUMNS_DEFAULT
     output = output[[c for c in cols if c in output]]
 
-    title_map = {
-        "a": "All Scores",
-        "b": "Best Players",
-        "c": "Best Per Tank",
-        "p": "Leaderboard",
-        "d": "Scores by Date"
-    }
-
+    if "title" not in locals():
+        title_map = {
+            "a": "All Scores",
+            "b": "Best Players",
+            "c": "Best Per Tank",
+            "p": "Leaderboard",
+            "d": "Scores by Date"
+        }
     title = title_map.get(cmd, "Olymp Leaderboard")
 
     start, end, range_size, warning = extract_range(parts, max_range=15, total_len=len(output))
