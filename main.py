@@ -1084,22 +1084,21 @@ async def on_message(message):
         return
     # ------------------------------------------------
 
-    
-    if cmd in {"c", "t"}:
+    if cmd == "n":  # player
+        cols = ["Ņ", "Tank", "Score", "Date", "Id"]
+    elif cmd == "t":  # tank
+        cols = ["Ņ", "Name", "Score", "Date", "Id"]
+    elif cmd == "c":
         cols = COLUMNS_C.copy()
     else:
         cols = COLUMNS_DEFAULT.copy()
-
-    # Include Date for n/t
-    if cmd in {"n", "t"} and "Date" in output.columns:
-        cols.append("Date")
-
-    output = output[[c for c in cols if c in output]]
+    cols = [c for c in cols if c in output.columns]
+    output = output[cols]
 
     title = None  # define upfront
 
     # after output is finalized
-    if title is None:
+    if 'title' not in locals() or title is None:
         title_map = {
             "a": "All Scores",
             "b": "Best Players",
