@@ -1085,9 +1085,9 @@ async def on_message(message):
     # ------------------------------------------------
 
     if cmd == "n":  # player
-        cols = ["Ņ", "Tank", "Score", "Date", "Id"]
+        cols = ["Ņ", "Score", "Tank", "Date", "Id"]
     elif cmd == "t":  # tank
-        cols = ["Ņ", "Name", "Score", "Date", "Id"]
+        cols = ["Ņ", "Score", "Name", "Date", "Id"]
     elif cmd == "c":
         cols = COLUMNS_C.copy()
     else:
