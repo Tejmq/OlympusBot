@@ -1095,7 +1095,6 @@ async def on_message(message):
     cols = [c for c in cols if c in output.columns]
     output = output[cols]
 
-    title = None  # define upfront
 
     # after output is finalized
     if 'title' not in locals() or title is None:
