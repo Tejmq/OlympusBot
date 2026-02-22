@@ -1085,10 +1085,21 @@ async def on_message(message):
     # ------------------------------------------------
 
     
-    cols = COLUMNS_C if cmd in {"c", "t"} else COLUMNS_DEFAULT
+    if cmd in {"c", "t"}:
+        cols = COLUMNS_C.copy()
+    else:
+        cols = COLUMNS_DEFAULT.copy()
+
+    # Include Date for n/t
+    if cmd in {"n", "t"} and "Date" in output.columns:
+        cols.append("Date")
+
     output = output[[c for c in cols if c in output]]
 
-    if "title" not in locals():
+    title = None  # define upfront
+
+    # after output is finalized
+    if title is None:
         title_map = {
             "a": "All Scores",
             "b": "Best Players",
@@ -1096,7 +1107,7 @@ async def on_message(message):
             "p": "Leaderboard",
             "d": "Scores by Date"
         }
-    title = title_map.get(cmd, "Olymp Leaderboard")
+        title = title_map.get(cmd, "Olymp Leaderboard")
 
     start, end, range_size, warning = extract_range(parts, max_range=15, total_len=len(output))
 
