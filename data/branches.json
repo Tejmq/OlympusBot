@@ -9,6 +9,7 @@
     "Pounder",
     "Trapper",
     "Single",
+    "Desmos",
     "Healer"
   ],
 
@@ -2948,6 +2949,26 @@
 	"Assistant",
 	"Auto-Single"
   ],
+  
+  
+        "Desmos": [
+    "Desmos",
+	"Helix",
+	"Triplex",
+	"Quadruplex"
+  ],
+     
+        "Builder": [
+    "Builder",
+	"Constructor",
+	"Auto-Builder",
+	"Engineer",
+	"Boomer",
+	"Assembler",
+	"Architect",
+	"Conqueror"
+  ],
+  
   
         "Test": [
     "Big",
