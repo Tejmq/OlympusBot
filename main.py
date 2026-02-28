@@ -30,7 +30,11 @@ user_cooldowns = {}
 
 intents = discord.Intents.default()
 intents.message_content = True
-bot = discord.Client(intents=intents)
+
+from discord.ext import commands
+from discord import app_commands
+
+bot = commands.Bot(command_prefix="!", intents=intents)
 
 DATAFRAME_CACHE = None
 LAST_FETCH = 0
@@ -171,7 +175,7 @@ class DidYouMeanButton(ui.Button):
         # 4️⃣ Extract range from original command parts
         start, end, range_size, warning = extract_range(
             view.parts,
-            max_range=20,
+            max_range=15,
             total_len=len(output)
         )
         # 5️⃣ Pagination
@@ -563,14 +567,22 @@ def load_tanks():
 @bot.event
 async def on_ready():
     try:
+        synced = await bot.tree.sync()
+        print(f"Synced {len(synced)} slash commands")
+    except Exception as e:
+        print("Slash sync failed:", e)
+
+    try:
         read_excel_cached()
         print("Initial data load OK")
     except Exception as e:
         print("Initial data load failed:", e)
 
     global TANK_NAMES
-    TANK_NAMES = load_tanks() 
+    TANK_NAMES = load_tanks()
+
     print(f"Logged in as {bot.user}")
+
 
 
 
@@ -784,6 +796,7 @@ async def fuzzy_or_abort(
     else:
         msg = await safe_send(message.channel, embed=embed, view=view)
         view.message = msg
+        await bot.process_commands(message) 
     return None
 
 
@@ -841,6 +854,7 @@ def extract_range(parts, max_range=20, total_len=0):
 @bot.event
 async def on_message(message):
     if message.author == bot.user:
+        
         return
 
     if not message.content.startswith("!o;"):
@@ -1135,6 +1149,58 @@ async def on_message(message):
 
     msg = await safe_send(message.channel, embed=embed, view=view)
     view.message = msg
+    await bot.process_commands(message) 
+
+
+
+
+    # -------------!o;p;1-10------------------------
+
+from discord import app_commands
+@bot.tree.command(name="leaderboard", description="Show leaderboard with optional range")
+@app_commands.describe(
+    start="Starting rank (default: 1)",
+    end="Ending rank (default: 15)"
+)
+async def leaderboard(
+    interaction: discord.Interaction,
+    start: int = 1,
+    end: int = 15
+):
+    await interaction.response.defer()
+    # Safety checks
+    if start < 1:
+        start = 1
+    if end < start:
+        end = start
+    df = read_excel_cached()
+    if isinstance(df, str) or df.empty:
+        await interaction.followup.send("Data unavailable.")
+        return
+    df = normalize_score(df).sort_values("Score", ascending=False)
+    df = add_index(df)
+    # Convert to zero-based slicing
+    start_index = start - 1
+    end_index = end
+    sliced = df.iloc[start_index:end_index]
+    if sliced.empty:
+        await interaction.followup.send("No results in that range.")
+        return
+    sliced = sliced[["Ņ", "Score", "Name", "Tank", "Id"]]
+    lines = dataframe_to_markdown_aligned(sliced)
+    embed = discord.Embed(
+        title=f"Leaderboard ({start}-{end})",
+        description=f"```text\n{chr(10).join(lines)}\n```",
+        color=discord.Color.dark_grey()
+    )
+    await interaction.followup.send(embed=embed)
+
+
+
+
+
+
+
 
 
 
