@@ -810,25 +810,33 @@ def extract_range(parts, max_range=20, total_len=0):
     size = end - start + 1
     return start, end, size, warning
 
+
+
+
 @bot.event
 async def on_message(message):
+    # --- Debug: show every message received ---
+    print(f"[DEBUG] Received message from {message.author}: {message.content}")
     if message.author == bot.user:
-        
         return
-
     if not message.content.startswith("!o;"):
         return
-
     now = time.time()
     if now - user_cooldowns.get(message.author.id, 0) < COOLDOWN_SECONDS:
+        print(f"[DEBUG] Cooldown active for {message.author}")
         return
     user_cooldowns[message.author.id] = now
-
     parts = message.content.split(";")
     if len(parts) < 2:
         return
     cmd = parts[1].lower()
+    # --- Debug: check Excel load ---
     df = read_excel_cached()
+    print(f"[DEBUG] read_excel_cached returned type: {type(df)}")
+    if isinstance(df, pd.DataFrame):
+        print(f"[DEBUG] DataFrame shape: {df.shape}, columns: {df.columns.tolist()}")
+    else:
+        print(f"[DEBUG] Excel load returned: {df}")
     
 
 
