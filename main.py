@@ -205,6 +205,70 @@ class DidYouMeanButton(ui.Button):
 
 
 
+
+# --- Helper for !o;nt ---
+async def handle_name_tank(message, df, parts):
+    if len(parts) < 4:
+        await safe_send(message.channel, content="❌ Usage: !o;nt;<Name>;<Tank> (order doesn't matter)")
+        return
+    input1, input2 = parts[2].strip(), parts[3].strip()
+    name_choices = df["Name"].dropna().unique()
+    tank_choices = df["Tank"].dropna().unique()
+    # Determine which input is name/tank
+    name = input1 if any(input1.lower() == n.lower() for n in name_choices) else input2
+    tank = input2 if name == input1 else input1
+    # Apply fuzzy matching if needed
+    name = await fuzzy_or_abort(
+        message=message,
+        df=df,
+        user_input=name,
+        choices=name_choices,
+        arg_index=2,
+        resolver=handle_name,
+        title="Player not found — did you mean?",
+        result_title="Player Scores",
+        columns=["Ņ", "Tank", "Score", "Date", "Id"]
+    )
+    if name is None:
+        return
+    tank = await fuzzy_or_abort(
+        message=message,
+        df=df,
+        user_input=tank,
+        choices=tank_choices,
+        arg_index=2,
+        resolver=handle_tank,
+        title="Tank not found — did you mean?",
+        result_title="Tank Scores",
+        columns=["Ņ", "Name", "Score", "Date", "Id"]
+    )
+    if tank is None:
+        return
+    # Filter
+    df_filtered = df[
+        (df["Name"].str.lower() == name.lower()) &
+        (df["Tank"].str.lower() == tank.lower())
+    ].copy()
+    if df_filtered.empty:
+        await safe_send(message.channel, content=f"❌ No scores for player **{name}** with tank **{tank}**.")
+        return
+    df_filtered = df_filtered.sort_values("Score", ascending=False)
+    df_filtered = add_index(df_filtered)
+    cols = ["Ņ", "Score", "Date", "Id"]
+    df_filtered = df_filtered[cols]
+    lines = dataframe_to_markdown_aligned(df_filtered)
+    embed = Embed(
+        title=f"Scores for {name} with {tank}",
+        description=f"```text\n{chr(10).join(lines)}\n```",
+        color=discord.Color.dark_grey()
+    )
+    await safe_send(message.channel, embed=embed)
+    
+
+
+
+
+
 def read_excel_cached():
     global DATAFRAME_CACHE
 
@@ -821,22 +885,61 @@ async def on_message(message):
         return
     if not message.content.startswith("!o;"):
         return
+
     now = time.time()
     if now - user_cooldowns.get(message.author.id, 0) < COOLDOWN_SECONDS:
         print(f"[DEBUG] Cooldown active for {message.author}")
         return
     user_cooldowns[message.author.id] = now
+
     parts = message.content.split(";")
     if len(parts) < 2:
         return
     cmd = parts[1].lower()
-    # --- Debug: check Excel load ---
+
+    # --- Load Excel first ---
     df = read_excel_cached()
     print(f"[DEBUG] read_excel_cached returned type: {type(df)}")
     if isinstance(df, pd.DataFrame):
         print(f"[DEBUG] DataFrame shape: {df.shape}, columns: {df.columns.tolist()}")
     else:
-        print(f"[DEBUG] Excel load returned: {df}")
+        await safe_send(message.channel, content="❌ Data unavailable.")
+        return
+
+    # --- Date filter addon ---
+    date_pattern = re.compile(r'([<>=]?)(\d{4}-\d{2}-\d{2}|\d{2}-\d{2}-\d{4})')
+    date_operator = None
+    date_target = None
+
+    for p in parts[2:]:  # skip cmd
+        match = date_pattern.fullmatch(p.strip())
+        if match:
+            date_operator, date_str = match.groups()
+            if re.match(r"\d{2}-\d{2}-\d{4}", date_str):
+                d, m, y = date_str.split("-")
+                date_target = f"{y}-{m}-{d}"
+            else:
+                date_target = date_str
+            break  # only first date addon considered
+
+    if date_target:
+        df["Date"] = df["Date"].astype(str).str[:10]
+        if date_operator == "<":
+            df = df[df["Date"] < date_target]
+        elif date_operator == ">":
+            df = df[df["Date"] > date_target]
+        else:  # "=" or None
+            df = df[df["Date"] == date_target]
+
+        # if filtering removed everything, warn early
+        if df.empty:
+            await safe_send(
+                message.channel,
+                content=f"❌ No results for {date_operator or '='}{date_target}"
+            )
+            return
+
+    # ... continue with your normal cmd handling (p, b, n, t, etc.)
     
 
 
@@ -891,8 +994,10 @@ async def on_message(message):
         # ✅ SET TITLE HERE
         title = f"All scores of {name}"
 
-
-
+    
+    elif cmd == "nt":
+        await handle_name_tank(message, df, parts)
+        return
 
     elif cmd == "c":
         output = normalize_score(df).sort_values("Score", ascending=False).drop_duplicates("Tank")
@@ -966,28 +1071,6 @@ async def on_message(message):
         branch_name = parts[2].strip()
         await handle_branch_command(message, branch_name)
         return
-
-
-    elif cmd == "d":
-        if len(parts) < 3:
-            await safe_send(message.channel, content="❌ Usage: !o;d;YYYY-MM-DD or DD-MM-YYYY")
-            return
-        raw = parts[2]
-        if re.match(r"\d{2}-\d{2}-\d{4}", raw):
-            d,m,y = raw.split("-")
-            target = f"{y}-{m}-{d}"
-        elif re.match(r"\d{4}-\d{2}-\d{2}", raw):
-            target = raw
-        else:
-            await safe_send(message.channel, content="❌ Invalid date format")
-            return
-        df["Date"] = df["Date"].astype(str).str[:10]
-        output = normalize_score(df[df["Date"] == target])
-        if output.empty:
-            await safe_send(message.channel, content=f"❌ No results for {target}")
-            return
-        output = add_index(output)
-        shorten_tank = True
 
     
         # --- HELP ---
@@ -1083,8 +1166,7 @@ async def on_message(message):
             "a": "All Scores",
             "b": "Best Players",
             "c": "Best Per Tank",
-            "p": "Leaderboard",
-            "d": "Scores by Date"
+            "p": "Leaderboard"
         }
         title = title_map.get(cmd, "Olymp Leaderboard")
 
@@ -1161,8 +1243,6 @@ async def leaderboard(
         color=discord.Color.dark_grey()
     )
     await interaction.followup.send(embed=embed)
-
-
 
 
 
