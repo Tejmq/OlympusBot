@@ -1,7 +1,5 @@
 import discord
 import pandas as pd
-import requests
-from io import BytesIO
 from wcwidth import wcswidth
 import os, time, json, random, re
 from keep_alive import keep_alive
@@ -15,10 +13,7 @@ from difflib import get_close_matches
 
 FETCH_LOCK = Lock()
 
-EXCEL_GITHUB_URL = "https://raw.githubusercontent.com/Tejmq/OlympusBot/main/data/Olympus.xlsx"
 LOCAL_EXCEL_PATH = "data/Olympus.xlsx"
-TANKS_JSON_URL = "https://raw.githubusercontent.com/Tejmq/OlympusBot/refs/heads/main/data/tanks.json"
-TANKS_JSON2_URL = "https://raw.githubusercontent.com/Tejmq/OlympusBot/main/data/branches.json"
 
 COLUMNS_DEFAULT = ["Ņ", "Score", "Name", "Tank", "Id"]
 COLUMNS_C = ["Ņ", "Tank", "Name", "Score", "Id"]
@@ -211,48 +206,18 @@ class DidYouMeanButton(ui.Button):
 
 
 def read_excel_cached():
-    global DATAFRAME_CACHE, LAST_FETCH
+    global DATAFRAME_CACHE
 
-    now = time.time()
+    if DATAFRAME_CACHE is not None:
+        return DATAFRAME_CACHE.copy()
 
-    with FETCH_LOCK:
-        # 1️⃣ Use in-memory cache if valid
-        if DATAFRAME_CACHE is not None and now - LAST_FETCH < CACHE_TTL:
-            return DATAFRAME_CACHE.copy()
-
-        # 2️⃣ Load from disk if exists
-        if os.path.isfile(LOCAL_EXCEL_PATH):
-            try:
-                DATAFRAME_CACHE = pd.read_excel(LOCAL_EXCEL_PATH)
-                LAST_FETCH = now
-                print("Excel loaded from disk")
-                return DATAFRAME_CACHE.copy()
-            except Exception as e:
-                print("Failed to load Excel from disk:", e)
-
-        # 3️⃣ Fetch from GitHub RAW (last resort)
-        try:
-            print("Fetching Excel from GitHub...")
-            r = requests.get(EXCEL_GITHUB_URL, headers=HEADERS, timeout=15)
-            r.raise_for_status()
-
-            content_type = r.headers.get("Content-Type", "").lower()
-            if "html" in content_type:
-                print("GitHub returned HTML — blocked or rate-limited")
-                return "html_error"
-
-            with open(LOCAL_EXCEL_PATH, "wb") as f:
-                f.write(r.content)
-
-            DATAFRAME_CACHE = pd.read_excel(BytesIO(r.content))
-            LAST_FETCH = now
-            print("Excel fetched and cached")
-
-            return DATAFRAME_CACHE.copy()
-
-        except Exception as e:
-            print("Excel fetch failed:", e)
-            return "fetch_error"
+    try:
+        DATAFRAME_CACHE = pd.read_excel("data/Olympus.xlsx")
+        print("Excel loaded locally")
+        return DATAFRAME_CACHE.copy()
+    except Exception as e:
+        print("Excel load failed:", e)
+        return "fetch_error"
 
 
 
@@ -306,19 +271,18 @@ async def send_screenshot(channel, df, screenshot_id):
 BRANCHES_JSON = []
 def load_branches():
     global BRANCHES_JSON
+
     if BRANCHES_JSON:
         return BRANCHES_JSON
 
     try:
-        r = requests.get(TANKS_JSON2_URL, timeout=10)
-        r.raise_for_status()
-        if "html" in r.headers.get("Content-Type", "").lower():
-            print("Branches JSON fetch returned HTML — possible wrong URL")
-            return "html_error"
-        BRANCHES_JSON = r.json()
+        with open("data/branches.json", "r") as f:
+            BRANCHES_JSON = json.load(f)
+        print("Branches loaded locally")
     except Exception as e:
-        print("Branch list load failed:", e)
+        print("Branch load failed:", e)
         return "fetch_error"
+
     return BRANCHES_JSON
 
 
@@ -543,21 +507,16 @@ async def send_info_embed(channel, df, info_id):
 TANK_NAMES = []
 def load_tanks():
     global TANK_NAMES
+
     if TANK_NAMES:
         return TANK_NAMES
 
     try:
-        r = requests.get(TANKS_JSON_URL, timeout=10)
-        r.raise_for_status()
-
-        if "html" in r.headers.get("Content-Type", "").lower():
-            print("Tank JSON fetch returned HTML — possible GitHub/Cloudflare issue")
-            return "html_error"
-
-        TANK_NAMES = r.json()["tanks"]
-        print("Tank list loaded from GitHub")
+        with open("data/tanks.json", "r") as f:
+            TANK_NAMES = json.load(f)["tanks"]
+        print("Tank list loaded locally")
     except Exception as e:
-        print("Tank list load failed:", e)
+        print("Tank load failed:", e)
         return "fetch_error"
 
     return TANK_NAMES
