@@ -170,7 +170,7 @@ class DidYouMeanButton(ui.Button):
         # 4️⃣ Extract range from original command parts
         start, end, range_size, warning = extract_range(
             view.parts,
-            max_range=15,
+            max_range=20,
             total_len=len(output)
         )
         # 5️⃣ Pagination
@@ -689,7 +689,7 @@ def add_index(df):
     df["Ņ"] = range(1, len(df) + 1)
     return df
 
-def parse_range(text, max_range=15):
+def parse_range(text, max_range=20):
     try:
         a, b = map(int, text.split("-"))
         if b - a + 1 > max_range:
@@ -853,7 +853,7 @@ def extract_range(parts, max_range=20, total_len=0):
     """
     warning = None
     start = 1
-    end = min(20, total_len)
+    end = min(15, total_len)
     size = end - start + 1
 
 
@@ -884,6 +884,7 @@ async def on_message(message):
     if message.author == bot.user:
         return
     if not message.content.startswith("!o;"):
+        await bot.process_commands(message)
         return
 
     now = time.time()
@@ -1131,6 +1132,7 @@ async def on_message(message):
 
     if output is None or output.empty:
         await safe_send(message.channel, content="No results.")
+        await bot.process_commands(message)
         return
 
 
@@ -1170,7 +1172,7 @@ async def on_message(message):
         }
         title = title_map.get(cmd, "Olymp Leaderboard")
 
-    start, end, range_size, warning = extract_range(parts, max_range=15, total_len=len(output))
+    start, end, range_size, warning = extract_range(parts, max_range=20, total_len=len(output))
 
 
     view = RangePaginationView(
@@ -1199,7 +1201,7 @@ async def on_message(message):
     msg = await safe_send(message.channel, embed=embed, view=view)
     view.message = msg
     await bot.process_commands(message) 
-
+    
 
 
 
