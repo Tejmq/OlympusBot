@@ -589,22 +589,21 @@ def load_tanks():
 
 @bot.event
 async def on_ready():
+    print("Bot starting...")
     try:
-        synced = await bot.tree.sync()
-        print(f"Synced {len(synced)} slash commands")
+        synced = await bot.tree.sync()  # GLOBAL sync
+        print(f"Synced {len(synced)} global slash commands")
     except Exception as e:
         print("Slash sync failed:", e)
-
     try:
         read_excel_cached()
         print("Initial data load OK")
     except Exception as e:
         print("Initial data load failed:", e)
-
     global TANK_NAMES
     TANK_NAMES = load_tanks()
-
     print(f"Logged in as {bot.user}")
+
 
 
 
@@ -1081,13 +1080,14 @@ async def on_message(message):
                 "!o;p              - Part of the scoreboard\n"            
                 "!o;t;TankName     - Best score of a tank\n"
                 "!o;n;Player       - Best scores of a specific player\n"
-                "!o;d;YYYY-MM-DD         - Scores from a specific date\n"
+                "!o;nt;Player;Tank     - Player and Tank       \n"
                 "!o;bch;BranchName    - Highscores of every tank in a branch\n"
             
                 "!o;c             - Best tank list\n"
                 "!o;b              - Best player list\n"
 
                 ";1-15    -to imput range      ;r    -to pick category \n"
+                ";YYYY-MM-DD   -date    (add any at the end of a command)   \n"
             
                 "!o;s;id                 - Screenshot of the score\n"
                 "!o;i;id                 - Detailed description\n"
