@@ -1207,45 +1207,85 @@ async def on_message(message):
 
     # -------------!o;p;1-10------------------------
 
-from discord import app_commands
-@bot.tree.command(name="leaderboard", description="Show leaderboard with optional range")
+@bot.tree.command(name="leaderboard", description="Leaderboard with optional filters")
 @app_commands.describe(
     start="Starting rank (default: 1)",
-    end="Ending rank (default: 15)"
+    end="Ending rank (default: 15)",
+    gt="GT filter (A, R, F, L)",
+    date="Date filter. Example: 2024-01-01 or >2024-01-01"
 )
 async def leaderboard(
     interaction: discord.Interaction,
     start: int = 1,
-    end: int = 15
+    end: int = 15,
+    gt: str | None = None,
+    date: str | None = None
 ):
     await interaction.response.defer()
-    # Safety checks
-    if start < 1:
-        start = 1
-    if end < start:
-        end = start
     df = read_excel_cached()
     if isinstance(df, str) or df.empty:
         await interaction.followup.send("Data unavailable.")
         return
+    df.columns = df.columns.str.strip()
+
+    # ---------------- DATE FILTER ----------------
+    if date:
+        import re
+        date_pattern = re.compile(r'([<>=]?)(\d{4}-\d{2}-\d{2})')
+        match = date_pattern.fullmatch(date.strip())
+        if not match:
+            await interaction.followup.send("Invalid date format.")
+            return
+        operator, date_target = match.groups()
+        df["Date"] = df["Date"].astype(str).str[:10]
+        if operator == "<":
+            df = df[df["Date"] < date_target]
+        elif operator == ">":
+            df = df[df["Date"] > date_target]
+        else:
+            df = df[df["Date"] == date_target]
+        if df.empty:
+            await interaction.followup.send("No results for that date filter.")
+            return
+    # ---------------- NORMALIZE & SORT ----------------
     df = normalize_score(df).sort_values("Score", ascending=False)
+
+    # ---------------- GT FILTER ----------------
+    if gt and "GT" in df.columns:
+        df = df[df["GT"].astype(str).str.upper() == gt.upper()]
+        if df.empty:
+            await interaction.followup.send(f"No results for GT={gt.upper()}")
+            return
     df = add_index(df)
-    # Convert to zero-based slicing
-    start_index = start - 1
-    end_index = end
-    sliced = df.iloc[start_index:end_index]
-    if sliced.empty:
-        await interaction.followup.send("No results in that range.")
-        return
-    sliced = sliced[["Ņ", "Score", "Name", "Tank", "Id"]]
-    lines = dataframe_to_markdown_aligned(sliced)
+
+    # ---------------- RANGE LOGIC ----------------
+    if start < 1:
+        start = 1
+    if end < start:
+        end = start
+    total_len = len(df)
+    end = min(end, total_len)
+    range_size = end - start + 1
+
+    # ---------------- PAGINATION VIEW ----------------
+    view = RangePaginationView(
+        df=df[["Ņ", "Score", "Name", "Tank", "Id"]],
+        start_index=start,
+        range_size=range_size,
+        title="Leaderboard",
+        shorten_tank=True
+    )
+    slice_df = df.iloc[start-1:end].copy()
+    slice_df["Ņ"] = range(start, end + 1)
+    lines = dataframe_to_markdown_aligned(slice_df)
     embed = discord.Embed(
-        title=f"Leaderboard ({start}-{end})",
+        title="Leaderboard",
         description=f"```text\n{chr(10).join(lines)}\n```",
         color=discord.Color.dark_grey()
     )
-    await interaction.followup.send(embed=embed)
-
+    embed.set_footer(text=f"Rows {start}-{end} / {total_len}")
+    msg = await interaction.followup.send(embed=embed, view=view)
+    view.message = msg
 
 
 
