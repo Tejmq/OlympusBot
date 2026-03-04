@@ -209,15 +209,15 @@ class DidYouMeanButton(ui.Button):
 # --- Helper for !o;nt ---
 async def handle_name_tank(message, df, parts):
     if len(parts) < 4:
-        await safe_send(message.channel, content="❌ Usage: !o;nt;<Name>;<Tank> (order doesn't matter)")
+        await safe_send(message.channel, content="❌ Usage: !o;nt;<Name>;<Tank>")
         return
     input1, input2 = parts[2].strip(), parts[3].strip()
     name_choices = df["Name"].dropna().unique()
     tank_choices = df["Tank"].dropna().unique()
-    # Determine which input is name/tank
+    # Detect which is name / tank
     name = input1 if any(input1.lower() == n.lower() for n in name_choices) else input2
     tank = input2 if name == input1 else input1
-    # Apply fuzzy matching if needed
+    # Fuzzy name
     name = await fuzzy_or_abort(
         message=message,
         df=df,
@@ -231,12 +231,13 @@ async def handle_name_tank(message, df, parts):
     )
     if name is None:
         return
+    # Fuzzy tank
     tank = await fuzzy_or_abort(
         message=message,
         df=df,
         user_input=tank,
         choices=tank_choices,
-        arg_index=2,
+        arg_index=3,
         resolver=handle_tank,
         title="Tank not found — did you mean?",
         result_title="Tank Scores",
@@ -244,25 +245,50 @@ async def handle_name_tank(message, df, parts):
     )
     if tank is None:
         return
-    # Filter
+    # Filter results
     df_filtered = df[
         (df["Name"].str.lower() == name.lower()) &
         (df["Tank"].str.lower() == tank.lower())
     ].copy()
     if df_filtered.empty:
-        await safe_send(message.channel, content=f"❌ No scores for player **{name}** with tank **{tank}**.")
+        await safe_send(
+            message.channel,
+            content=f"❌ No scores for **{name}** with **{tank}**."
+        )
         return
+    df_filtered = normalize_score(df_filtered)
     df_filtered = df_filtered.sort_values("Score", ascending=False)
     df_filtered = add_index(df_filtered)
     cols = ["Ņ", "Score", "Date", "Id"]
     df_filtered = df_filtered[cols]
-    lines = dataframe_to_markdown_aligned(df_filtered)
+    # ---------- RANGE ----------
+    start, end, range_size, warning = extract_range(
+        parts,
+        max_range=20,
+        total_len=len(df_filtered)
+    )
+    # ---------- PAGINATION ----------
+    view = RangePaginationView(
+        df=df_filtered,
+        start_index=start,
+        range_size=range_size,
+        title=f"Scores for {name} with {tank}",
+        shorten_tank=True
+    )
+    slice_df = df_filtered.iloc[start-1:end].copy()
+    slice_df["Ņ"] = range(start, min(end, len(df_filtered)) + 1)
+    lines = dataframe_to_markdown_aligned(slice_df)
     embed = Embed(
         title=f"Scores for {name} with {tank}",
         description=f"```text\n{chr(10).join(lines)}\n```",
         color=discord.Color.dark_grey()
     )
-    await safe_send(message.channel, embed=embed)
+    footer = f"Rows {start}-{min(end, len(df_filtered))} / {len(df_filtered)}"
+    if warning:
+        footer = f"{warning} • {footer}"
+    embed.set_footer(text=footer)
+    msg = await safe_send(message.channel, embed=embed, view=view)
+    view.message = msg
     
 
 
@@ -1287,6 +1313,23 @@ async def leaderboard(
     msg = await interaction.followup.send(embed=embed, view=view)
     view.message = msg
 
+
+
+
+
+
+    # ---------------- i command ----------------
+@bot.tree.command(name="info", description="Detailed score information by ID")
+@app_commands.describe(id="Score ID")
+async def info(interaction: discord.Interaction, id: str):
+    await interaction.response.defer()
+    df = read_excel_cached()
+    if isinstance(df, str) or df.empty:
+        await interaction.followup.send("❌ Data unavailable.")
+        return
+    df.columns = df.columns.str.strip()
+    # Reuse your existing function
+    await send_info_embed(interaction.channel, df, id)
 
 
 
