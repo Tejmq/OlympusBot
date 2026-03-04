@@ -1317,20 +1317,20 @@ async def leaderboard(
 
 
 
-
-    # ---------------- i command ----------------
+# ---------------- i command ----------------
 @bot.tree.command(name="info", description="Detailed score information by ID")
-@app_commands.describe(id="Score ID")
+@app_commands.describe(id="Score ID, for example Qr")
 async def info(interaction: discord.Interaction, id: str):
-    await interaction.response.defer()
+
     df = read_excel_cached()
     if isinstance(df, str) or df.empty:
-        await interaction.followup.send("❌ Data unavailable.")
+        await interaction.response.send_message("❌ Data unavailable. Or is it?")
         return
     df.columns = df.columns.str.strip()
-    # Reuse your existing function
+    # Acknowledge interaction instantly
+    await interaction.response.send_message("Fetching info...")
+    # Reuse existing function (sends embed normally)
     await send_info_embed(interaction.channel, df, id)
-
 
 
 
