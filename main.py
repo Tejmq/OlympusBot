@@ -528,7 +528,7 @@ def parse_score(v):
 
 
 
-async def send_info_embed(channel, df, info_id):
+async def send_info_embed(channel, df, info_id, interaction=None):
     safe_id = re.sub(r"[^A-Za-z0-9_-]", "_", str(info_id))
     # Ensure Id column exists
     if "Id" not in df.columns:
@@ -588,7 +588,10 @@ async def send_info_embed(channel, df, info_id):
     if cdn_url and isinstance(cdn_url, str):
         embed.set_image(url=cdn_url)
 
-    await safe_send(channel, embed=embed)
+    if interaction:
+        await interaction.edit_original_response(content=None, embed=embed)
+    else:
+        await safe_send(channel, embed=embed)
 
 
 
@@ -1240,7 +1243,7 @@ async def on_message(message):
     gt="GT filter (A, R, F, L)",
     date="Date filter. Example: 2024-01-01 or >2024-01-01"
 )
-async def leaderboard(
+async def leaderboard_EXPERIMENTAL(
     interaction: discord.Interaction,
     start: int = 1,
     end: int = 15,
@@ -1321,16 +1324,16 @@ async def leaderboard(
 @bot.tree.command(name="info", description="Detailed score information by ID")
 @app_commands.describe(id="Score ID, for example Qr")
 async def info(interaction: discord.Interaction, id: str):
-
+    await interaction.response.defer()
     df = read_excel_cached()
     if isinstance(df, str) or df.empty:
-        await interaction.response.send_message("❌ Data unavailable. Or is it?")
+        await interaction.edit_original_response(
+            content="❌ Data unavailable. Or is it?"
+        )
         return
     df.columns = df.columns.str.strip()
-    # Acknowledge interaction instantly
-    await interaction.response.send_message("Fetching info...")
-    # Reuse existing function (sends embed normally)
-    await send_info_embed(interaction.channel, df, id)
+    # Reuse existing function — but pass interaction
+    await send_info_embed(interaction.channel, df, id, interaction=interaction)
 
 
 
