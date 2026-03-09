@@ -768,6 +768,88 @@ def dataframe_to_markdown_aligned(df, shorten_tank=True):
 
 
 
+def handle_record_each(df, name): # !o;re command
+    """
+    Tanks where the player holds the global #1 record.
+    """
+    df = normalize_score(df)
+    best_per_tank = (
+        df.sort_values("Score", ascending=False)
+          .drop_duplicates("Tank")
+    )
+    return best_per_tank[
+        best_per_tank["Name"].str.lower() == name.lower()
+    ].sort_values("Score", ascending=False)
+
+
+
+
+async def handle_records_player(message, df, parts):  # !o;re command+
+    if len(parts) < 3:
+        await safe_send(
+            message.channel,
+            content="❌ Usage: !o;re;PlayerName"
+        )
+        return
+    name_input = parts[2].strip()
+    name = await fuzzy_or_abort(
+        message=message,
+        df=df,
+        user_input=name_input,
+        choices=df["Name"].dropna().unique(),
+        arg_index=2,
+        resolver=handle_record_each,
+        title="Player not found — did you mean?",
+        result_title="Player Records",
+        columns=["Ņ", "Score", "Tank", "Date", "Id"]
+    )
+    if name is None:
+        return
+    df_filtered = handle_record_each(df, name)
+    if df_filtered.empty:
+        await safe_send(
+            message.channel,
+            content=f"❌ **{name}** holds no records."
+        )
+        return
+    df_filtered = add_index(df_filtered)
+    cols = ["Ņ", "Score", "Tank", "Date", "Id"]
+    df_filtered = df_filtered[cols]
+
+    # ---------- RANGE ----------
+    start, end, range_size, warning = extract_range(
+        parts,
+        max_range=20,
+        total_len=len(df_filtered)
+    )
+    # ---------- PAGINATION ----------
+    view = RangePaginationView(
+        df=df_filtered,
+        start_index=start,
+        range_size=range_size,
+        title=f"{name}'s Tank Records",
+        shorten_tank=True
+    )
+    slice_df = df_filtered.iloc[start-1:end].copy()
+    slice_df["Ņ"] = range(start, min(end, len(df_filtered)) + 1)
+    lines = dataframe_to_markdown_aligned(slice_df)
+    embed = Embed(
+        title=f"{name}'s Tank Records",
+        description=f"```text\n{chr(10).join(lines)}\n```",
+        color=discord.Color.dark_grey()
+    )
+    footer = f"Rows {start}-{min(end, len(df_filtered))} / {len(df_filtered)}"
+    if warning:
+        footer = f"{warning} • {footer}"
+    embed.set_footer(text=footer)
+    msg = await safe_send(message.channel, embed=embed, view=view)
+    view.message = msg
+
+
+
+
+
+
 async def send_embed_table(channel, title, lines, page=1, total=1):
     text = "\n".join(lines)
 
@@ -1090,8 +1172,12 @@ async def on_message(message):
         await send_info_embed(message.channel, df, info_id)
         return   
 
+    
+    elif cmd == "re":
+        await handle_records_player(message, df, parts)
+        return
 
-
+    
     # --- Call in on_message ---
     elif cmd == "bch":
         if len(parts) < 3:
