@@ -62,6 +62,7 @@ async def safe_send(channel, **kwargs):
         raise  # re-raise any other exception
 
 
+
 def safe_val(row, key, default="Unknown"):
     try:
         v = row.get(key, default)
@@ -70,6 +71,33 @@ def safe_val(row, key, default="Unknown"):
         return v
     except Exception:
         return default
+
+
+
+RANDOM_MESSAGES = []
+def load_messages():
+    global RANDOM_MESSAGES
+    if RANDOM_MESSAGES:
+        return RANDOM_MESSAGES
+    try:
+        with open("data/messages.json", "r") as f:
+            RANDOM_MESSAGES = json.load(f)["messages"]
+        print("Random messages loaded")
+    except Exception as e:
+        print("Message load failed:", e)
+        RANDOM_MESSAGES = []
+    return RANDOM_MESSAGES
+
+
+
+async def maybe_send_random_message(channel):
+    if random.random() <= 0.50:  # 50% chance
+        msgs = load_messages()
+        if msgs:
+            await safe_send(channel, content=random.choice(msgs))
+
+
+
 
 
 def fuzzy_matches(query, choices, max_results=5, cutoff=0.7):
