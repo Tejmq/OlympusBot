@@ -566,6 +566,7 @@ async def send_info_embed(channel, df, info_id, interaction=None):
     row = df[df["Id"].astype(str) == str(info_id)]
     if row.empty:
         await safe_send(channel, content="❌ No entry with that Id.")
+        await maybe_send_random_message(channel)
         return
     row = row.iloc[0]
     name1 = safe_val(row, "Name", "Unknown")
