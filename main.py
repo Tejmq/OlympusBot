@@ -91,7 +91,7 @@ def load_messages():
 
 
 async def maybe_send_random_message(channel):
-    if random.random() <= 0.50:  # 50% chance
+    if random.random() <= 0.99:  # 50% chance
         msgs = load_messages()
         if msgs:
             await safe_send(channel, content=random.choice(msgs))
