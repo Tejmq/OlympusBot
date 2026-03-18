@@ -90,8 +90,12 @@ def load_messages():
 
 
 
-async def maybe_send_random_message(channel):
-    if random.random() <= 0.99:  # 50% chance
+async def maybe_send_random_message(channel, chance=0.5):
+    """
+    chance = probability between 0 and 1
+    example: 0.25 = 25%
+    """
+    if random.random() <= chance:
         msgs = load_messages()
         if msgs:
             await safe_send(channel, content=random.choice(msgs))
@@ -566,7 +570,7 @@ async def send_info_embed(channel, df, info_id, interaction=None):
     row = df[df["Id"].astype(str) == str(info_id)]
     if row.empty:
         await safe_send(channel, content="❌ No entry with that Id.")
-        await maybe_send_random_message(channel)
+        await maybe_send_random_message(channel, 0.99)
         return
     row = row.iloc[0]
     name1 = safe_val(row, "Name", "Unknown")
@@ -1141,9 +1145,11 @@ async def on_message(message):
 
     elif cmd == "c":
         output = normalize_score(df).sort_values("Score", ascending=False).drop_duplicates("Tank")
+        await maybe_send_random_message(message.channel, 0.99)
         
     elif cmd == "p":
         output = normalize_score(df).sort_values("Score", ascending=False)
+        await maybe_send_random_message(message.channel, 0.05)
 
     elif cmd == "t":
         tank_input = parts[2].strip()
@@ -1161,6 +1167,7 @@ async def on_message(message):
         if tank is None:
             return
         output = handle_tank(df, tank)
+        await maybe_send_random_message(message.channel, 0.05)
         # ✅ SET TITLE HERE
         title = f"All scores of {tank}"
 
