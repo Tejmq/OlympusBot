@@ -1186,6 +1186,7 @@ async def on_message(message):
                 content="❌ You need to provide something to say."
             )
             return
+        await message.delete()
         await safe_send(message.channel, content=text)
         return
 
