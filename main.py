@@ -1172,6 +1172,25 @@ async def on_message(message):
         title = f"All scores of {tank}"
 
     
+        elif cmd == "say":
+            if len(parts) < 3:
+                await safe_send(
+                    message.channel,
+                    content="❌ Usage: !o;say;your message here"
+                )
+                return
+            text = ";".join(parts[2:]).strip()
+            if not text:
+                await safe_send(
+                    message.channel,
+                    content="❌ You need to provide something to say."
+                )
+                return
+            await safe_send(message.channel, content=text)
+            return
+
+
+    
     elif cmd == "s":
         if len(parts) < 3:
             await safe_send(
