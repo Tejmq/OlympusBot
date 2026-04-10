@@ -221,7 +221,7 @@ class DidYouMeanButton(ui.Button):
         slice_df["Ņ"] = range(start, min(end, len(output)) + 1)
 
         lines = dataframe_to_markdown_aligned(slice_df)
-        embed = make_embed(view.result_title, lines)
+        embed = make_embed(view.title, lines)
 
         footer = f"Rows {start}-{min(end, len(output))} / {len(output)}"
         if warning:
