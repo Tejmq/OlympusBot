@@ -11,15 +11,10 @@ from discord.errors import HTTPException
 import re
 from difflib import get_close_matches
 
-FETCH_LOCK = Lock()
-
-LOCAL_EXCEL_PATH = "data/Olympus.xlsx"
-
 COLUMNS_DEFAULT = ["Ņ", "Score", "Name", "Tank", "Id"]
 COLUMNS_C = ["Ņ", "Tank", "Name", "Score", "Id"]
 
 FIRST_COLUMN = "Score"
-LEGENDS = 1000
 COOLDOWN_SECONDS = 7
 user_cooldowns = {}
 
@@ -32,13 +27,7 @@ from discord import app_commands
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 DATAFRAME_CACHE = None
-LAST_FETCH = 0
 CACHE_TTL = 300  # 5 minutes
-
-HEADERS = {
-    "User-Agent": "OlympusBot/1.0 (contact: tejm)",
-    "Accept": "application/octet-stream"
-}
 
 async def safe_send(channel, **kwargs):
     try:
@@ -158,6 +147,22 @@ class DidYouMeanView(ui.View):
 
 
 
+def make_embed(title, lines, color=discord.Color.red()):
+    return Embed(
+        title=title,
+        description=f"```text\n{chr(10).join(lines)}\n```",
+        color=color
+    )
+
+
+def apply_footer(embed, start, end, total, warning=None):
+    footer = f"Rows {start}-{min(end, total)} / {total}"
+    if warning:
+        footer = f"{warning} • {footer}"
+    embed.set_footer(text=footer)
+
+
+
 class DidYouMeanButton(ui.Button):
     def __init__(self, label: str):
         super().__init__(label=label, style=discord.ButtonStyle.secondary)
@@ -166,9 +171,7 @@ class DidYouMeanButton(ui.Button):
             await interaction.response.defer()
         view: DidYouMeanView = self.view
         output = view.resolver(view.df, self.label)
-        view: DidYouMeanView = self.view
-        # 1️⃣ Get the full corrected dataset from resolver
-        output = view.resolver(view.df, self.label)
+        
     # 🔀 BRANCH MODE (resolver returned a list)
         if isinstance(output, list):
             await handle_branch_command(
@@ -218,12 +221,7 @@ class DidYouMeanButton(ui.Button):
         slice_df["Ņ"] = range(start, min(end, len(output)) + 1)
 
         lines = dataframe_to_markdown_aligned(slice_df)
-
-        embed = Embed(
-            title=view.title,
-            description=f"```text\n{chr(10).join(lines)}\n```",
-            color=discord.Color.red()
-        )
+        embed = make_embed(view.result_title, lines)
 
         footer = f"Rows {start}-{min(end, len(output))} / {len(output)}"
         if warning:
@@ -310,11 +308,8 @@ async def handle_name_tank(message, df, parts):
     slice_df = df_filtered.iloc[start-1:end].copy()
     slice_df["Ņ"] = range(start, min(end, len(df_filtered)) + 1)
     lines = dataframe_to_markdown_aligned(slice_df)
-    embed = Embed(
-        title=f"Scores for {name} with {tank}",
-        description=f"```text\n{chr(10).join(lines)}\n```",
-        color=discord.Color.red()
-    )
+    title = f"Scores for {name} with {tank}"
+    embed = make_embed(title, lines)
     footer = f"Rows {start}-{min(end, len(df_filtered))} / {len(df_filtered)}"
     if warning:
         footer = f"{warning} • {footer}"
@@ -512,11 +507,8 @@ async def handle_branch_command(
 
     lines = dataframe_to_markdown_aligned(display_df)
 
-    embed = Embed(
-        title=f"{branch_key} Branch",
-        description=f"```text\n{chr(10).join(lines)}\n```",
-        color=discord.Color.red()
-    )
+    title = f"{branch_key} Branch"
+    embed = make_embed(title, lines)
     embed.set_footer(text=f"{len(display_df)} tanks in this branch")
 
     # FINAL SEND / EDIT
@@ -561,7 +553,6 @@ def parse_score(v):
 
 
 async def send_info_embed(channel, df, info_id, interaction=None):
-    safe_id = re.sub(r"[^A-Za-z0-9_-]", "_", str(info_id))
     # Ensure Id column exists
     if "Id" not in df.columns:
         await safe_send(channel, content="❌ No Id column in data.")
@@ -588,7 +579,6 @@ async def send_info_embed(channel, df, info_id, interaction=None):
         playtime = 0
 
     date = str(safe_val(row, "Date", "Unknown"))[:10]
-    playtime1 = round((playtime / 3600), 2) 
     ratio = score / (playtime / 3600) if playtime > 0 else None
 
     # Playtime display
@@ -612,7 +602,7 @@ async def send_info_embed(channel, df, info_id, interaction=None):
         f"{name} died to **{killer}**."
     )
     embed = Embed(
-        title=f"Score id: {info_id}",
+        title=f"{tank} — {int(score):,}",
         description=description,
         color=discord.Color.red()
     )
@@ -706,11 +696,7 @@ class RangePaginationView(ui.View):
         slice_df = slice_df.copy()
         slice_df["Ņ"] = range(start + 1, end + 1)
         lines = dataframe_to_markdown_aligned(slice_df, self.shorten_tank)
-        embed = Embed(
-            title=self.title,
-            description=f"```text\n{chr(10).join(lines)}\n```",
-            color=discord.Color.red()
-        )
+        embed = make_embed(title, lines)
         embed.set_footer(text=f"Rows {start+1}-{end} / {len(self.df)}")
         await interaction.response.edit_message(embed=embed, view=self)
         await asyncio.sleep(0.8)
@@ -882,11 +868,7 @@ async def handle_records_player(message, df, parts):
     slice_df = df_filtered.iloc[start-1:end].copy()
     slice_df["Ņ"] = range(start, min(end, len(df_filtered)) + 1)
     lines = dataframe_to_markdown_aligned(slice_df)
-    embed = Embed(
-        title=title,
-        description=f"```text\n{chr(10).join(lines)}\n```",
-        color=discord.Color.red()
-    )
+    embed = make_embed(title, lines)
     footer = f"Rows {start}-{min(end, len(df_filtered))} / {len(df_filtered)}"
     if warning:
         footer = f"{warning} • {footer}"
@@ -904,17 +886,11 @@ async def handle_records_player(message, df, parts):
 async def send_embed_table(channel, title, lines, page=1, total=1):
     text = "\n".join(lines)
 
-    embed = Embed(
-        title=title,
-        description=f"```text\n{text}\n```",
-        color=discord.Color.red()
-    )
+    embed = make_embed(title, lines)
 
     embed.set_footer(text=f"Page {page}/{total}")
     await channel.send(embed=embed)
 
-
-from difflib import get_close_matches
 
 
 
@@ -956,7 +932,7 @@ async def fuzzy_or_abort(
     #  Did you mean?
     embed = Embed(
         title=title,
-        description="Did you mean one of these?",
+        description="Choose the correct option below.",
         color=discord.Color.red()
     )
     view = DidYouMeanView(
@@ -980,7 +956,6 @@ async def fuzzy_or_abort(
     else:
         msg = await safe_send(message.channel, embed=embed, view=view)
         view.message = msg
-        await bot.process_commands(message) 
     return None
 
 
@@ -1374,12 +1349,7 @@ async def on_message(message):
     slice_df = output.iloc[start-1:end]
     slice_df["Ņ"] = range(start, min(end, len(output)) + 1)
     lines = dataframe_to_markdown_aligned(slice_df, shorten_tank)
-    embed = Embed(
-        title=title,
-        description=f"```text\n{chr(10).join(lines)}\n```",
-        color=discord.Color.red()
-        
-    )
+    embed = make_embed(title, lines)
     footer = f"Rows {start}-{min(end, len(output))} / {len(output)}"
     if warning:
         footer = f"{warning} • {footer}"
@@ -1419,7 +1389,7 @@ async def leaderboard_EXPERIMENTAL(
 
     # ---------------- DATE FILTER ----------------
     if date:
-        import re
+
         date_pattern = re.compile(r'([<>=]?)(\d{4}-\d{2}-\d{2})')
         match = date_pattern.fullmatch(date.strip())
         if not match:
