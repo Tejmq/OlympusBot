@@ -222,7 +222,7 @@ class DidYouMeanButton(ui.Button):
         embed = Embed(
             title=view.title,
             description=f"```text\n{chr(10).join(lines)}\n```",
-            color=discord.Color.dark_grey()
+            color=discord.Color.red()
         )
 
         footer = f"Rows {start}-{min(end, len(output))} / {len(output)}"
