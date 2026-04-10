@@ -832,6 +832,7 @@ def handle_record_each(df, name, personal=False):
 async def handle_records_player(message, df, parts):
     # Detect + anywhere after the player name
     personal_mode = any(p.strip() == "+" for p in parts[3:])
+    name_input = parts[2].strip()
     name = await fuzzy_or_abort(
         message=message,
         df=df,
