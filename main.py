@@ -801,11 +801,22 @@ def dataframe_to_markdown_aligned(df, shorten_tank=True):
 
 
 
-def handle_record_each(df, name): # !o;re command
+def handle_record_each(df, name, personal=False):
     """
-    Tanks where the player holds the global #1 record.
+    personal=False -> tanks where the player holds the global #1 score
+    personal=True  -> player's personal best score on each tank
     """
     df = normalize_score(df)
+    if personal:
+        # Only this player's scores
+        player_df = df[df["Name"].str.lower() == name.lower()].copy()
+        # Keep only their best score per tank
+        return (
+            player_df.sort_values("Score", ascending=False)
+                     .drop_duplicates("Tank")
+                     .sort_values("Score", ascending=False)
+        )
+    # Existing global-record mode
     best_per_tank = (
         df.sort_values("Score", ascending=False)
           .drop_duplicates("Tank")
@@ -817,57 +828,61 @@ def handle_record_each(df, name): # !o;re command
 
 
 
-async def handle_records_player(message, df, parts):  # !o;re command+
-    if len(parts) < 3:
-        await safe_send(
-            message.channel,
-            content="❌ Usage: !o;re;PlayerName"
-        )
-        return
-    name_input = parts[2].strip()
+
+async def handle_records_player(message, df, parts):
+    # Detect + anywhere after the player name
+    personal_mode = any(p.strip() == "+" for p in parts[3:])
     name = await fuzzy_or_abort(
         message=message,
         df=df,
         user_input=name_input,
         choices=df["Name"].dropna().unique(),
         arg_index=2,
-        resolver=handle_record_each,
+        resolver=lambda d, n: handle_record_each(d, n, personal=personal_mode),
         title="Player not found — did you mean?",
         result_title="Player Records",
         columns=["Ņ", "Score", "Tank", "Date", "Id"]
     )
     if name is None:
         return
-    df_filtered = handle_record_each(df, name)
+    df_filtered = handle_record_each(df, name, personal=personal_mode)
     if df_filtered.empty:
-        await safe_send(
-            message.channel,
-            content=f"❌ **{name}** holds no records."
-        )
+        if personal_mode:
+            await safe_send(
+                message.channel,
+                content=f"❌ **{name}** has no personal tank records."
+            )
+        else:
+            await safe_send(
+                message.channel,
+                content=f"❌ **{name}** holds no global records."
+            )
         return
     df_filtered = add_index(df_filtered)
     cols = ["Ņ", "Score", "Tank", "Date", "Id"]
     df_filtered = df_filtered[cols]
-
-    # ---------- RANGE ----------
     start, end, range_size, warning = extract_range(
         parts,
         max_range=20,
         total_len=len(df_filtered)
     )
-    # ---------- PAGINATION ----------
+    title = (
+        f"{name}'s Personal Bests"
+        if personal_mode
+        else f"{name}'s Tank Records"
+    )
     view = RangePaginationView(
         df=df_filtered,
         start_index=start,
         range_size=range_size,
-        title=f"{name}'s Tank Records",
+        title=title,
         shorten_tank=True
     )
     slice_df = df_filtered.iloc[start-1:end].copy()
     slice_df["Ņ"] = range(start, min(end, len(df_filtered)) + 1)
     lines = dataframe_to_markdown_aligned(slice_df)
     embed = Embed(
-        title=f"{name}'s Tank Records",
+        title=title,
         description=f"```text\n{chr(10).join(lines)}\n```",
         color=discord.Color.dark_grey()
     )
@@ -877,6 +892,8 @@ async def handle_records_player(message, df, parts):  # !o;re command+
     embed.set_footer(text=footer)
     msg = await safe_send(message.channel, embed=embed, view=view)
     view.message = msg
+
+
 
 
 
