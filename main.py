@@ -313,7 +313,7 @@ async def handle_name_tank(message, df, parts):
     embed = Embed(
         title=f"Scores for {name} with {tank}",
         description=f"```text\n{chr(10).join(lines)}\n```",
-        color=discord.Color.dark_grey()
+        color=discord.Color.red()
     )
     footer = f"Rows {start}-{min(end, len(df_filtered))} / {len(df_filtered)}"
     if warning:
@@ -381,7 +381,7 @@ async def send_screenshot(channel, df, screenshot_id):
 
     embed = Embed(
         title=f"Screenshot ID: {screenshot_id}",
-        color=discord.Color.dark_grey()
+        color=discord.Color.red()
     )
     embed.set_image(url=cdn_url)
 
@@ -515,7 +515,7 @@ async def handle_branch_command(
     embed = Embed(
         title=f"{branch_key} Branch",
         description=f"```text\n{chr(10).join(lines)}\n```",
-        color=discord.Color.dark_grey()
+        color=discord.Color.red()
     )
     embed.set_footer(text=f"{len(display_df)} tanks in this branch")
 
@@ -614,7 +614,7 @@ async def send_info_embed(channel, df, info_id, interaction=None):
     embed = Embed(
         title=f"Score id: {info_id}",
         description=description,
-        color=discord.Color.dark_grey()
+        color=discord.Color.red()
     )
     # Image 
     cdn_url = safe_val(row, "CDN", None)
@@ -709,7 +709,7 @@ class RangePaginationView(ui.View):
         embed = Embed(
             title=self.title,
             description=f"```text\n{chr(10).join(lines)}\n```",
-            color=discord.Color.dark_grey()
+            color=discord.Color.red()
         )
         embed.set_footer(text=f"Rows {start+1}-{end} / {len(self.df)}")
         await interaction.response.edit_message(embed=embed, view=self)
@@ -885,7 +885,7 @@ async def handle_records_player(message, df, parts):
     embed = Embed(
         title=title,
         description=f"```text\n{chr(10).join(lines)}\n```",
-        color=discord.Color.dark_grey()
+        color=discord.Color.red()
     )
     footer = f"Rows {start}-{min(end, len(df_filtered))} / {len(df_filtered)}"
     if warning:
@@ -907,7 +907,7 @@ async def send_embed_table(channel, title, lines, page=1, total=1):
     embed = Embed(
         title=title,
         description=f"```text\n{text}\n```",
-        color=discord.Color.dark_grey()
+        color=discord.Color.red()
     )
 
     embed.set_footer(text=f"Page {page}/{total}")
@@ -957,7 +957,7 @@ async def fuzzy_or_abort(
     embed = Embed(
         title=title,
         description="Did you mean one of these?",
-        color=discord.Color.dark_grey()
+        color=discord.Color.red()
     )
     view = DidYouMeanView(
         cmd=message.content,
@@ -1377,7 +1377,7 @@ async def on_message(message):
     embed = Embed(
         title=title,
         description=f"```text\n{chr(10).join(lines)}\n```",
-        color=discord.Color.dark_grey()
+        color=discord.Color.red()
         
     )
     footer = f"Rows {start}-{min(end, len(output))} / {len(output)}"
@@ -1470,7 +1470,7 @@ async def leaderboard_EXPERIMENTAL(
     embed = discord.Embed(
         title="Leaderboard",
         description=f"```text\n{chr(10).join(lines)}\n```",
-        color=discord.Color.dark_grey()
+        color=discord.Color.red()
     )
     embed.set_footer(text=f"Rows {start}-{end} / {total_len}")
     msg = await interaction.followup.send(embed=embed, view=view)
