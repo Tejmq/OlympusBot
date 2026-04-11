@@ -696,7 +696,7 @@ class RangePaginationView(ui.View):
         slice_df = slice_df.copy()
         slice_df["Ņ"] = range(start + 1, end + 1)
         lines = dataframe_to_markdown_aligned(slice_df, self.shorten_tank)
-        embed = make_embed(title, lines)
+        embed = make_embed(self.title, lines)
         embed.set_footer(text=f"Rows {start+1}-{end} / {len(self.df)}")
         await interaction.response.edit_message(embed=embed, view=self)
         await asyncio.sleep(0.8)
