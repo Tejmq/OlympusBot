@@ -1166,21 +1166,13 @@ async def on_message(message):
 
     
     elif cmd == "say":
-        if len(parts) < 3:
-            await safe_send(
-                message.channel,
-                content="❌ Usage: !o;say;your message here"
-            )
+        msgs = load_messages()
+        if not msgs:
+            await safe_send(message.channel, content="❌ No messages loaded.")
             return
-        text = ";".join(parts[2:]).strip()
-        if not text:
-            await safe_send(
-                message.channel,
-                content="❌ You need to provide something to say."
-            )
-            return
+
         await message.delete()
-        await safe_send(message.channel, content=text)
+        await safe_send(message.channel, content=random.choice(msgs))
         return
 
 
