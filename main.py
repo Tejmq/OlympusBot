@@ -235,6 +235,31 @@ class DidYouMeanButton(ui.Button):
 
 
 
+def handle_nu_range(df, start=1, end=15):
+    """
+    Uses the 'nu' column as the ranking source.
+    Shows:
+    Tank, Name, Score, Id, nu
+    Example:
+    !o;w;1-15
+    """
+    if "nu" not in df.columns:
+        return pd.DataFrame()
+    df = normalize_score(df).copy()
+    # make sure nu is numeric
+    df["nu"] = pd.to_numeric(df["nu"], errors="coerce")
+    # remove invalid nu rows
+    df = df.dropna(subset=["nu"])
+    # sort by nu ascending (since nu acts like new id/rank)
+    df = df.sort_values("nu", ascending=True).reset_index(drop=True)
+    # keep display columns only
+    cols = ["Tank", "Name", "Score", "Id", "nu"]
+    cols = [c for c in cols if c in df.columns]
+    df = df[cols]
+    return df
+
+
+
 
 # --- Helper for !o;nt ---
 async def handle_name_tank(message, df, parts):
@@ -1176,6 +1201,53 @@ async def on_message(message):
         return
 
 
+    elif cmd == "w":
+        """
+        !o;w;1-15
+        Uses nu column range instead of Score ordering.
+        Max range = 20
+        Output:
+        Tank | Name | Score | Id | nu
+        """
+        if "nu" not in df.columns:
+            await safe_send(
+                message.channel,
+                content="❌ No 'nu' column found in data."
+            )
+            return
+        output = handle_nu_range(df)
+        if output.empty:
+            await safe_send(
+                message.channel,
+                content="❌ No valid nu data found."
+            )
+            return
+        # range extraction (max 20)
+        start, end, range_size, warning = extract_range(
+            parts,
+            max_range=20,
+            total_len=len(output)
+        )
+        # IMPORTANT:
+        # range is based on nu values, not dataframe row count
+        output = output[
+            (output["nu"] >= start) &
+            (output["nu"] <= end)
+        ].copy()
+        if output.empty:
+            await safe_send(
+                message.channel,
+                content="❌ No rows found in that nu range."
+            )
+            return
+        title = "NU Leaderboard"
+        shorten_tank = True
+        cols = ["Tank", "Name", "Score", "Id", "nu"]
+        cols = [c for c in cols if c in output.columns]
+        output = output[cols]
+
+    
+    
     
     elif cmd == "s":
         if len(parts) < 3:
@@ -1235,23 +1307,35 @@ async def on_message(message):
                 "Commands:\n"
                 "!o;p              - Part of the scoreboard\n"            
                 "!o;t;TankName     - Best score of a tank\n"
-                "!o;n;Player       - Best scores of a specific player\n"
-                "!o;nt;Player;Tank     - Player and Tank       \n"
-                "!o;bch;BranchName    - Highscores of every tank in a branch\n"
+                "!o;n;Player       - Best scores of a player\n"
+                "!o;re;Player       - Records of a player\n"              
+                "!o;bch;BranchName    - Every tank in a branch\n"
             
+                "(add at the end of a command vvv)\n" 
+                ";1-15    -to imput range\n" 
+                ";r    -to see regular scores\n" 
+                ";YYYY-MM-DD    -date \n" 
+            
+                "!o;i;id              - Score info\n"
+            )
+        await safe_send(message.channel, content=help_message)
+        return
+
+    elif cmd == "help2":
+        help_message = (
+                "Commands:\n"
+                "!o;nt;Player;Tank     - Player and Tank       \n"            
                 "!o;c             - Best tank list\n"
                 "!o;b              - Best player list\n"
-
-                ";1-15    -to imput range      ;r    -to pick category \n"
-                ";YYYY-MM-DD   -date    (add any at the end of a command)   \n"
-            
+                "!o;w;1-15         - See new added\n"
+                "!o;say;             - For an rng text\n"
                 "!o;s;id                 - Screenshot of the score\n"
-                "!o;i;id                 - Detailed description\n"
                 "!o;r                    - Random recommendation\n" 
             )
         await safe_send(message.channel, content=help_message)
         return
-            
+
+
     elif cmd == "r":
         if len(parts) == 2:
             await safe_send(
