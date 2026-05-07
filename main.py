@@ -235,27 +235,25 @@ class DidYouMeanButton(ui.Button):
 
 
 
-def handle_nu_range(df, start=1, end=15):
+def handle_nu_range(df):
     """
-    Uses the 'nu' column as the ranking source.
-    Shows:
-    Tank, Name, Score, Id, nu
+    Uses the 'nu' column as the filter source.
     Example:
     !o;w;1-15
+    Means:
+    show rows where nu is between 1 and 15
+    Output columns:
+    Tank, Name, Score, Id, nu
     """
     if "nu" not in df.columns:
         return pd.DataFrame()
     df = normalize_score(df).copy()
-    # make sure nu is numeric
+    # make nu numeric
     df["nu"] = pd.to_numeric(df["nu"], errors="coerce")
     # remove invalid nu rows
     df = df.dropna(subset=["nu"])
-    # sort by nu ascending (since nu acts like new id/rank)
+    # sort by nu ascending
     df = df.sort_values("nu", ascending=True).reset_index(drop=True)
-    # keep display columns only
-    cols = ["Tank", "Name", "Score", "Id", "nu"]
-    cols = [c for c in cols if c in df.columns]
-    df = df[cols]
     return df
 
 
@@ -1204,10 +1202,14 @@ async def on_message(message):
     elif cmd == "w":
         """
         !o;w;1-15
-        Uses nu column range instead of Score ordering.
-        Max range = 20
-        Output:
-        Tank | Name | Score | Id | nu
+        Means:
+        show all rows where nu >= 1 and nu <= 15
+        Max allowed range:
+        20
+        Examples:
+        !o;w;1-15
+        !o;w;40-50
+        !o;w;100-120
         """
         if "nu" not in df.columns:
             await safe_send(
@@ -1215,6 +1217,26 @@ async def on_message(message):
                 content="❌ No 'nu' column found in data."
             )
             return
+        # default values
+        start_nu = 1
+        end_nu = 15
+        warning = None
+        # read explicit nu range from command
+        for p in parts:
+            if "-" in p:
+                try:
+                    a, b = map(int, p.split("-"))
+                    if a > b:
+                        a, b = b, a
+                    # MAX RANGE = 20
+                    if (b - a) > 20:
+                        warning = "❌ Max NU range is 20!"
+                        b = a + 20
+                    start_nu = a
+                    end_nu = b
+                    break
+                except:
+                    pass
         output = handle_nu_range(df)
         if output.empty:
             await safe_send(
@@ -1222,17 +1244,10 @@ async def on_message(message):
                 content="❌ No valid nu data found."
             )
             return
-        # range extraction (max 20)
-        start, end, range_size, warning = extract_range(
-            parts,
-            max_range=20,
-            total_len=len(output)
-        )
-        # IMPORTANT:
-        # range is based on nu values, not dataframe row count
+        # FILTER BY nu VALUE
         output = output[
-            (output["nu"] >= start) &
-            (output["nu"] <= end)
+            (output["nu"] >= start_nu) &
+            (output["nu"] <= end_nu)
         ].copy()
         if output.empty:
             await safe_send(
@@ -1240,11 +1255,23 @@ async def on_message(message):
                 content="❌ No rows found in that nu range."
             )
             return
-        title = "NU Leaderboard"
-        shorten_tank = True
+        # display columns
         cols = ["Tank", "Name", "Score", "Id", "nu"]
         cols = [c for c in cols if c in output.columns]
         output = output[cols]
+        title = f"NU Leaderboard ({start_nu}-{end_nu})"
+        shorten_tank = True
+        # embed output (same style as your other commands)
+        lines = dataframe_to_markdown_aligned(output, shorten_tank)
+        embed = make_embed(title, lines)
+        footer = f"NU range {start_nu}-{end_nu} • {len(output)} rows"
+        if warning:
+            footer = f"{warning} • {footer}"
+        embed.set_footer(text=footer)
+        await safe_send(
+            message.channel,
+            embed=embed
+        )
 
     
     
