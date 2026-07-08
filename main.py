@@ -264,7 +264,7 @@ def handle_random_analysis(df, mode):
                     (best["Score"] < 10_000_000)]
         rows = pool.sample(min(10, len(pool))).to_dict("records")
     elif mode == 3:
-        rows = best[["Tank","Name","Score","Id"]].to_dict("records")
+        rows = best[["Tank","Score","Name","Id"]].to_dict("records")
         rows.extend([
             {
                 "Tank": t,
@@ -278,7 +278,7 @@ def handle_random_analysis(df, mode):
         rows = rows[:10]
     out = pd.DataFrame(rows)
     out["Ņ"] = range(1, len(out)+1)
-    return out[["Ņ","Tank","Name","Score","Id"]]
+    return out[["Tank","Score","Name","Id"]]
 
 
 
@@ -1353,10 +1353,10 @@ async def on_message(message):
             await safe_send(
                 message.channel,
                 content=(
-                    "**!o;ra;0** - 10 random unscored tanks\n"
-                    "**!o;ra;1** - 10 random tanks with records from 1Mil-5Mil\n"
-                    "**!o;ra;2** - 10 random tanks with records from 5Mil-10Mil\n"
-                    "**!o;ra;3** - 10 completely random tanks"
+                    "!o;ra;0 - 10 random unscored tanks\n"
+                    "!o;ra;1 - 10 random tanks with records from 1Mil-5Mil\n"
+                    "!o;ra;2 - 10 random tanks with records from 5Mil-10Mil\n"
+                    "!o;ra;3 - 10 completely random tanks"
                 )
             )
             return
@@ -1366,7 +1366,7 @@ async def on_message(message):
             await safe_send(message.channel, content="❌ Invalid mode.")
             return
         output = handle_random_analysis(df, mode)
-        title = "Random Tank Analysis"
+        title = "Random Recommendations"
         shorten_tank = True
 
 
