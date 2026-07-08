@@ -235,6 +235,56 @@ class DidYouMeanButton(ui.Button):
 
 
 
+def handle_random_analysis(df, mode):
+    df = normalize_score(df)
+    best = (
+        df.sort_values("Score", ascending=False)
+          .drop_duplicates("Tank")
+    )
+    used = set(best["Tank"].str.lower())
+    unused = [t for t in TANK_NAMES if t.lower() not in used]
+    rows = []
+    if mode == 0:
+        random.shuffle(unused)
+        rows = [
+            {
+                "Tank": t,
+                "Name": "Noone!",
+                "Score": 0,
+                "Id": "-"
+            }
+            for t in unused[:10]
+        ]
+    elif mode == 1:
+        pool = best[(best["Score"] >= 1_000_000) &
+                    (best["Score"] < 5_000_000)]
+        rows = pool.sample(min(10, len(pool))).to_dict("records")
+    elif mode == 2:
+        pool = best[(best["Score"] >= 5_000_000) &
+                    (best["Score"] < 10_000_000)]
+        rows = pool.sample(min(10, len(pool))).to_dict("records")
+    elif mode == 3:
+        rows = best[["Tank","Name","Score","Id"]].to_dict("records")
+        rows.extend([
+            {
+                "Tank": t,
+                "Name": "Noone!",
+                "Score": 0,
+                "Id": "-"
+            }
+            for t in unused
+        ])
+        random.shuffle(rows)
+        rows = rows[:10]
+    out = pd.DataFrame(rows)
+    out["Ņ"] = range(1, len(out)+1)
+    return out[["Ņ","Tank","Name","Score","Id"]]
+
+
+
+
+
+
 def handle_nu_range(df):
     """
     Uses the 'nu' column as the filter source.
@@ -1293,6 +1343,31 @@ async def on_message(message):
         screenshot_id = parts[2].strip()
         await send_screenshot(message.channel, df, screenshot_id)
         return
+
+
+
+
+    
+    elif cmd == "ra":
+        if len(parts) == 2:
+            await safe_send(
+                message.channel,
+                content=(
+                    "**!o;ra;0** - 10 random unscored tanks\n"
+                    "**!o;ra;1** - 10 random tanks with records from 1Mil-5Mil\n"
+                    "**!o;ra;2** - 10 random tanks with records from 5Mil-10Mil\n"
+                    "**!o;ra;3** - 10 completely random tanks"
+                )
+            )
+            return
+        try:
+            mode = int(parts[2])
+        except:
+            await safe_send(message.channel, content="❌ Invalid mode.")
+            return
+        output = handle_random_analysis(df, mode)
+        title = "Random Tank Analysis"
+        shorten_tank = True
 
 
 
