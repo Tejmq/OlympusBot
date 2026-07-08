@@ -1045,7 +1045,7 @@ class RandomAnalysisView(ui.View):
         output["Tank"] = output["Tank"].astype(str).str[:14]
         lines = dataframe_to_markdown_aligned(output, shorten_tank=False)
         embed = make_embed("Random Recommendations", lines)
-        embed.set_footer(text="🎲 Click to reroll")
+        embed.set_footer(text="very!")
         await interaction.response.edit_message(embed=embed, view=self)
 
 
@@ -1439,12 +1439,8 @@ async def on_message(message):
                 "!o;n;Player       - Best scores of a player\n"
                 "!o;re;Player       - Records of a player\n"              
                 "!o;bch;BranchName    - Every tank in a branch\n"
-            
-                "(add at the end of a command vvv)\n" 
-                ";1-15    -to imput range\n" 
-                ";r    -to see regular scores\n" 
-                ";YYYY-MM-DD    -date \n" 
-            
+
+                "!o;ra             - Random recommendation\n"            
                 "!o;i;id              - Score info\n"
             )
         await safe_send(message.channel, content=help_message)
@@ -1460,6 +1456,10 @@ async def on_message(message):
                 "!o;say;             - For an rng text\n"
                 "!o;s;id                 - Screenshot of the score\n"
                 "!o;r                    - Random recommendation\n" 
+                "(add at the end of a command vvv)\n" 
+                ";1-15    -to imput range\n" 
+                ";r    -to see regular scores\n" 
+                ";YYYY-MM-DD    -date \n" 
             )
         await safe_send(message.channel, content=help_message)
         return
