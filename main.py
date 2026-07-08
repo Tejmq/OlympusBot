@@ -235,6 +235,7 @@ class DidYouMeanButton(ui.Button):
 
 
 
+
 def handle_random_analysis(df, mode):
     df = normalize_score(df)
     best = (
@@ -243,42 +244,31 @@ def handle_random_analysis(df, mode):
     )
     used = set(best["Tank"].str.lower())
     unused = [t for t in TANK_NAMES if t.lower() not in used]
-    rows = []
     if mode == 0:
-        random.shuffle(unused)
-        rows = [
-            {
-                "Tank": t,
-                "Name": "Noone!",
-                "Score": 0,
-                "Id": "-"
-            }
-            for t in unused[:10]
-        ]
+        rows = [{
+            "Score": 0,
+            "Tank": t,
+            "Name": "Noone!",
+            "Id": "-"
+        } for t in random.sample(unused, min(10, len(unused)))]
     elif mode == 1:
         pool = best[(best["Score"] >= 1_000_000) &
                     (best["Score"] < 5_000_000)]
-        rows = pool.sample(min(10, len(pool))).to_dict("records")
+        rows = pool.sample(min(10, len(pool)))[["Score","Tank","Name","Id"]].to_dict("records")
     elif mode == 2:
         pool = best[(best["Score"] >= 5_000_000) &
                     (best["Score"] < 10_000_000)]
-        rows = pool.sample(min(10, len(pool))).to_dict("records")
-    elif mode == 3:
-        rows = best[["Tank","Score","Name","Id"]].to_dict("records")
-        rows.extend([
-            {
-                "Tank": t,
-                "Name": "Noone!",
-                "Score": 0,
-                "Id": "-"
-            }
-            for t in unused
-        ])
-        random.shuffle(rows)
-        rows = rows[:10]
-    out = pd.DataFrame(rows)
-    out["Ņ"] = range(1, len(out)+1)
-    return out[["Tank","Score","Name","Id"]]
+        rows = pool.sample(min(10, len(pool)))[["Score","Tank","Name","Id"]].to_dict("records")
+    else:
+        rows = best[["Score","Tank","Name","Id"]].to_dict("records")
+        rows.extend({
+            "Score": 0,
+            "Tank": t,
+            "Name": "Noone!",
+            "Id": "-"
+        } for t in unused)
+        rows = random.sample(rows, min(10, len(rows)))
+    return pd.DataFrame(rows)[["Score","Tank","Name","Id"]]
 
 
 
@@ -1034,6 +1024,33 @@ async def fuzzy_or_abort(
 
 
 
+class RandomAnalysisView(ui.View):
+    def __init__(self, df, mode):
+        super().__init__(timeout=180)
+        self.df = df
+        self.mode = mode
+    async def on_timeout(self):
+        for item in self.children:
+            item.disabled = True
+        try:
+            await self.message.edit(view=self)
+        except:
+            pass
+    @ui.button(label="🎲 Reroll", style=discord.ButtonStyle.secondary)
+    async def reroll(self, interaction: discord.Interaction, _):
+        output = handle_random_analysis(self.df, self.mode)
+        lines = dataframe_to_markdown_aligned(output, shorten_tank=False)
+        # 14-character tank names only for this command
+        output = output.copy()
+        output["Tank"] = output["Tank"].astype(str).str[:14]
+        lines = dataframe_to_markdown_aligned(output, shorten_tank=False)
+        embed = make_embed("Random Recommendations", lines)
+        embed.set_footer(text="🎲 Click to reroll")
+        await interaction.response.edit_message(embed=embed, view=self)
+
+
+
+
 
 def handle_best(df):
     df = normalize_score(df)
@@ -1347,7 +1364,6 @@ async def on_message(message):
 
 
 
-    
     elif cmd == "ra":
         if len(parts) == 2:
             await safe_send(
@@ -1362,12 +1378,23 @@ async def on_message(message):
             return
         try:
             mode = int(parts[2])
+            if mode not in (0,1,2,3):
+                raise ValueError
         except:
             await safe_send(message.channel, content="❌ Invalid mode.")
             return
         output = handle_random_analysis(df, mode)
-        title = "Random Recommendations"
-        shorten_tank = True
+        output = output.copy()
+        output["Tank"] = output["Tank"].astype(str).str[:14]
+        lines = dataframe_to_markdown_aligned(output, shorten_tank=False)
+        embed = make_embed("Random Recommendations", lines)
+        embed.set_footer(text="🎲 Click the button to reroll")
+        view = RandomAnalysisView(df, mode)
+        msg = await safe_send(message.channel, embed=embed, view=view)
+        view.message = msg
+        return
+
+    
 
 
 
