@@ -10,6 +10,7 @@ import asyncio
 from discord.errors import HTTPException
 import re
 from difflib import get_close_matches
+from datetime import datetime, time
 
 COLUMNS_DEFAULT = ["Ņ", "Score", "Name", "Tank", "Id"]
 COLUMNS_C = ["Ņ", "Tank", "Name", "Score", "Id"]
@@ -591,17 +592,29 @@ def parse_playtime(v):
     try:
         if pd.isna(v) or v in ("?", "", None):
             return 0.0
-        # If pandas already converted it to timedelta
+        # Already a timedelta
         if isinstance(v, pd.Timedelta):
             return v.total_seconds()
-        # String format [h]:mm:ss
-        parts = str(v).split(":")
+        # Excel datetime (1900-01-01 02:00:00 = 26 hours)
+        if isinstance(v, pd.Timestamp):
+            base = pd.Timestamp("1899-12-30")
+            return (v - base).total_seconds()
+        if isinstance(v, datetime):
+            base = datetime(1899, 12, 30)
+            return (v - base).total_seconds()
+        # Excel time (<24h)
+        if isinstance(v, time):
+            return v.hour * 3600 + v.minute * 60 + v.second
+        # String "26:15:10"
+        s = str(v).strip()
+        parts = s.split(":")
         if len(parts) == 3:
-            h, m, s = map(int, parts)
-            return h * 3600 + m * 60 + s
+            h, m, sec = map(int, parts)
+            return h * 3600 + m * 60 + sec
         return 0.0
-    except:
+    except Exception:
         return 0.0
+
 
 
 
