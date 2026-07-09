@@ -10,7 +10,7 @@ import asyncio
 from discord.errors import HTTPException
 import re
 from difflib import get_close_matches
-from datetime import datetime, time
+from datetime import datetime, time as dt_time
 
 COLUMNS_DEFAULT = ["Ņ", "Score", "Name", "Tank", "Id"]
 COLUMNS_C = ["Ņ", "Tank", "Name", "Score", "Id"]
@@ -603,7 +603,7 @@ def parse_playtime(v):
             base = datetime(1899, 12, 30)
             return (v - base).total_seconds()
         # Excel time (<24h)
-        if isinstance(v, time):
+        if isinstance(v, dt_time):
             return v.hour * 3600 + v.minute * 60 + v.second
         # String "26:15:10"
         s = str(v).strip()
