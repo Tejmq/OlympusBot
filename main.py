@@ -592,27 +592,35 @@ def parse_playtime(v):
     try:
         if pd.isna(v) or v in ("?", "", None):
             return 0.0
-        # Already a timedelta
+        # Debug (remove later)
+        print(f"Playtime value: {v!r}")
+        print(f"Playtime type : {type(v)}")
+        # Timedelta
         if isinstance(v, pd.Timedelta):
             return v.total_seconds()
-        # Excel datetime (1900-01-01 02:00:00 = 26 hours)
-        if isinstance(v, pd.Timestamp):
-            base = pd.Timestamp("1899-12-30")
-            return (v - base).total_seconds()
-        if isinstance(v, datetime):
+        # Excel datetime (1900 system)
+        if isinstance(v, (pd.Timestamp, datetime)):
             base = datetime(1899, 12, 30)
-            return (v - base).total_seconds()
-        # Excel time (<24h)
+            return (v.to_pydatetime() if isinstance(v, pd.Timestamp) else v - base).total_seconds()
+        # datetime.time (<24h)
         if isinstance(v, dt_time):
             return v.hour * 3600 + v.minute * 60 + v.second
-        # String "26:15:10"
+        # Excel serial number (days)
+        if isinstance(v, (int, float)):
+            return float(v) * 86400
+        # String
         s = str(v).strip()
-        parts = s.split(":")
-        if len(parts) == 3:
-            h, m, sec = map(int, parts)
+        # "1 day, 2:34:56"
+        if "day" in s:
+            td = pd.to_timedelta(s)
+            return td.total_seconds()
+        # "26:15:10"
+        if ":" in s:
+            h, m, sec = map(int, s.split(":"))
             return h * 3600 + m * 60 + sec
         return 0.0
-    except Exception:
+    except Exception as e:
+        print("parse_playtime error:", e)
         return 0.0
 
 
