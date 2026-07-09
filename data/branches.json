@@ -445,6 +445,22 @@
     "Warkwarkwark"
   ],
 
+      "Launcher": [
+    "Skimmer",
+    "Twister",
+	"Swarmer",
+    "Sidewinder",
+    "Field Gun",
+	"Rocketeer",
+    "Pitcher",
+    "Cluster",
+    "Projector",
+    "Heaver",
+    "Auto-Launcher",
+    "Hurler",
+    "Inception"
+  ],
+
     "Hewn Double": [
     "Auto-Hewn Double",
 	"Cleft",
