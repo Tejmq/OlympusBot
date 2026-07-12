@@ -11,6 +11,7 @@ from discord.errors import HTTPException
 import re
 from difflib import get_close_matches
 from datetime import datetime, time as dt_time
+import copy
 
 COLUMNS_DEFAULT = ["Ņ", "Score", "Name", "Tank", "Id"]
 COLUMNS_C = ["Ņ", "Tank", "Name", "Score", "Id"]
@@ -117,16 +118,18 @@ class DidYouMeanView(ui.View):
         self,
         *,
         cmd,
+        message_source,
         channel,
         df,
         parts,
         index,
-        resolver,      
+        resolver,
         title,
         columns
     ):
-        super().__init__(timeout=30)  # 30s timeout
+        super().__init__(timeout=30)
         self.cmd = cmd
+        self.message_source = message_source
         self.channel = channel
         self.df = df
         self.parts = parts
@@ -134,17 +137,19 @@ class DidYouMeanView(ui.View):
         self.resolver = resolver
         self.title = title
         self.columns = columns
-        self.message = None  # will store the sent message for editing
-
+        self.message = None
     async def on_timeout(self):
-        # Disable all buttons when timeout occurs
         for item in self.children:
             item.disabled = True
         if self.message:
             try:
                 await self.message.edit(view=self)
             except Exception as e:
-                print("DidYouMeanView timeout edit failed:", e)
+                print(
+                    "DidYouMeanView timeout edit failed:",
+                    e
+                )
+
 
 
 
@@ -164,74 +169,41 @@ def apply_footer(embed, start, end, total, warning=None):
 
 
 
+
+
 class DidYouMeanButton(ui.Button):
     def __init__(self, label: str):
-        super().__init__(label=label, style=discord.ButtonStyle.secondary)
+        super().__init__(
+            label=label,
+            style=discord.ButtonStyle.secondary
+        )
     async def callback(self, interaction: Interaction):
         if not interaction.response.is_done():
             await interaction.response.defer()
         view: DidYouMeanView = self.view
-        output = view.resolver(view.df, self.label)
-        
-    # 🔀 BRANCH MODE (resolver returned a list)
-        if isinstance(output, list):
-            await handle_branch_command(
-                interaction.message,
-                self.label,
-                interaction=interaction
-            )
-            return
-        if output is None or output.empty:
-            await interaction.response.edit_message(
-                content="❌ No results after correction.",
-                embed=None,
-                view=None
-            )
-            return
-
-        # 2️⃣ Re-apply GT filter if present
-        gt_filter = extract_gt(view.parts)
-        if gt_filter and "GT" in output.columns:
-            output = output[output["GT"].astype(str).str.upper() == gt_filter]
-        if output.empty:
-            await interaction.response.edit_message(
-                content=f"❌ No results for GT={gt_filter}.",
-                embed=None,
-                view=None
-            )
-            return
-        # 3️⃣ Columns & title
-        cols = [c for c in view.columns if c in output.columns]
-        output = output[cols]
-        # 4️⃣ Extract range from original command parts
-        start, end, range_size, warning = extract_range(
-            view.parts,
-            max_range=20,
-            total_len=len(output)
+        # Copy original command parts
+        corrected_parts = view.parts.copy()
+        # Replace ONLY the fuzzy-matched parameter
+        corrected_parts[view.index] = self.label
+        # Rebuild the exact command
+        corrected_command = ";".join(corrected_parts)
+        print(
+            f"[FUZZY] {view.cmd} -> {corrected_command}"
         )
-        # 5️⃣ Pagination
-        paged_view = RangePaginationView(
-            df=output,
-            start_index=start,
-            range_size=range_size,
-            title=view.title,
-            shorten_tank=True
+        # Remove old "Did you mean?" message
+        await interaction.edit_original_response(
+            content=f"🔎 Running `{corrected_command}`",
+            embed=None,
+            view=None
         )
-
-        slice_df = output.iloc[start-1:end].copy()
-        slice_df["Ņ"] = range(start, min(end, len(output)) + 1)
-
-        lines = dataframe_to_markdown_aligned(slice_df)
-        embed = make_embed(view.title, lines)
-
-        footer = f"Rows {start}-{min(end, len(output))} / {len(output)}"
-        if warning:
-            footer = f"{warning} • {footer}"
-
-        embed.set_footer(text=footer)
-
-        await interaction.edit_original_response(embed=embed, view=paged_view)
-        paged_view.message = await interaction.original_response()
+        # Create a fake message using the ORIGINAL message
+        fake_message = copy.copy(view.message_source)
+        fake_message.content = corrected_command
+        # Execute the whole command again
+        await process_olympus_command(
+            fake_message,
+            bypass_cooldown=True
+        )
 
 
 
@@ -1021,6 +993,7 @@ async def fuzzy_or_abort(
     )
     view = DidYouMeanView(
         cmd=message.content,
+        message_source=message,
         channel=message.channel,
         df=df,
         parts=message.content.split(";"),
@@ -1124,8 +1097,11 @@ def extract_range(parts, max_range=20, total_len=0):
 
 
 
-@bot.event
-async def on_message(message):
+async def process_olympus_command(
+    message,
+    bypass_cooldown=False
+):
+    
     # --- Debug: show every message received ---
     print(f"[DEBUG] Received message from {message.author}: {message.content}")
     if message.author == bot.user:
@@ -1134,11 +1110,22 @@ async def on_message(message):
         await bot.process_commands(message)
         return
 
+    if not bypass_cooldown:
+        
     now = time.time()
-    if now - user_cooldowns.get(message.author.id, 0) < COOLDOWN_SECONDS:
-        print(f"[DEBUG] Cooldown active for {message.author}")
+    if (
+        now - user_cooldowns.get(message.author.id, 0)
+        < COOLDOWN_SECONDS
+    ):
+        print(
+            f"[DEBUG] Cooldown active for {message.author}"
+        )
         return
     user_cooldowns[message.author.id] = now
+
+    @bot.event
+    async def on_message(message):
+      await process_olympus_command(message)
 
     parts = message.content.split(";")
     if len(parts) < 2:
