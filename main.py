@@ -1110,24 +1110,21 @@ async def process_olympus_command(
         await bot.process_commands(message)
         return
 
-    if not bypass_cooldown:
-        
-    now = time.time()
-    if (
-        now - user_cooldowns.get(message.author.id, 0)
-        < COOLDOWN_SECONDS
-    ):
-        print(
-            f"[DEBUG] Cooldown active for {message.author}"
-        )
-        return
-    user_cooldowns[message.author.id] = now
-
-    @bot.event
-    async def on_message(message):
-      await process_olympus_command(message)
-
+    
+    if not bypass_cooldown:    
+        now = time.time()
+        if (
+            now - user_cooldowns.get(message.author.id, 0)
+            < COOLDOWN_SECONDS
+        ):
+            print(
+                f"[DEBUG] Cooldown active for {message.author}"
+            )
+            return
+        user_cooldowns[message.author.id] = now
     parts = message.content.split(";")
+    
+    
     if len(parts) < 2:
         return
     cmd = parts[1].lower()
@@ -1578,6 +1575,11 @@ async def process_olympus_command(
 
 
     # -------------!o;p;1-10------------------------
+
+@bot.event
+async def on_message(message):
+    await process_olympus_command(message)
+
 
 @bot.tree.command(name="leaderboard", description="Leaderboard with optional filters")
 @app_commands.describe(
