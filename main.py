@@ -192,7 +192,7 @@ class DidYouMeanButton(ui.Button):
         )
         # Remove old "Did you mean?" message
         await interaction.edit_original_response(
-            content=f"🔎 Running `{corrected_command}`",
+            content=f" Cooking...",
             embed=None,
             view=None
         )
