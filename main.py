@@ -660,15 +660,23 @@ async def send_info_embed(channel, df, info_id, interaction=None):
     embed = Embed(
         title=f"{tank} — {int(score):,}",
         description=description,
-        color=discord.Color.red()
+        color=discord.Color.green()
     )
     # Image 
+    DEFAULT_SCREENSHOT = "https://cdn.discordapp.com/attachments/1466759427955888160/1466762183378604248/id_A.jpg?ex=6a5773bb&is=6a56223b&hm=66161e5238ce024020580aa4346a10e912563c3f4f175c79a2ae2f9a1088292a"
     cdn_url = safe_val(row, "CDN", None)
-    if cdn_url and isinstance(cdn_url, str):
-        embed.set_image(url=cdn_url)
-
+    if (
+        not cdn_url
+        or not isinstance(cdn_url, str)
+        or not cdn_url.strip().startswith(("http://", "https://"))
+    ):
+        cdn_url = DEFAULT_SCREENSHOT
+    embed.set_image(url=cdn_url)
     if interaction:
-        await interaction.edit_original_response(content=None, embed=embed)
+        await interaction.edit_original_response(
+            content=None,
+            embed=embed
+        )
     else:
         await safe_send(channel, embed=embed)
 
