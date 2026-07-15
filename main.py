@@ -655,6 +655,99 @@ async def handle_branch_command(
 
 
 
+async def handle_cumulative_top10(message, df):
+    cooking_msg = await safe_send(
+        message.channel,
+        content="Cooking up"
+    )
+
+    try:
+        df = normalize_score(df).copy()
+        # Remove invalid names
+        df = df.dropna(subset=["Name"])
+        df["Name"] = df["Name"].astype(str)
+
+        # ---------------- TOTAL SCORES ----------------
+        totals = (
+            df.groupby("Name", as_index=False)["Score"]
+              .sum()
+        )
+        # ---------------- FAVOURITE TANK ----------------
+        # Tank used the most = most score entries with that tank
+        fave_counts = (
+            df.dropna(subset=["Tank"])
+              .groupby(["Name", "Tank"])
+              .size()
+              .reset_index(name="Uses")
+        )
+        fave_counts = (
+            fave_counts
+            .sort_values(
+                ["Name", "Uses"],
+                ascending=[True, False]
+            )
+            .drop_duplicates("Name")
+        )
+        # ---------------- MERGE ----------------
+        output = totals.merge(
+            fave_counts[["Name", "Tank"]],
+            on="Name",
+            how="left"
+        )
+        output = output.rename(
+            columns={"Tank": "Fave"}
+        )
+        output["Fave"] = output["Fave"].fillna("?")
+        # Top 10 cumulative scores
+        output = (
+            output
+            .sort_values("Score", ascending=False)
+            .head(10)
+            .reset_index(drop=True)
+        )
+        output["Ņ"] = range(1, len(output) + 1)
+        output = output[
+            ["Ņ", "Name", "Score", "Fave"]
+        ]
+        # Shorten favourite tank for table
+        output["Fave"] = (
+            output["Fave"]
+            .astype(str)
+            .str[:12]
+        )
+        lines = dataframe_to_markdown_aligned(
+            output,
+            shorten_tank=False
+        )
+        embed = make_embed(
+            "Top 10 Cumulative Scores",
+            lines
+        )
+        embed.set_footer(
+            text="All scores combined • Fave = most played tank"
+        )
+        if cooking_msg:
+            await cooking_msg.edit(
+                content=None,
+                embed=embed
+            )
+    except Exception as e:
+        print("[CU10 ERROR]", e)
+        if cooking_msg:
+            await cooking_msg.edit(
+                content="❌ Failed cooking that up."
+            )
+
+
+
+
+
+
+
+
+
+
+
 def parse_playtime(v):
     try:
         if pd.isna(v) or v in ("?", "", None):
@@ -1452,6 +1545,9 @@ async def process_olympus_command(
         await handle_collective_score(message, df, parts)
         return 
     
+    elif cmd == "cu10":
+        await handle_cumulative_top10(message, df)
+        return
     
     elif cmd == "s":
         if len(parts) < 3:
