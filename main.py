@@ -698,11 +698,11 @@ async def handle_cumulative_top10(message, df):
             columns={"Tank": "Fave"}
         )
         output["Fave"] = output["Fave"].fillna("?")
-        # Top 10 cumulative scores
+        # Top 15 cumulative scores
         output = (
             output
             .sort_values("Score", ascending=False)
-            .head(10)
+            .head(15)
             .reset_index(drop=True)
         )
         output["Ņ"] = range(1, len(output) + 1)
@@ -720,11 +720,11 @@ async def handle_cumulative_top10(message, df):
             shorten_tank=False
         )
         embed = make_embed(
-            "Top 10 Cumulative Scores",
+            "Top 15 Cumulative Scores",
             lines
         )
         embed.set_footer(
-            text="All scores combined • Fave = most played tank"
+            text="All scores combined and most played tank"
         )
         if cooking_msg:
             await cooking_msg.edit(
@@ -732,7 +732,7 @@ async def handle_cumulative_top10(message, df):
                 embed=embed
             )
     except Exception as e:
-        print("[CU10 ERROR]", e)
+        print("[CU15 ERROR]", e)
         if cooking_msg:
             await cooking_msg.edit(
                 content="❌ Failed cooking that up."
@@ -1545,7 +1545,7 @@ async def process_olympus_command(
         await handle_collective_score(message, df, parts)
         return 
     
-    elif cmd == "cu10":
+    elif cmd == "cu15":
         await handle_cumulative_top10(message, df)
         return
     
