@@ -19,6 +19,7 @@ COLUMNS_C = ["Ņ", "Tank", "Name", "Score", "Id"]
 FIRST_COLUMN = "Score"
 COOLDOWN_SECONDS = 7
 user_cooldowns = {}
+CU_ACTIVE = set()
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -171,12 +172,106 @@ def apply_footer(embed, start, end, total, warning=None):
 
 
 
+async def handle_collective_score(message, df, parts):
+    if len(parts) < 3:
+        await safe_send(
+            message.channel,
+            content="Almost, usage: !o;cu;<Player>"
+        )
+        return
+    # Prevent the same user from running CU twice at once
+    user_id = message.author.id
+    if user_id in CU_ACTIVE:
+        return
+    CU_ACTIVE.add(user_id)
+    cooking_msg = None
+    try:
+        cooking_msg = await safe_send(
+            message.channel,
+            content="Cooking up"
+        )
+        name_input = parts[2].strip()
+        # Player name lookup
+        names = {
+            str(name).lower(): str(name)
+            for name in df["Name"].dropna().unique()
+        }
+        name_key = name_input.lower()
+        if name_key not in names:
+            matches = get_close_matches(
+                name_key,
+                names.keys(),
+                n=1,
+                cutoff=0.65
+            )
+
+            if not matches:
+                if cooking_msg:
+                    await cooking_msg.edit(
+                        content=f"`{name_input}` not found."
+                    )
+                return
+            name = names[matches[0]]
+        else:
+            name = names[name_key]
+        # Get every score by player
+        player_df = df[
+            df["Name"].astype(str).str.lower() == name.lower()
+        ].copy()
+        if player_df.empty:
+            if cooking_msg:
+                await cooking_msg.edit(
+                    content=f"No scores found for **{name}**."
+                )
+            return
+        player_df = normalize_score(player_df)
+        # Sum ALL scores
+        total_score = player_df["Score"].sum()
+        # Random tank they played
+        played_tanks = (
+            player_df["Tank"]
+            .dropna()
+            .astype(str)
+            .unique()
+            .tolist()
+        )
+        random_tank = (
+            random.choice(played_tanks)
+            if played_tanks
+            else "Unknown"
+        )
+        total_mil = total_score / 1_000_000
+        result = (
+            f"All together **{name}** got **{total_mil:,.3f} M**, "
+            f"and the most integral tank to that was **{random_tank}**."
+        )
+        if cooking_msg:
+            await cooking_msg.edit(content=result)
+    except Exception as e:
+        print("[CU ERROR]", e)
+        if cooking_msg:
+            try:
+                await cooking_msg.edit(
+                    content="Failed cooking that up."
+                )
+            except:
+                pass
+    finally:
+        CU_ACTIVE.discard(user_id)
+
+
+
+
+
+
 class DidYouMeanButton(ui.Button):
     def __init__(self, label: str):
         super().__init__(
             label=label,
             style=discord.ButtonStyle.secondary
         )
+
+    
     async def callback(self, interaction: Interaction):
         if not interaction.response.is_done():
             await interaction.response.defer()
@@ -1353,7 +1448,9 @@ async def process_olympus_command(
             embed=embed
         )
 
-    
+    elif cmd == "cu":
+        await handle_collective_score(message, df, parts)
+        return 
     
     
     elif cmd == "s":
