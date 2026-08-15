@@ -839,14 +839,14 @@ async def send_info_embed(channel, df, info_id, interaction=None):
 
     
     description = (
-        f"**{name1}**\n"
+  #      f"**{name1}**\n"
         f"{name} got **{int(score):,}** with **{tank}**.\n"
         f"It took **{playtime_display}** hours, on **{date}**, "
         f"with a ratio of **{ratio_display}** per hour.\n"
         f"{name} died to **{killer}**."
     )
     embed = Embed(
-     #   title=f"{tank} — {int(score):,}",
+        title=f"{name1} by {tank}",        #        title=f"{tank} — {int(score):,}",
         description=description,
         color=discord.Color.green()
     )
@@ -861,9 +861,11 @@ async def send_info_embed(channel, df, info_id, interaction=None):
     ):
         cdn_url = DEFAULT_SCREENSHOT
     # Healer column → Embed footer
-    row_healer = safe_val(row, "Healer", None)
-    healer_text = str(row_healer).strip() if row_healer else "Healers Unknown"
-    embed.set_footer(text=f"{healer_text} for heals")
+    row_healer = safe_val(row, "Heal", None)
+    if row_healer is None or str(row_healer).strip() in ("", "None", "nan"):
+        embed.set_footer(text="Healers Unknown")
+    else:
+        embed.set_footer(text=f"{row_healer} for heals")
     embed.set_image(url=cdn_url)
     if interaction:
         await interaction.edit_original_response(
