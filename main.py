@@ -846,7 +846,7 @@ async def send_info_embed(channel, df, info_id, interaction=None):
         f"{name} died to **{killer}**."
     )
     embed = Embed(
-        title=f"{name1} by {tank}",        #        title=f"{tank} — {int(score):,}",
+        title=f"{tank} by {name1}",        #        title=f"{tank} — {int(score):,}",
         description=description,
         color=discord.Color.green()
     )
@@ -865,7 +865,7 @@ async def send_info_embed(channel, df, info_id, interaction=None):
     if row_healer is None or str(row_healer).strip() in ("", "None", "nan"):
         embed.set_footer(text="Healers Unknown")
     else:
-        embed.set_footer(text=f"{row_healer} for heals")
+        embed.set_footer(text=f"Thanks {row_healer} for heals")
     embed.set_image(url=cdn_url)
     if interaction:
         await interaction.edit_original_response(
