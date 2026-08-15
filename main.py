@@ -340,6 +340,33 @@ def handle_random_analysis(df, mode):
 
 
 
+def handle_name_extended(df, name):
+    """
+    Same as !o;n;<Player>, but adds:
+      LB       = global leaderboard rank for the score
+      Tank LB  = leaderboard rank within that tank
+    """
+    df = normalize_score(df).copy()
+    # Sort every score globally, highest first
+    df = df.sort_values("Score", ascending=False).reset_index(drop=True)
+    # Overall leaderboard rank
+    df["LB"] = range(1, len(df) + 1)
+    # Rank within each tank
+    df["Tank LB"] = (
+        df.groupby("Tank")["Score"]
+          .rank(method="min", ascending=False)
+          .astype(int)
+    )
+    # Only this player's scores
+    player_df = df[
+        df["Name"].astype(str).str.lower() == name.lower()
+    ].copy()
+    # Keep the player's scores ordered by global score
+    player_df = player_df.sort_values("Score", ascending=False)
+    return player_df
+
+
+
 
 
 
@@ -1518,6 +1545,44 @@ async def process_olympus_command(
         await maybe_send_random_message(message.channel, 0.05)
         # ✅ SET TITLE HERE
         title = f"All scores of {tank}"
+
+
+    elif cmd == "e":
+        if len(parts) < 3:
+            await safe_send(
+                message.channel,
+                content="❌ Usage: !o;e;PlayerName"
+            )
+            return
+        name_input = parts[2].strip()
+        name = await fuzzy_or_abort(
+            message=message,
+            df=df,
+            user_input=name_input,
+            choices=df["Name"].dropna().unique(),
+            arg_index=2,
+            resolver=handle_name_extended,
+            title="Player not found — did you mean?",
+            result_title="Player Scores",
+            columns=["Ņ", "Score", "Tank", "LB", "Tank LB", "Id"]
+        )
+        if name is None:
+            return
+        output = handle_name_extended(df, name)
+        if output.empty:
+            await safe_send(
+                message.channel,
+                content=f"❌ No scores found for **{name}**."
+            )
+            return
+        # Display order
+        output = output[
+            ["Score", "Tank", "LB", "Tank LB", "Id"]
+        ].copy()
+        # Local row number, same idea as !o;n
+        output.insert(0, "Ņ", range(1, len(output) + 1))
+        title = f"All scores of {name} — Extended"
+        
 
     
     elif cmd == "say":
