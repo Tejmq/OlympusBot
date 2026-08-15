@@ -860,9 +860,10 @@ async def send_info_embed(channel, df, info_id, interaction=None):
         or not cdn_url.strip().startswith(("http://", "https://"))
     ):
         cdn_url = DEFAULT_SCREENSHOT
-    # Description column → Embed footer
-    row_description = safe_val(row, "Description", "")
-    embed.set_footer(text=str(row_description))
+    # Healer column → Embed footer
+    row_healer = safe_val(row, "Healer", None)
+    healer_text = str(row_healer).strip() if row_healer else "Healers Unknown"
+    embed.set_footer(text=f"{healer_text} for heals")
     embed.set_image(url=cdn_url)
     if interaction:
         await interaction.edit_original_response(
