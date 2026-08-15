@@ -846,7 +846,7 @@ async def send_info_embed(channel, df, info_id, interaction=None):
         f"{name} died to **{killer}**."
     )
     embed = Embed(
-        title=f"{tank} — {int(score):,}",
+     #   title=f"{tank} — {int(score):,}",
         description=description,
         color=discord.Color.green()
     )
