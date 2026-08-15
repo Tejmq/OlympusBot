@@ -796,6 +796,7 @@ def parse_score(v):
 
 
 
+
 async def send_info_embed(channel, df, info_id, interaction=None):
     # Ensure Id column exists
     if "Id" not in df.columns:
@@ -821,23 +822,17 @@ async def send_info_embed(channel, df, info_id, interaction=None):
         playtime = parse_playtime(safe_val(row, "Playtime", 0))
     except:
         playtime = 0
-
     date = str(safe_val(row, "Date", "Unknown"))[:10]
     ratio = score / (playtime / 3600) if playtime > 0 else None
-
     # Playtime display
     if playtime > 0:
         playtime_display = f"{round(playtime / 3600, 2)}"
     else:
         playtime_display = "Unknown"
-
-
     if ratio is not None:
         ratio_display = f"{ratio:,.0f}"
     else:
         ratio_display = "Unknown"
-
-    
     description = (
   #      f"**{name1}**\n"
         f"{name} got **{int(score):,}** with **{tank}**.\n"
@@ -865,7 +860,7 @@ async def send_info_embed(channel, df, info_id, interaction=None):
     if row_healer is None or str(row_healer).strip() in ("", "None", "nan"):
         embed.set_footer(text="Healers Unknown")
     else:
-        embed.set_footer(text=f"Thanks {row_healer} for heals")
+        embed.set_footer(text=f"Healers: {row_healer}")
     embed.set_image(url=cdn_url)
     if interaction:
         await interaction.edit_original_response(
@@ -874,9 +869,66 @@ async def send_info_embed(channel, df, info_id, interaction=None):
         )
     else:
         await safe_send(channel, embed=embed)
-
-
-
+async def send_description_embed(channel, df, info_id, interaction=None):
+    # Ensure Id column exists
+    if "Id" not in df.columns:
+        await safe_send(channel, content="❌ No Id column in data.")
+        return
+    # Find row by Id
+    row = df[df["Id"].astype(str) == str(info_id)]
+    if row.empty:
+        await safe_send(
+            channel,
+            content="❌ No entry with that Id."
+        )
+        return
+    row = row.iloc[0]
+    # Get values safely
+    name1 = safe_val(row, "Name", "Unknown")
+    name = safe_val(row, "Name in game", "Unknown")
+    tank = safe_val(row, "Tank", "Unknown")
+    score = safe_val(row, "Score", 0)
+    date = safe_val(row, "Date", "Unknown")
+    killer = safe_val(row, "Killer", "Unknown")
+    healer = safe_val(row, "Heal", None)
+    description = safe_val(row, "Description", "No description.")
+    # Format score
+    try:
+        score = int(float(str(score).replace(",", "")))
+        score_display = f"{score:,}"
+    except:
+        score_display = str(score)
+    # Healer
+    if healer is None or str(healer).strip() in ("", "None", "nan", "?"):
+        healer_display = "Healers Unknown"
+    else:
+        healer_display = f"Thanks {healer} for heals"
+    embed_description = (
+        f"**Name:** {name1}\n"
+        f"**Tank:** {tank}\n"
+        f"**In-Game Name:** {name}\n"
+        f"**Score:** {score_display}\n"
+        f"**Date:** {str(date)[:10]}\n"
+        f"**Killer:** {killer}\n"
+        f"**{healer_display}**\n\n"
+        f"**Description:**\n"
+        f"{description}"
+    )
+    embed = Embed(
+        title=f"{tank} by {name1}",
+        description=embed_description,
+        color=discord.Color.green()
+    )
+    if interaction:
+        await interaction.edit_original_response(
+            content=None,
+            embed=embed
+        )
+    else:
+        await safe_send(
+            channel,
+            embed=embed
+        )
 
 
 
@@ -1579,7 +1631,28 @@ async def process_olympus_command(
         await send_screenshot(message.channel, df, screenshot_id)
         return
 
-
+    elif cmd == "d":
+        if len(parts) < 3:
+            await safe_send(
+                message.channel,
+                content="❌ Usage: !o;d;<Id>"
+            )
+            return
+        info_id = parts[2].strip()
+        df = read_excel_cached()
+        if isinstance(df, str) or df.empty:
+            await safe_send(
+                message.channel,
+                content="❌ Data unavailable."
+            )
+            return
+        df.columns = df.columns.str.strip()
+        await send_description_embed(
+            message.channel,
+            df,
+            info_id
+        )
+        return
 
 
     elif cmd == "ra":
