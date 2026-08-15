@@ -1816,6 +1816,7 @@ async def process_olympus_command(
                 ";1-15    -to imput range\n" 
                 ";r    -to see regular scores\n" 
                 ";YYYY-MM-DD    -date \n" 
+                "!o;e;Player       - Player scores with global + tank leaderboard ranks\n"
             )
         await safe_send(message.channel, content=help_message)
         return
@@ -1879,6 +1880,8 @@ async def process_olympus_command(
         cols = ["Ņ", "Score", "Tank", "Date", "Id"]
     elif cmd == "t":  # tank
         cols = ["Ņ", "Score", "Name", "Date", "Id"]
+    elif cmd == "e":  # extended player
+        cols = ["Ņ", "Score", "Tank", "LB", "Tank LB", "Id"]    
     elif cmd == "c":
         cols = COLUMNS_C.copy()
     else:
