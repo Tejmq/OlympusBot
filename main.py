@@ -865,8 +865,32 @@ async def send_info_embed(channel, df, info_id, interaction=None):
             content=None,
             embed=embed
         )
-    else:
-        await safe_send(channel, embed=embed)
+    row_description = safe_val(row, "Description", "")
+        embed.set_image(url=cdn_url)
+        if interaction:
+            await interaction.edit_original_response(
+                content=None,
+                embed=embed
+            )
+            # Send Description underneath the embed/image
+            if row_description:
+                await safe_send(
+                    channel,
+                    content=str(row_description)
+                )
+        else:
+            await safe_send(channel, embed=embed)
+            # Description appears immediately after the image embed
+            if row_description:
+                await safe_send(
+                    channel,
+                    content=str(row_description)
+                )
+
+
+
+
+
 
 
 
