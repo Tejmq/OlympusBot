@@ -851,6 +851,7 @@ async def send_info_embed(channel, df, info_id, interaction=None):
         color=discord.Color.green()
     )
     # Image 
+    # Image
     DEFAULT_SCREENSHOT = "https://cdn.discordapp.com/attachments/1466759427955888160/1466762183378604248/id_A.jpg?ex=6a5773bb&is=6a56223b&hm=66161e5238ce024020580aa4346a10e912563c3f4f175c79a2ae2f9a1088292a"
     cdn_url = safe_val(row, "CDN", None)
     if (
@@ -859,29 +860,17 @@ async def send_info_embed(channel, df, info_id, interaction=None):
         or not cdn_url.strip().startswith(("http://", "https://"))
     ):
         cdn_url = DEFAULT_SCREENSHOT
-    embed.set_image(url=cdn_url)
-    # Send Description underneath the embed/image
+    # Description column → Embed footer
     row_description = safe_val(row, "Description", "")
+    embed.set_footer(text=str(row_description))
     embed.set_image(url=cdn_url)
     if interaction:
         await interaction.edit_original_response(
             content=None,
             embed=embed
         )
-        # Send Description underneath the embed/image
-        if row_description:
-            await safe_send(
-                channel,
-                content=str(row_description)
-            )
     else:
         await safe_send(channel, embed=embed)
-        # Description appears immediately after the image embed
-        if row_description:
-            await safe_send(
-                channel,
-                content=str(row_description)
-            )
 
 
 
