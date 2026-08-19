@@ -1458,6 +1458,33 @@ def x_tank_output(df, tank):
     return output
 
 
+
+
+def x_player_output(df, name):
+    """
+    Same display columns as !o;n:
+    Ņ, Score, Tank, Date, Id
+    """
+    output = handle_name(df, name).copy()
+    if output.empty:
+        return output
+    output = output[["Score", "Tank", "Date", "Id"]].copy()
+    output.insert(0, "Ņ", range(1, len(output) + 1))
+    return output
+
+
+
+
+def handle_name(df, name):
+    df = normalize_score(df)
+    return (
+        df[df["Name"].str.lower() == name.lower()]
+        .sort_values("Score", ascending=False)
+    )
+
+
+
+
 async def show_x_player(message, df, name):
     output = x_player_output(df, name)
 
