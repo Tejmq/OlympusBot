@@ -1384,6 +1384,297 @@ def extract_range(parts, max_range=20, total_len=0):
 
 
 
+# ============================================================
+# x!Something — automatic Player/Tank leaderboard lookup
+# ============================================================
+
+def x_player_lookup(df, name):
+    """Return a player's scores with their global leaderboard rank."""
+    df = normalize_score(df).copy()
+    df = df.sort_values("Score", ascending=False).reset_index(drop=True)
+    df["LB"] = range(1, len(df) + 1)
+    return df[df["Name"].astype(str).str.lower() == name.lower()].copy()
+
+
+def x_tank_lookup(df, tank):
+    """Return a tank's scores with its leaderboard rank inside that tank."""
+    df = normalize_score(df).copy()
+    df["Tank LB"] = (
+        df.groupby("Tank")["Score"]
+          .rank(method="min", ascending=False)
+          .astype(int)
+    )
+    return (
+        df[df["Tank"].astype(str).str.lower() == tank.lower()]
+        .sort_values("Score", ascending=False)
+        .copy()
+    )
+
+
+async def x_show_player(message, df, name):
+    output = x_player_lookup(df, name)
+    if output.empty:
+        await safe_send(message.channel, content=f"❌ No scores found for **{name}**.")
+        return
+
+    output = output[["Score", "Tank", "LB", "Id"]].copy()
+    output.insert(0, "Ņ", range(1, len(output) + 1))
+    title = f"{name} — Player LB"
+
+    parts = message.content.split(";")
+    start, end, range_size, warning = extract_range(
+        parts, max_range=20, total_len=len(output)
+    )
+    view = RangePaginationView(
+        df=output,
+        start_index=start,
+        range_size=range_size,
+        title=title,
+        shorten_tank=True
+    )
+    slice_df = output.iloc[start - 1:end].copy()
+    slice_df["Ņ"] = range(start, min(end, len(output)) + 1)
+    lines = dataframe_to_markdown_aligned(slice_df)
+    embed = make_embed(title, lines)
+    footer = f"Rows {start}-{min(end, len(output))} / {len(output)}"
+    if warning:
+        footer = f"{warning} • {footer}"
+    embed.set_footer(text=footer)
+    msg = await safe_send(message.channel, embed=embed, view=view)
+    view.message = msg
+
+
+async def x_show_tank(message, df, tank):
+    output = x_tank_lookup(df, tank)
+    if output.empty:
+        await safe_send(message.channel, content=f"❌ No scores found for **{tank}**.")
+        return
+
+    output = output[["Score", "Name", "Tank LB", "Id"]].copy()
+    output.insert(0, "Ņ", range(1, len(output) + 1))
+    title = f"{tank} — Tank LB"
+
+    parts = message.content.split(";")
+    start, end, range_size, warning = extract_range(
+        parts, max_range=20, total_len=len(output)
+    )
+    view = RangePaginationView(
+        df=output,
+        start_index=start,
+        range_size=range_size,
+        title=title,
+        shorten_tank=False
+    )
+    slice_df = output.iloc[start - 1:end].copy()
+    slice_df["Ņ"] = range(start, min(end, len(output)) + 1)
+    lines = dataframe_to_markdown_aligned(slice_df, shorten_tank=False)
+    embed = make_embed(title, lines)
+    footer = f"Rows {start}-{min(end, len(output))} / {len(output)}"
+    if warning:
+        footer = f"{warning} • {footer}"
+    embed.set_footer(text=footer)
+    msg = await safe_send(message.channel, embed=embed, view=view)
+    view.message = msg
+
+
+class XLeaderboardChoiceView(ui.View):
+    """Shown when the same text exists as both a player and a tank."""
+
+    def __init__(self, message_source, df, player_name, tank_name):
+        super().__init__(timeout=30)
+        self.message_source = message_source
+        self.df = df
+        self.player_name = player_name
+        self.tank_name = tank_name
+        self.message = None
+
+    async def on_timeout(self):
+        for item in self.children:
+            item.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except Exception:
+                pass
+
+    async def _choose(self, interaction, kind):
+        if not interaction.response.is_done():
+            await interaction.response.defer()
+
+        # Rewrite the command internally to the selected LB type.
+        # x!player;Name = player LB
+        # x!tank;Tank  = tank LB
+        if kind == "player":
+            rewritten = f"x!player;{self.player_name}"
+        else:
+            rewritten = f"x!tank;{self.tank_name}"
+
+        print(f"[X LOOKUP] {self.message_source.content} -> {rewritten}")
+
+        await interaction.edit_original_response(
+            content="Cooking...",
+            embed=None,
+            view=None
+        )
+
+        fake_message = copy.copy(self.message_source)
+        fake_message.content = rewritten
+        await process_olympus_command(fake_message, bypass_cooldown=True)
+
+    @ui.button(label="Player", style=discord.ButtonStyle.primary)
+    async def player(self, interaction: discord.Interaction, button: ui.Button):
+        await self._choose(interaction, "player")
+
+    @ui.button(label="Tank", style=discord.ButtonStyle.secondary)
+    async def tank(self, interaction: discord.Interaction, button: ui.Button):
+        await self._choose(interaction, "tank")
+
+
+async def handle_x_lookup(message, df, query):
+    """x!Something — search both Name and Tank columns."""
+    query = query.strip()
+    if not query:
+        await safe_send(message.channel, content="❌ Usage: `x!Something`")
+        return
+
+    # Internal rewritten forms used by the buttons.
+    if query.lower().startswith("player;"):
+        name = query.split(";", 1)[1].strip()
+        await x_show_player(message, df, name)
+        return
+
+    if query.lower().startswith("tank;"):
+        tank = query.split(";", 1)[1].strip()
+        await x_show_tank(message, df, tank)
+        return
+
+    player_lookup = {
+        str(v).strip().lower(): str(v).strip()
+        for v in df["Name"].dropna().unique()
+    }
+    tank_lookup = {
+        str(v).strip().lower(): str(v).strip()
+        for v in df["Tank"].dropna().unique()
+    }
+
+    key = query.lower()
+    player_name = player_lookup.get(key)
+    tank_name = tank_lookup.get(key)
+
+    # Exact player only.
+    if player_name and not tank_name:
+        await x_show_player(message, df, player_name)
+        return
+
+    # Exact tank only.
+    if tank_name and not player_name:
+        await x_show_tank(message, df, tank_name)
+        return
+
+    # Exact match in both columns -> ask which LB to show.
+    if player_name and tank_name:
+        embed = Embed(
+            title="Which leaderboard?",
+            description=(
+                f"`{query}` exists as both a **player** and a **tank**.\n\n"
+                "Choose which leaderboard you want to see."
+            ),
+            color=discord.Color.orange()
+        )
+        view = XLeaderboardChoiceView(
+            message_source=message,
+            df=df,
+            player_name=player_name,
+            tank_name=tank_name
+        )
+        msg = await safe_send(message.channel, embed=embed, view=view)
+        view.message = msg
+        return
+
+    # Fuzzy search across both columns if there was no exact match.
+    choices = {}
+    for value in player_lookup.values():
+        choices[f"player:{value.lower()}"] = ("player", value)
+    for value in tank_lookup.values():
+        choices[f"tank:{value.lower()}"] = ("tank", value)
+
+    matches = get_close_matches(key, choices.keys(), n=5, cutoff=0.65)
+    if not matches:
+        await safe_send(
+            message.channel,
+            content=f"❌ `{query}` was not found as a player or tank."
+        )
+        return
+
+    embed = Embed(
+        title="Did you mean?",
+        description=f"No exact match for `{query}`.",
+        color=discord.Color.red()
+    )
+
+    for match in matches:
+        kind, value = choices[match]
+        label = f"Player: {value}" if kind == "player" else f"Tank: {value}"
+        embed.add_field(name=label, value="\u200b", inline=True)
+
+    # Reuse the normal fuzzy button mechanism, but rewrite to x!player / x!tank.
+    view = XFuzzyChoiceView(message, df, choices, matches)
+    msg = await safe_send(message.channel, embed=embed, view=view)
+    view.message = msg
+
+
+class XFuzzyChoiceButton(ui.Button):
+    def __init__(self, label, kind, value):
+        super().__init__(
+            label=label[:80],
+            style=discord.ButtonStyle.primary if kind == "player" else discord.ButtonStyle.secondary
+        )
+        self.kind = kind
+        self.value = value
+
+    async def callback(self, interaction: Interaction):
+        view = self.view
+        if not interaction.response.is_done():
+            await interaction.response.defer()
+
+        rewritten = f"x!player;{self.value}" if self.kind == "player" else f"x!tank;{self.value}"
+        print(f"[X FUZZY] {view.message_source.content} -> {rewritten}")
+
+        await interaction.edit_original_response(
+            content="Cooking...",
+            embed=None,
+            view=None
+        )
+
+        fake_message = copy.copy(view.message_source)
+        fake_message.content = rewritten
+        await process_olympus_command(fake_message, bypass_cooldown=True)
+
+
+class XFuzzyChoiceView(ui.View):
+    def __init__(self, message_source, df, choices, matches):
+        super().__init__(timeout=30)
+        self.message_source = message_source
+        self.df = df
+        self.message = None
+        for match in matches:
+            kind, value = choices[match]
+            self.add_item(XFuzzyChoiceButton(
+                label=(f"Player: {value}" if kind == "player" else f"Tank: {value}"),
+                kind=kind,
+                value=value
+            ))
+
+    async def on_timeout(self):
+        for item in self.children:
+            item.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except Exception:
+                pass
+
+
 async def process_olympus_command(
     message,
     bypass_cooldown=False
@@ -1393,6 +1684,21 @@ async def process_olympus_command(
     print(f"[DEBUG] Received message from {message.author}: {message.content}")
     if message.author == bot.user:
         return
+
+    # --------------------------------------------------------
+    # New x!Something command
+    # Searches both Name and Tank columns.
+    # --------------------------------------------------------
+    if message.content.startswith("x!"):
+        raw = message.content[2:].strip()
+        df_x = read_excel_cached()
+        if isinstance(df_x, str) or df_x.empty:
+            await safe_send(message.channel, content="❌ Data unavailable.")
+            return
+        df_x.columns = df_x.columns.str.strip()
+        await handle_x_lookup(message, df_x, raw)
+        return
+
     if not message.content.startswith("!o;"):
         await bot.process_commands(message)
         return
