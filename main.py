@@ -1602,7 +1602,7 @@ class XLookupChoiceView(ui.View):
 
         try:
             await interaction.edit_original_response(
-                content=f"Cooking `{command}`...",
+                content=f"Cooking...",
                 embed=None,
                 view=None
             )
@@ -1675,7 +1675,7 @@ class XFuzzyButton(ui.Button):
 
         try:
             await interaction.edit_original_response(
-                content=f"Cooking `{command}`...",
+                content=f"Cooking...",
                 embed=None,
                 view=None
             )
