@@ -1408,9 +1408,8 @@ def x_lookup_exact(df, query):
 def x_lookup_fuzzy(df, query, max_results=5, cutoff=0.65):
     """
     Fuzzy-search both Name and Tank columns.
-
-    Results are returned as:
-        [("player", display_name), ("tank", display_tank), ...]
+    Returns:
+        [("player", display_name), ("tank", display_name), ...]
     """
     player_lookup = {
         str(v).strip().lower(): str(v).strip()
@@ -1420,38 +1419,29 @@ def x_lookup_fuzzy(df, query, max_results=5, cutoff=0.65):
         str(v).strip().lower(): str(v).strip()
         for v in df["Tank"].dropna().unique()
     }
-
-    choices = {}
+    # Combine the actual searchable names.
+    # If the same name exists as both a player and tank,
+    # keep both types.
+    candidates = {}
     for key, value in player_lookup.items():
-        choices[f"player:{key}"] = ("player", value, key)
-
+        candidates.setdefault(key, []).append(("player", value))
     for key, value in tank_lookup.items():
-        choices[f"tank:{key}"] = ("tank", value, key)
-
+        candidates.setdefault(key, []).append(("tank", value))
     query_key = str(query).strip().lower()
-
+    # IMPORTANT:
+    # Compare against the actual name, NOT "player:name"
     matches = get_close_matches(
         query_key,
-        list(choices.keys()),
+        list(candidates.keys()),
         n=max_results,
         cutoff=cutoff
     )
+    results = []
+    for match in matches:
+        for kind, value in candidates[match]:
+            results.append((kind, value))
+    return results[:max_results]
 
-    return [(choices[m][0], choices[m][1]) for m in matches]
-
-
-def x_player_output(df, name):
-    """
-    Same display columns as !o;n:
-    Ņ, Score, Tank, Date, Id
-    """
-    output = handle_name(df, name).copy()
-    if output.empty:
-        return output
-
-    output = output[["Score", "Tank", "Date", "Id"]].copy()
-    output.insert(0, "Ņ", range(1, len(output) + 1))
-    return output
 
 
 def x_tank_output(df, tank):
