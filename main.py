@@ -1821,7 +1821,7 @@ async def process_olympus_command(
                     name.lower(),
                     list(lookup.keys()),
                     n=1,
-                    cutoff=0.65
+                    cutoff=0.50
                 )
                 if matches:
                     resolved = lookup[matches[0]]
@@ -1870,7 +1870,7 @@ async def process_olympus_command(
                     tank.lower(),
                     list(lookup.keys()),
                     n=1,
-                    cutoff=0.65
+                    cutoff=0.50
                 )
                 if matches:
                     resolved = lookup[matches[0]]
