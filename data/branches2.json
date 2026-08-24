@@ -1,0 +1,282 @@
+{
+  "Basic": [
+    "Basic",
+    "Twin",
+    "Sniper",
+    "Machine Gun",
+    "Flank Guard",
+    "Director",
+    "Pounder",
+    "Trapper",
+    "Single",
+    "Desmos",
+    "Healer"
+  ],
+
+  "Twin": [
+    "Double Twin",
+    "Triple Shot",
+    "Gunner",
+    "Hexa Tank",
+    "Helix (re)",
+    "Dual (re)",
+    "Bulwark",
+    "Musket"
+  ],
+
+  "Double Twin": [
+    "Triple Twin",
+    "Hewn Double",
+    "Auto-Double",
+    "Bent Double"
+  ],
+  
+
+  "Triple Shot": [
+    "Penta Shot",
+    "Spreadshot",
+    "Bent Hybrid",
+    "Bent Double",
+    "Triplet",
+    "Triplex"
+  ],
+
+  "Gunner": [
+    "Auto-Gunner",
+    "Nailgun",
+    "Auto-4",
+    "Machine Gunner",
+    "Gunner Trapper",
+    "Cyclone",
+    "Overgunner"
+  ],
+
+  "Hexa Tank": [
+    "Octo Tank",
+    "Cyclone",
+    "Hexa-Trapper"
+  ],
+
+  "Helix (re)": [
+    "Triplex",
+    "Quadruplex"
+  ],
+  
+  "Sniper": [
+    "Assassin",
+    "Hunter",
+    "Minigun",
+    "Rifle",
+    "Marksman"
+  ],
+
+  "Assassin": [
+    "Ranger",
+    "Falcon",
+    "Stalker",
+    "Auto-Assassin",
+    "Single",
+    "Deadeye (re)"
+  ],
+
+  "Hunter": [
+    "Predator",
+    "X-Hunter",,
+    "Poacher",
+    "Ordnance",
+    "Dual",
+    "Nimrod (re)"
+  ],
+
+  "Minigun": [
+    "Streamliner",
+    "Nailgun",
+    "Crop Duster",
+    "Barricade",
+    "Vulture (re)"
+  ],
+
+  "Rifle": [
+    "Musket",
+    "Crossbow",
+    "Armsman",
+    "Revolver (re)"
+  ],
+
+   "Marksman": [
+    "Marksman",
+	"Deadeye (re)",
+	"Nimrod",
+	"Revolver (re)",
+	"Fork"
+  ],
+     
+
+  "Machine Gun": [
+    "Artillery",
+    "Minigun",
+    "Gunner",
+    "Sprayer",
+  ],
+
+  "Artillery": [
+    "Mortar",
+    "Ordnance",
+    "Beekeeper",
+    "Field Gun"
+  ],
+
+  "Artillery": [
+    "Mortar",
+    "Ordnance",
+    "Beekeeper",
+    "Field Gun"
+  ],
+
+
+  "Sprayer": [
+    "Redistributor",
+    "Phoenix",
+    "Atomizer",
+    "Focal"
+  ],
+
+
+  "Flank Guard": [
+    "Hexa Tank",
+    "Tri-Angle",
+    "Auto-3",
+    "Trap Guard",
+    "Tri-Trapper",
+	"Triple Twin",
+	"Quadruplex"
+  ],
+
+  "Tri-Angle": [
+    "Fighter",
+    "Booster",
+    "Falcon",
+    "Bomber",
+    "Auto-Tri-Angle",
+    "Surfer",
+    "Eagle",
+    "Phoenix",
+    "Vulture (re)"
+  ],
+
+  "Auto-3": [
+    "Auto-5",
+    "Mega-3",
+    "Auto-4",
+    "Banshee"
+  ],
+
+  "Trap Guard": [
+    "Bushwhacker",
+    "Gunner Trapper",
+    "Bomber",
+    "Conqueror",
+    "Bulwark"
+  ],
+
+  "Tri-Trapper": [
+    "Fortress",
+    "Hexa-Trapper",
+    "Septa-Trapper",
+    "Architect"
+  ],
+
+  "Director": [
+    "Overseer",
+    "Cruiser",
+    "Underseer",
+    "Spawner",
+    "Manager",
+    "Big Cheese"
+  ],
+
+  "Overseer": [
+    "Overlord",
+	"Overtrapper",
+	"Overgunner",
+    "Banshee",
+    "Auto-Overseer",
+    "Overdrive",
+    "Commander"
+  ],
+
+  "Cruiser": [
+    "Carrier",
+    "Battleship",
+    "Fortress",
+    "Auto-Cruiser",
+    "Commander"
+  ],
+
+  "Spawner": [
+    "Factory",
+    "Auto-Spawner"
+  ],
+
+
+  "Pounder": [
+    "Destroyer",
+    "Builder",
+    "Artillery",
+    "Launcher",
+    "Shotgun",
+    "Eagle"
+  ],
+
+  "Destroyer": [
+    "Conqueror",
+    "Annihilator",
+    "Hybrid",
+    "Constructor"
+  ],
+
+  "Trapper": [
+    "Builder",
+    "Triple-Trapper",
+    "Trap Guard",
+    "Barricade",
+    "Overtrapper"
+  ],
+
+
+  "Healer": [
+    "Healer",
+	"Medic",
+    "Ambulance",
+    "Paramedic",
+    "Surgeon"
+  ],
+  
+
+      "Launcher": [
+    "Skimmer",
+    "Twister",
+	"Swarmer",
+    "Sidewinder",
+    "Field Gun"
+  ],
+
+  
+        "Desmos": [
+    "Desmos",
+	"Helix (re)",
+	"Triplex",
+	"Quadruplex"
+  ],
+     
+        "Builder": [
+	"Constructor",
+	"Auto-Builder",
+	"Engineer",
+	"Boomer",
+	"Assembler (re)",
+	"Architect",
+	"Conqueror"
+  ]
+         
+}
