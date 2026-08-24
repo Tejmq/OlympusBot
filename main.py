@@ -544,7 +544,11 @@ async def send_screenshot(channel, df, screenshot_id):
 
 
 BRANCHES_JSON = []
+BRANCHES2_JSON = []
+
+
 def load_branches():
+    """Load the normal branch definitions from data/branches.json."""
     global BRANCHES_JSON
 
     if BRANCHES_JSON:
@@ -561,6 +565,23 @@ def load_branches():
     return BRANCHES_JSON
 
 
+def load_branches2():
+    """Load the ;r branch definitions from data/branches2.json."""
+    global BRANCHES2_JSON
+
+    if BRANCHES2_JSON:
+        return BRANCHES2_JSON
+
+    try:
+        with open("data/branches2.json", "r") as f:
+            BRANCHES2_JSON = json.load(f)
+        print("Branches2 loaded locally")
+    except Exception as e:
+        print("Branches2 load failed:", e)
+        return "fetch_error"
+
+    return BRANCHES2_JSON
+
 
 def handle_branch(df, branch_key):
     branches = load_branches()
@@ -569,14 +590,24 @@ def handle_branch(df, branch_key):
     return branches.get(branch_key)
 
 
+def handle_branch2(df, branch_key):
+    branches = load_branches2()
+    if not isinstance(branches, dict):
+        return None
+    return branches.get(branch_key)
+
 
 async def handle_branch_command(
     message,
     branch_name: str,
-    interaction: Interaction | None = None
+    interaction: Interaction | None = None,
+    gt_filter: str = "A",
+    branches_loader=load_branches,
+    branch_resolver=handle_branch
 ):
-    # Load branches
-    branches = load_branches()
+    # Normal !o;bch uses branches.json + GT=A.
+    # !o;bch;branch;r uses branches2.json + GT=R.
+    branches = branches_loader()
     if not isinstance(branches, dict):
         content = "❌ Branch list unavailable."
 
@@ -594,11 +625,11 @@ async def handle_branch_command(
     branch_key = await fuzzy_or_abort(
         message=message,
         interaction=interaction,
-        df=None,  # branches are not dataframe-based
+        df=None,
         user_input=branch_name,
         choices=branches.keys(),
         arg_index=2,
-        resolver=handle_branch,
+        resolver=branch_resolver,
         title="Branch not found — did you mean?",
         result_title="Branch Highscores",
         columns=["Ņ", "Tank", "Name", "Score", "Id"],
@@ -606,7 +637,6 @@ async def handle_branch_command(
     )
     if branch_key is None:
         return
-    # --------------------------------
 
     branch_tanks = branches.get(branch_key)
     if not branch_tanks:
@@ -638,12 +668,47 @@ async def handle_branch_command(
         return
 
     df.columns = df.columns.str.strip()
+
+    # Branch commands always go through the GT filter:
+    # normal bch = A, bch;r = R.
+    if "GT" not in df.columns:
+        content = "❌ No 'GT' column found in data."
+
+        if interaction:
+            await interaction.edit_original_response(
+                content=content,
+                embed=None,
+                view=None
+            )
+        else:
+            await safe_send(message.channel, content=content)
+        return
+
+    df = df[
+        df["GT"].astype(str).str.strip().str.upper() == gt_filter.upper()
+    ].copy()
+
+    if df.empty:
+        content = f"❌ No results for GT={gt_filter.upper()}."
+
+        if interaction:
+            await interaction.edit_original_response(
+                content=content,
+                embed=None,
+                view=None
+            )
+        else:
+            await safe_send(message.channel, content=content)
+        return
+
     df = normalize_score(df)
 
-    # Build rows: top score per tank
+    # Build rows: top score per tank after the GT filter.
     rows = []
     for tank in branch_tanks:
-        tank_rows = df[df["Tank"].str.lower() == tank.lower()]
+        tank_rows = df[
+            df["Tank"].astype(str).str.lower() == str(tank).lower()
+        ]
         if tank_rows.empty:
             rows.append({"Tank": tank, "Score": 0, "Name": "", "Id": ""})
         else:
@@ -655,7 +720,6 @@ async def handle_branch_command(
                 "Id": best.get("Id", "")
             })
 
-    # Sort + limit
     rows.sort(key=lambda x: x["Score"], reverse=True)
     rows = rows[:16]
 
@@ -667,9 +731,10 @@ async def handle_branch_command(
 
     title = f"{branch_key} Branch"
     embed = make_embed(title, lines)
-    embed.set_footer(text=f"{len(display_df)} tanks in this branch")
+    embed.set_footer(
+        text=f"{len(display_df)} tanks in this branch • GT={gt_filter.upper()}"
+    )
 
-    # FINAL SEND / EDIT
     if interaction:
         await interaction.edit_original_response(
             embed=embed,
@@ -677,9 +742,6 @@ async def handle_branch_command(
         )
     else:
         await safe_send(message.channel, embed=embed)
-
-
-
 
 
 async def handle_cumulative_top10(message, df):
@@ -2326,10 +2388,36 @@ async def process_olympus_command(
     # --- Call in on_message ---
     elif cmd == "bch":
         if len(parts) < 3:
-            await safe_send(message.channel, content="❌ Usage: !o;bch;<branchname>")
+            await safe_send(
+                message.channel,
+                content="❌ Usage: !o;bch;<branchname>[;r]"
+            )
             return
+
         branch_name = parts[2].strip()
-        await handle_branch_command(message, branch_name)
+
+        # !o;bch;Branch -> branches.json, GT=A
+        # !o;bch;Branch;r -> branches2.json, GT=R
+        regular_mode = not any(
+            p.strip().lower() == "r" for p in parts[3:]
+        )
+
+        if regular_mode:
+            await handle_branch_command(
+                message,
+                branch_name,
+                gt_filter="A",
+                branches_loader=load_branches,
+                branch_resolver=handle_branch
+            )
+        else:
+            await handle_branch_command(
+                message,
+                branch_name,
+                gt_filter="R",
+                branches_loader=load_branches2,
+                branch_resolver=handle_branch2
+            )
         return
 
     
@@ -2341,7 +2429,7 @@ async def process_olympus_command(
                 "!o;t;TankName     - Best score of a tank\n"
                 "!o;n;Player       - Best scores of a player\n"
                 "!o;re;Player       - Records of a player\n"              
-                "!o;bch;BranchName    - Every tank in a branch\n"
+                "!o;bch;BranchName    - Every tank in a branch (GT=A)\n!o;bch;BranchName;r  - Branches2 branch highscores (GT=R)\n"
 
                 "!o;ra             - Random recommendation\n"            
                 "!o;i;id              - Score info\n"
