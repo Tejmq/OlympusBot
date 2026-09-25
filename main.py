@@ -791,7 +791,7 @@ async def handle_cumulative_top10(message, df):
         output = (
             output
             .sort_values("Score", ascending=False)
-            .head(15)
+            .head(20)
             .reset_index(drop=True)
         )
         output["Ņ"] = range(1, len(output) + 1)
