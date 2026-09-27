@@ -2419,7 +2419,7 @@ async def process_olympus_command(
         await handle_cumulative_monthly_top20(message, df, parts)
         return
 
-    elif cmd == "cu15":
+    elif cmd == "cua":
         await handle_cumulative_top10(message, df)
         return
     
@@ -2564,11 +2564,10 @@ async def process_olympus_command(
                 "!o;p              - Part of the scoreboard\n"            
                 "!o;t;TankName     - Best score of a tank\n"
                 "!o;n;Player       - Best scores of a player\n"
-                "!o;re;Player       - Records of a player\n"              
-                "!o;bch;BranchName    - Every tank in a branch (GT=A)\n!o;bch;BranchName;r  - Branches2 branch highscores (GT=R)\n"
-
-                "!o;ra             - Random recommendation\n"            
                 "!o;i;id              - Score info\n"
+                "!o;bch;BranchName    - Every tank in a score branch\n"
+                "!o;ra             - Random recommendation\n"            
+
             )
         await safe_send(message.channel, content=help_message)
         return
@@ -2576,23 +2575,45 @@ async def process_olympus_command(
     elif cmd == "help2":
         help_message = (
                 "Commands:\n"
-                "!o;nt;Player;Tank     - Player and Tank       \n"            
-                "!o;c             - Best tank list\n"
-                "!o;b              - Best player list\n"
-                "!o;w;1-15         - See new added\n"
-                "!o;say;             - For an rng text\n"
-                "!o;s;id                 - Screenshot of the score\n"
-                "!o;r                    - Random recommendation\n" 
-                "(add at the end of a command vvv)\n" 
+                "!o;re;Player       - Score records of a player\n"  
+                "!o;bch;BranchName;r  - Every tank in a non-AR branch\n"
+
+                "(*add at the end of other commands*)\n" 
                 ";1-15    -to imput range\n" 
-                ";r    -to see regular scores\n" 
-                ";YYYY-MM-DD    -date \n" 
-                "!o;e;Player       - Player scores with global + tank leaderboard ranks\n"                "x!Something         - Find a player or tank automatically\n"                
+                ";r    -to see non-AR scores\n" 
+                ";YYYY-MM-DD    -on a date \n"  
+                ";<YYYY-MM-DD    - before a date \n"    
+            )
+        await safe_send(message.channel, content=help_message)
+        return
+        
+    elif cmd == "help3":
+        help_message = (
+                "Commands:\n"
+                "!o;c              - Top tank list\n"
+                "!o;b              - Top player list\n"
+                "!o;e;Player       - Player scores with global + tank ranks\n"    
+                "!o;s;id               - Screenshot of the score\n"
+                "!o;cu;Player          - Cumulative lb of a player\n"
+                "!o;cua            - Cumulative lb of all time\n" 
+                "!o;cm;YYYY-MM     - Cumulative lb of a month\n"                    
             )
         await safe_send(message.channel, content=help_message)
         return
 
-
+    elif cmd == "help4":
+        help_message = (
+                "Commands:\n"
+                "!o;w;1-15         - See new added\n"
+                "!o;r                    - Random recommendation\n" 
+                "!o;nt;Player;Tank     - Player and Tank\n"  
+                "!o;say;             - For an rng text\n"
+                "x!Something         - Find a player or tank (experimental)\n"   
+             
+            )
+        await safe_send(message.channel, content=help_message)
+        return
+    
     elif cmd == "r":
         if len(parts) == 2:
             await safe_send(
