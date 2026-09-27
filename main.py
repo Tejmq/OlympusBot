@@ -744,6 +744,138 @@ async def handle_branch_command(
         await safe_send(message.channel, embed=embed)
 
 
+async def handle_cumulative_monthly_top20(message, df, parts):
+    """
+    !o;cm;YYYY-MM
+
+    Build a cumulative top-20 leaderboard using only scores whose
+    Date falls within the requested calendar month.
+    """
+    if len(parts) < 3 or not re.fullmatch(r"\d{4}-\d{2}", parts[2].strip()):
+        await safe_send(
+            message.channel,
+            content="❌ Usage: !o;cm;YYYY-MM  (example: !o;cm;2026-07)"
+        )
+        return
+
+    month = parts[2].strip()
+
+    # Validate that YYYY-MM is an actual calendar month.
+    try:
+        datetime.strptime(month, "%Y-%m")
+    except ValueError:
+        await safe_send(
+            message.channel,
+            content=f"❌ Invalid month: `{month}`. Use YYYY-MM, e.g. `2026-07`."
+        )
+        return
+
+    if "Date" not in df.columns:
+        await safe_send(
+            message.channel,
+            content="❌ No Date column found in the data."
+        )
+        return
+
+    cooking_msg = await safe_send(
+        message.channel,
+        content="Cooking up"
+    )
+
+    try:
+        month_df = df.copy()
+        month_df["Date"] = month_df["Date"].astype(str).str[:10]
+        month_df = month_df[
+            month_df["Date"].str.match(r"^\d{4}-\d{2}-\d{2}$", na=False) &
+            month_df["Date"].str[:7].eq(month)
+        ].copy()
+
+        if month_df.empty:
+            if cooking_msg:
+                await cooking_msg.edit(
+                    content=f"❌ No scores found for **{month}**."
+                )
+            return
+
+        month_df = normalize_score(month_df)
+        month_df = month_df.dropna(subset=["Name"])
+        month_df["Name"] = month_df["Name"].astype(str)
+
+        # ---------------- TOTAL SCORES ----------------
+        totals = (
+            month_df.groupby("Name", as_index=False)["Score"]
+                    .sum()
+        )
+
+        # ---------------- FAVOURITE TANK ----------------
+        fave_counts = (
+            month_df.dropna(subset=["Tank"])
+                    .groupby(["Name", "Tank"])
+                    .size()
+                    .reset_index(name="Uses")
+        )
+
+        fave_counts = (
+            fave_counts
+            .sort_values(["Name", "Uses"], ascending=[True, False])
+            .drop_duplicates("Name")
+        )
+
+        # ---------------- MERGE ----------------
+        output = totals.merge(
+            fave_counts[["Name", "Tank"]],
+            on="Name",
+            how="left"
+        )
+        output = output.rename(columns={"Tank": "Fave"})
+        output["Fave"] = output["Fave"].fillna("?")
+
+        # Top 20 cumulative scores for this month only.
+        output = (
+            output.sort_values("Score", ascending=False)
+                  .head(20)
+                  .reset_index(drop=True)
+        )
+
+        output["Ņ"] = range(1, len(output) + 1)
+        output = output[["Ņ", "Name", "Score", "Fave"]]
+
+        output["Fave"] = (
+            output["Fave"]
+            .astype(str)
+            .str[:12]
+        )
+
+        lines = dataframe_to_markdown_aligned(
+            output,
+            shorten_tank=False
+        )
+
+        embed = make_embed(
+            f"Top 20 Cumulative Scores — {month}",
+            lines
+        )
+        embed.set_footer(
+            text=f"All scores from {month} combined • {len(month_df)} scores"
+        )
+
+        if cooking_msg:
+            await cooking_msg.edit(
+                content=None,
+                embed=embed
+            )
+
+    except Exception as e:
+        print("[CM ERROR]", e)
+        if cooking_msg:
+            try:
+                await cooking_msg.edit(
+                    content="❌ Failed cooking that up."
+                )
+            except:
+                pass
+
+
 async def handle_cumulative_top10(message, df):
     cooking_msg = await safe_send(
         message.channel,
@@ -2281,8 +2413,12 @@ async def process_olympus_command(
 
     elif cmd == "cu":
         await handle_collective_score(message, df, parts)
-        return 
-    
+        return
+
+    elif cmd == "cm":
+        await handle_cumulative_monthly_top20(message, df, parts)
+        return
+
     elif cmd == "cu15":
         await handle_cumulative_top10(message, df)
         return
