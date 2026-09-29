@@ -2568,6 +2568,7 @@ async def process_olympus_command(
                 "!o;bch;BranchName    - Every tank in a score branch\n"
                 "!o;ra             - Random recommendation\n"            
 
+                "!o;help2            -for more commands\n"
             )
         await safe_send(message.channel, content=help_message)
         return
@@ -2582,38 +2583,25 @@ async def process_olympus_command(
                 ";1-15    -to imput range\n" 
                 ";r    -to see non-AR scores\n" 
                 ";YYYY-MM-DD    -on a date \n"  
-                ";<YYYY-MM-DD    - before a date \n"    
-            )
-        await safe_send(message.channel, content=help_message)
-        return
-        
-    elif cmd == "help3":
-        help_message = (
-                "Commands:\n"
+                ";<YYYY-MM-DD    - before a date \n"   
+            
                 "!o;c              - Top tank list\n"
                 "!o;b              - Top player list\n"
                 "!o;e;Player       - Player scores with global + tank ranks\n"    
                 "!o;s;id               - Screenshot of the score\n"
                 "!o;cu;Player          - Cumulative lb of a player\n"
                 "!o;cua            - Cumulative lb of all time\n" 
-                "!o;cm;YYYY-MM     - Cumulative lb of a month\n"                    
-            )
-        await safe_send(message.channel, content=help_message)
-        return
-
-    elif cmd == "help4":
-        help_message = (
-                "Commands:\n"
+                "!o;cm;YYYY-MM     - Cumulative lb of a month\n"  
                 "!o;w;1-15         - See new added\n"
                 "!o;r                    - Random recommendation\n" 
                 "!o;nt;Player;Tank     - Player and Tank\n"  
                 "!o;say;             - For an rng text\n"
                 "x!Something         - Find a player or tank (experimental)\n"   
-             
+            
             )
         await safe_send(message.channel, content=help_message)
         return
-    
+
     elif cmd == "r":
         if len(parts) == 2:
             await safe_send(
