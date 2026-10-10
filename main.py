@@ -15,6 +15,7 @@ import copy
 COLUMN_ORDER = {
     "default": ["Ņ", "Score", "Name", "Tank", "Id"],
     "c": ["Ņ", "Tank", "Name", "Score", "Id"],
+    "b": ["Ņ", "Score", "Tank", "Name", "Id"],
     "n": ["Ņ", "Score", "Tank", "Date", "Id"],
     "t": ["Ņ", "Score", "Name", "Date", "Id"],
     "e": ["Ņ", "Score", "Tank", "LB", "Tank LB", "Id"],
@@ -22,15 +23,15 @@ COLUMN_ORDER = {
 FIRST_COLUMN = "Score"
 # Per-command behavior switches. Edit these instead of duplicating logic.
 COMMAND_OPTIONS = {
-    "n": {"used_lb_type": True, "used_fuzzy_matching": True, "fuzzy_column": "Name", "allow_range": True},
-    "t": {"used_lb_type": True, "used_fuzzy_matching": True, "fuzzy_column": "Tank", "allow_range": True},
-    "e": {"used_lb_type": True, "used_fuzzy_matching": True, "fuzzy_column": "Name", "allow_range": True},
-    "c": {"used_lb_type": True, "used_fuzzy_matching": False, "fuzzy_column": None, "allow_range": True},
-    "b": {"used_lb_type": True, "used_fuzzy_matching": False, "fuzzy_column": None, "allow_range": True},
-    "p": {"used_lb_type": True, "used_fuzzy_matching": False, "fuzzy_column": None, "allow_range": True},
-    "bch": {"used_lb_type": True, "used_fuzzy_matching": True, "fuzzy_column": "Branch", "allow_range": False},
+    "n": {"used_lb_type": True, "used_fuzzy_matching": True, "fuzzy_column": "Name", "allow_range": True, "formatting_type": "v2"},
+    "t": {"used_lb_type": True, "used_fuzzy_matching": True, "fuzzy_column": "Tank", "allow_range": True, "formatting_type": "v2"},
+    "e": {"used_lb_type": True, "used_fuzzy_matching": True, "fuzzy_column": "Name", "allow_range": True, "formatting_type": "v2"},
+    "c": {"used_lb_type": True, "used_fuzzy_matching": False, "fuzzy_column": None, "allow_range": True, "formatting_type": "v3"},
+    "b": {"used_lb_type": True, "used_fuzzy_matching": False, "fuzzy_column": None, "allow_range": True, "formatting_type": "v3"},
+    "p": {"used_lb_type": True, "used_fuzzy_matching": False, "fuzzy_column": None, "allow_range": True, "formatting_type": "v2"},
+    "bch": {"used_lb_type": True, "used_fuzzy_matching": True, "fuzzy_column": "Branch", "allow_range": False, "formatting_type": "v2"},
 }
-COOLDOWN_SECONDS = 7
+COOLDOWN_SECONDS = 3
 user_cooldowns = {}
 CU_ACTIVE = set()
 
@@ -160,17 +161,21 @@ def make_embed(title, lines, color=discord.Color.red()):
     )
 
 
-def make_leaderboard_embed(title, frame, footer=None, row_layout=False, shorten_tank=True):
-    """Render either the compact text table or a readable row-by-row embed."""
-    if not row_layout:
+def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shorten_tank=True, row_layout=None):
+    """v2 is the original aligned table; v3 is one plain, compact line per score."""
+    if row_layout is not None:  # Backward compatibility for existing callers.
+        formatting_type = "v3" if row_layout else "v2"
+    if formatting_type != "v3":
         embed = make_embed(title, dataframe_to_markdown_aligned(frame, shorten_tank))
     else:
-        embed = Embed(title=title, color=discord.Color.red())
         display = frame.copy()
         if "Score" in display.columns:
-            display["Score"] = display["Score"].apply(
-                lambda value: f"{float(value) / 1_000_000:,.3f} M"
-            )
+            def format_score(value):
+                try:
+                    return f"{float(value) / 1_000_000:,.3f} M"
+                except (TypeError, ValueError):
+                    return str(value)
+            display["Score"] = display["Score"].apply(format_score)
         if "Date" in display.columns:
             display["Date"] = display["Date"].astype(str).str[:10]
         if "Name" in display.columns:
@@ -178,30 +183,17 @@ def make_leaderboard_embed(title, frame, footer=None, row_layout=False, shorten_
         if shorten_tank and "Tank" in display.columns:
             display["Tank"] = display["Tank"].astype(str).str[:18]
         rank_col = "Ņ" if "Ņ" in display.columns else None
-        header_cols = [col for col in display.columns if col != rank_col]
-        # Column names appear once; each result stays on one line. Inline-code
-        # padding preserves approximate column alignment in Discord Markdown.
-        widths = {}
-        for col in header_cols:
-            values = [str(value).replace("`", "ˋ") for value in display[col].tolist()]
-            widths[col] = min(20, max([len(col)] + [len(value) for value in values]))
-
-        def cell(value, width):
-            value = str(value).replace("`", "ˋ")
-            return f"`{value[:width]:<{width}}`"
-
-        header = " | ".join(cell(col, widths[col]) for col in header_cols)
-        lines = [f"**{rank_col or 'Rank'}** | {header}"]
+        data_cols = [col for col in display.columns if col != rank_col]
+        header = " | ".join(data_cols)
+        lines = [f"**{rank_col or 'Rank'} | {header}**"]
         for _, row in display.iterrows():
             rank = str(row[rank_col]) if rank_col else "•"
-            values = [cell(row[col], widths[col]) for col in header_cols]
-            lines.append(f"**{rank}.** | " + " | ".join(values))
-        embed.description = "\n".join(lines)[:4096]
+            values = [str(row[col]).replace("\n", " ").replace("|", "/") for col in data_cols]
+            lines.append(f"**{rank}.** " + " | ".join(values))
+        embed = Embed(title=title, description="\n".join(lines)[:4096], color=discord.Color.red())
     if footer:
         embed.set_footer(text=footer)
     return embed
-
-
 
 
 
@@ -437,87 +429,56 @@ def handle_nu_range(df):
 
 # --- Helper for nt!! ---
 async def handle_name_tank(message, df, parts):
-    if len(parts) < 4:
+    if len(parts) < 4 or not parts[2].strip() or not parts[3].strip():
         await safe_send(message.channel, content="❌ Usage: nt!!PlayerName/TankName")
         return
-    input1, input2 = parts[2].strip(), parts[3].strip()
-    name_choices = df["Name"].dropna().unique()
-    tank_choices = df["Tank"].dropna().unique()
-    # Detect which is name / tank
-    name = input1 if any(input1.lower() == n.lower() for n in name_choices) else input2
-    tank = input2 if name == input1 else input1
-    # Fuzzy name
+    name_input, tank_input = parts[2].strip(), parts[3].strip()
+
+    # Resolve player first. If it is misspelled, the button reruns nt!! with
+    # the corrected player and then tank matching proceeds second.
     name = await fuzzy_or_abort(
-        message=message,
-        df=df,
-        user_input=name,
-        choices=name_choices,
-        arg_index=2,
-        resolver=handle_name,
-        title="Player not found — did you mean?",
-        result_title="Player Scores",
-        columns=["Ņ", "Tank", "Score", "Date", "Id"]
+        message=message, df=df, user_input=name_input,
+        choices=df["Name"].dropna().unique(), arg_index=2,
+        resolver=handle_name, title="Player not found — did you mean?",
+        result_title="Player Scores", columns=["Ņ", "Tank", "Score", "Date", "Id"],
+        used_fuzzy_matching=True, fuzzy_column="Name",
     )
     if name is None:
         return
-    # Fuzzy tank
+
     tank = await fuzzy_or_abort(
-        message=message,
-        df=df,
-        user_input=tank,
-        choices=tank_choices,
-        arg_index=3,
-        resolver=handle_tank,
-        title="Tank not found — did you mean?",
-        result_title="Tank Scores",
-        columns=["Ņ", "Name", "Score", "Date", "Id"]
+        message=message, df=df, user_input=tank_input,
+        choices=df["Tank"].dropna().unique(), arg_index=3,
+        resolver=handle_tank, title="Tank not found — did you mean?",
+        result_title="Tank Scores", columns=["Ņ", "Name", "Score", "Date", "Id"],
+        used_fuzzy_matching=True, fuzzy_column="Tank",
     )
     if tank is None:
         return
-    # Filter results
+
     df_filtered = df[
-        (df["Name"].str.lower() == name.lower()) &
-        (df["Tank"].str.lower() == tank.lower())
+        (df["Name"].astype(str).str.lower() == name.lower()) &
+        (df["Tank"].astype(str).str.lower() == tank.lower())
     ].copy()
     if df_filtered.empty:
-        await safe_send(
-            message.channel,
-            content=f"❌ No scores for **{name}** with **{tank}**."
-        )
+        await safe_send(message.channel, content=f"❌ No scores for **{name}** with **{tank}**.")
         return
-    df_filtered = normalize_score(df_filtered)
-    df_filtered = df_filtered.sort_values("Score", ascending=False)
+    df_filtered = normalize_score(df_filtered).sort_values("Score", ascending=False)
     df_filtered = add_index(df_filtered)
-    cols = ["Ņ", "Score", "Date", "Id"]
-    df_filtered = df_filtered[cols]
-    # ---------- RANGE ----------
-    start, end, range_size, warning = extract_range(
-        parts,
-        max_range=20,
-        total_len=len(df_filtered)
-    )
-    # ---------- PAGINATION ----------
+    df_filtered = df_filtered[[col for col in ["Ņ", "Score", "Date", "Id"] if col in df_filtered.columns]]
+    start, end, range_size, warning = extract_range(parts, max_range=20, total_len=len(df_filtered))
     view = RangePaginationView(
-        df=df_filtered,
-        start_index=start,
-        range_size=range_size,
-        title=f"Scores for {name} with {tank}",
-        shorten_tank=True
+        df=df_filtered, start_index=start, range_size=range_size,
+        title=f"Scores for {name} with {tank}", shorten_tank=True,
     )
     slice_df = df_filtered.iloc[start-1:end].copy()
     slice_df["Ņ"] = range(start, min(end, len(df_filtered)) + 1)
-    lines = dataframe_to_markdown_aligned(slice_df)
-    title = f"Scores for {name} with {tank}"
-    embed = make_embed(title, lines)
     footer = f"Rows {start}-{min(end, len(df_filtered))} / {len(df_filtered)}"
     if warning:
         footer = f"{warning} • {footer}"
-    embed.set_footer(text=footer)
+    embed = make_leaderboard_embed(f"Scores for {name} with {tank}", slice_df, footer=footer, formatting_type="v2")
     msg = await safe_send(message.channel, embed=embed, view=view)
     view.message = msg
-    
-
-
 
 
 
@@ -710,6 +671,8 @@ async def handle_branch_command(
         return
 
     df.columns = df.columns.str.strip()
+    command_parts = parse_command_parts(message.content)
+    df, date_filter = apply_date_filter(df, command_parts[2:])
 
     # Branch commands always go through the GT filter:
     # normal bch = A, bch;r = R.
@@ -771,11 +734,12 @@ async def handle_branch_command(
 
     lines = dataframe_to_markdown_aligned(display_df)
 
-    title = f"{branch_key} Branch"
+    title = f"{branch_key} Branch (GT={gt_filter.upper()})"
     embed = make_embed(title, lines)
-    embed.set_footer(
-        text=f"{len(display_df)} tanks in this branch • GT={gt_filter.upper()}"
-    )
+    footer_text = f"{len(display_df)} tanks in this branch • GT={gt_filter.upper()}"
+    if date_filter:
+        footer_text += f" • Date {date_filter}"
+    embed.set_footer(text=footer_text)
 
     if interaction:
         await interaction.edit_original_response(
@@ -1235,13 +1199,14 @@ async def on_ready():
 
 
 class RangePaginationView(ui.View):
-    def __init__(self, df, start_index, range_size, title, shorten_tank, row_layout=False):
+    def __init__(self, df, start_index, range_size, title, shorten_tank, row_layout=False, formatting_type=None):
         super().__init__(timeout=180)
         self.df = df.reset_index(drop=True)
         self.range_size = range_size
         self.title = title
         self.shorten_tank = shorten_tank
         self.row_layout = row_layout
+        self.formatting_type = formatting_type or ("v3" if row_layout else "v2")
 
         # Start page calculation
         self.page = (start_index - 1) // range_size
@@ -1273,7 +1238,7 @@ class RangePaginationView(ui.View):
         footer = f"Rows {start+1}-{end} / {len(self.df)}"
         embed = make_leaderboard_embed(
             self.title, slice_df, footer=footer,
-            row_layout=self.row_layout, shorten_tank=self.shorten_tank
+            formatting_type=self.formatting_type, shorten_tank=self.shorten_tank
         )
         await interaction.response.edit_message(embed=embed, view=self)
         await asyncio.sleep(0.8)
@@ -1747,12 +1712,15 @@ def parse_command_parts(content):
     if not match:
         return []
     command, raw = match.groups()
+    public_command = command.lower()
+    if public_command in {"n", "bch"}:
+        return []
     aliases = {
         "p": "n", "t": "t", "i": "i", "l": "p", "br": "bch",
         "player": "n", "tank": "t", "info": "i", "leaderboard": "p",
-        "branch": "bch", "records": "re", "best": "b",
+        "records": "re", "best": "b",
     }
-    command = aliases.get(command.lower(), command.lower())
+    command = aliases.get(public_command, public_command)
     return ["", command, *split_helpers(raw)]
 
 
@@ -1761,6 +1729,39 @@ def normalize_command_message(message):
     if not re.match(r"^[a-z]+!!", message.content.strip(), flags=re.IGNORECASE):
         return None
     return copy.copy(message)
+
+
+async def handle_w_command(message, df, parts):
+    if "nu" not in df.columns:
+        await safe_send(message.channel, content="❌ No 'nu' column found in data.")
+        return
+    start_nu, end_nu, warning = 1, 15, None
+    for value in parts[2:]:
+        match = re.fullmatch(r"(\d+)-(\d+)", value.strip())
+        if not match:
+            continue
+        start_nu, end_nu = map(int, match.groups())
+        if start_nu > end_nu:
+            start_nu, end_nu = end_nu, start_nu
+        if end_nu - start_nu > 20:
+            warning = "❌ Max NU range is 20!"
+            end_nu = start_nu + 20
+        break
+    output = handle_nu_range(df)
+    if output.empty:
+        await safe_send(message.channel, content="❌ No valid nu data found.")
+        return
+    output = output[(output["nu"] >= start_nu) & (output["nu"] <= end_nu)].copy()
+    if output.empty:
+        await safe_send(message.channel, content="❌ No rows found in that nu range.")
+        return
+    cols = [col for col in ["Tank", "Name", "Score", "Id", "nu"] if col in output.columns]
+    embed = make_embed(f"NU Leaderboard ({start_nu}-{end_nu})", dataframe_to_markdown_aligned(output[cols], True))
+    footer = f"NU range {start_nu}-{end_nu} • {len(output)} rows"
+    if warning:
+        footer = f"{warning} • {footer}"
+    embed.set_footer(text=footer)
+    await safe_send(message.channel, embed=embed)
 
 
 async def process_olympus_command(
@@ -1877,78 +1878,8 @@ async def process_olympus_command(
 
 
     elif cmd == "w":
-        """
-        w!!1-15
-        Means:
-        show all rows where nu >= 1 and nu <= 15
-        Max allowed range:
-        20
-        Examples:
-        w!!1-15
-        w!!40-50
-        w!!100-120
-        """
-        if "nu" not in df.columns:
-            await safe_send(
-                message.channel,
-                content="❌ No 'nu' column found in data."
-            )
-            return
-        # default values
-        start_nu = 1
-        end_nu = 15
-        warning = None
-        # read explicit nu range from command
-        for p in parts:
-            if "-" in p:
-                try:
-                    a, b = map(int, p.split("-"))
-                    if a > b:
-                        a, b = b, a
-                    # MAX RANGE = 20
-                    if (b - a) > 20:
-                        warning = "❌ Max NU range is 20!"
-                        b = a + 20
-                    start_nu = a
-                    end_nu = b
-                    break
-                except:
-                    pass
-        output = handle_nu_range(df)
-        if output.empty:
-            await safe_send(
-                message.channel,
-                content="❌ No valid nu data found."
-            )
-            return
-        # FILTER BY nu VALUE
-        output = output[
-            (output["nu"] >= start_nu) &
-            (output["nu"] <= end_nu)
-        ].copy()
-        if output.empty:
-            await safe_send(
-                message.channel,
-                content="❌ No rows found in that nu range."
-            )
-            return
-        # display columns
-        cols = ["Tank", "Name", "Score", "Id", "nu"]
-        cols = [c for c in cols if c in output.columns]
-        output = output[cols]
-        title = f"NU Leaderboard ({start_nu}-{end_nu})"
-        shorten_tank = True
-        # embed output (same style as your other commands)
-        lines = dataframe_to_markdown_aligned(output, shorten_tank)
-        embed = make_embed(title, lines)
-        footer = f"NU range {start_nu}-{end_nu} • {len(output)} rows"
-        if warning:
-            footer = f"{warning} • {footer}"
-        embed.set_footer(text=footer)
-        await safe_send(
-            message.channel,
-            embed=embed
-        )
+        await handle_w_command(message, df, parts)
+        return
 
     elif cmd == "cu":
         await handle_collective_score(message, df, parts)
@@ -2068,39 +1999,34 @@ async def process_olympus_command(
     
     # --- Call in on_message ---
     elif cmd == "bch":
-        if len(parts) < 3:
-            await safe_send(
-                message.channel,
-                content="❌ Usage: br!!BranchName/a or br!!BranchName/r"
-            )
+        if len(parts) < 3 or not parts[2].strip():
+            await safe_send(message.channel, content="❌ Usage: br!!BranchName[/a|/r][/YYYY-MM-DD]")
             return
-
         branch_name = parts[2].strip()
         branch_mode = next((p.strip().lower() for p in parts[3:] if p.strip().lower() in {"a", "r"}), None)
-        if not branch_name or branch_mode is None:
-            await safe_send(
-                message.channel,
-                content="❌ Choose a branch and type: br!!BranchName/a or br!!BranchName/r",
-            )
-            return
-
         if branch_mode == "a":
-            await handle_branch_command(
-                message,
-                branch_name,
-                gt_filter="A",
-                branches_loader=load_branches,
-                branch_resolver=handle_branch
-            )
+            await handle_branch_command(message, branch_name, gt_filter="A", branches_loader=load_branches, branch_resolver=handle_branch)
+        elif branch_mode == "r":
+            await handle_branch_command(message, branch_name, gt_filter="R", branches_loader=load_branches2, branch_resolver=handle_branch2)
         else:
-            await handle_branch_command(
-                message,
-                branch_name,
-                gt_filter="R",
-                branches_loader=load_branches2,
-                branch_resolver=handle_branch2
-            )
+            # If the name is already exact, show A and R separately. If it is
+            # misspelled, only open one suggestion view; choosing it reruns this
+            # command and then both modes are displayed sequentially.
+            branches_a = load_branches()
+            branches_r = load_branches2()
+            exact_a = isinstance(branches_a, dict) and any(str(key).lower() == branch_name.lower() for key in branches_a)
+            exact_r = isinstance(branches_r, dict) and any(str(key).lower() == branch_name.lower() for key in branches_r)
+            if exact_a or exact_r:
+                if exact_a:
+                    await handle_branch_command(message, branch_name, gt_filter="A", branches_loader=load_branches, branch_resolver=handle_branch)
+                if exact_r:
+                    await handle_branch_command(message, branch_name, gt_filter="R", branches_loader=load_branches2, branch_resolver=handle_branch2)
+            else:
+                # One fuzzy prompt only; after choosing, rerunning the command
+                # will show whichever A/R definitions exist for that branch.
+                await handle_branch_command(message, branch_name, gt_filter="A", branches_loader=load_branches, branch_resolver=handle_branch)
         return
+
 
     
         # --- HELP ---
@@ -2219,14 +2145,14 @@ async def process_olympus_command(
         start, end, range_size, warning = 1, min(15, len(output)), min(15, len(output)), None
 
 
-    row_layout = cmd in {"c", "b"}  # Toggle here to compare row-style vs text-table embeds.
+    formatting_type = COMMAND_OPTIONS.get(cmd, {}).get("formatting_type", "v2")
     view = RangePaginationView(
         df=output,
         start_index=start,
         range_size=range_size,
         title=title,
         shorten_tank=shorten_tank,
-        row_layout=row_layout,
+        formatting_type=formatting_type,
     )
     slice_df = output.iloc[start-1:end].copy()
     slice_df["Ņ"] = range(start, min(end, len(output)) + 1)
@@ -2235,7 +2161,7 @@ async def process_olympus_command(
         footer = f"{warning} • {footer}"
     embed = make_leaderboard_embed(
         title, slice_df, footer=footer,
-        row_layout=row_layout, shorten_tank=shorten_tank
+        formatting_type=formatting_type, shorten_tank=shorten_tank
     )
 
 
