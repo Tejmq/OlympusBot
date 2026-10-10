@@ -205,70 +205,61 @@ def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shor
             lines.append("  ".join(pad_cell(value, widths[i]) for i, value in enumerate(row)).rstrip())
         embed = Embed(title=title, description="```text\n" + "\n".join(lines)[:4080] + "\n```", color=discord.Color.red())
     else:
-        # v3 is ordinary embed text: no Markdown table and no code block.
-        # Widths are computed from actual displayed content. NBSPs preserve the
-        # calculated spacing when Discord renders consecutive spaces.
+        # v3: Plain-text embed layout without artificial space alignment.
+        # Discord embeds do not support native columns, so use compact,
+        # consistently separated fields instead of trying to align spaces.
         display = frame.copy()
+
         if "Score" in display.columns:
             def format_score(value):
                 try:
                     return f"{float(value) / 1_000_000:,.3f} M"
                 except (TypeError, ValueError):
                     return str(value)
+
             display["Score"] = display["Score"].apply(format_score)
+
         if "Date" in display.columns:
             display["Date"] = display["Date"].astype(str).str[:10]
+
         if "Name" in display.columns:
-            display["Name"] = display["Name"].astype(str).map(lambda value: shorten_name(value, 16))
+            display["Name"] = display["Name"].astype(str).map(
+                lambda value: shorten_name(value, 16)
+            )
+
         if shorten_tank and "Tank" in display.columns:
             display["Tank"] = display["Tank"].astype(str).str[:18]
 
         rank_col = "Ņ" if "Ņ" in display.columns else None
         data_cols = [col for col in display.columns if col != rank_col]
-        headers = [rank_col or "Rank", *data_cols]
-        rows = []
+
+        lines = [
+            "**" + " | ".join(["Ņ" if rank_col else "Rank", *data_cols]) + "**"
+        ]
+
         for _, row in display.iterrows():
             rank = str(row[rank_col]) if rank_col else "•"
-            values = [str(row[col]).replace("\n", " ").replace("|", "/") for col in data_cols]
-            rows.append([rank, *values])
+            values = [
+                str(row[col]).replace("\n", " ").replace("|", "/")
+                for col in data_cols
+            ]
+            lines.append(f"**{rank}.** " + " | ".join(values))
 
-        # Recalculate widths from this exact page every time the command is
-        # rendered (including Prev/Next). Use the longest displayed value in
-        # each column, including its heading, so shorter values are padded to
-        # the same visual width. NBSPs preserve runs of spaces in Discord's
-        # proportional-font embed renderer; this is still plain embed text,
-        # not a Markdown table or a code block.
-        widths = []
-        for col_index, heading in enumerate(data_cols):
-            values = [heading] + [row[col_index + 1] for row in rows]
-            widths.append(max(1, max(wcswidth(str(value)) for value in values)))
-
-        def padded(value, width):
-            value = str(value)
-            visible_width = wcswidth(value)
-            if visible_width < 0:
-                visible_width = len(value)
-            return value + ("\u00a0" * max(0, width - visible_width))
-
-        # Keep the requested compact header and one result per line. Rank is
-        # deliberately outside the data columns, as in the requested example.
-        header_cells = [padded(value, widths[i]) for i, value in enumerate(data_cols)]
-        header = "**Ņ | " + " | ".join(header_cells) + "**"
-        lines = [header]
-        for row in rows:
-            rank = f"**{row[0]}.**"
-            cells = [padded(row[i + 1], widths[i]) for i in range(len(data_cols))]
-            lines.append(rank + " " + " | ".join(cells).rstrip("\u00a0 "))
         description = "\n".join(lines)
+
         if len(description) > 4096:
-            description = description[:4080] + "\n… (more rows omitted; narrow the range)"
-        embed = Embed(title=title, description=description, color=discord.Color.red())
+            description = description[:4080].rsplit("\n", 1)[0]
+            description += "\n… (more rows omitted; narrow the range)"
+
+        embed = Embed(
+            title=title,
+            description=description,
+            color=discord.Color.purple()
+        )
 
     if footer:
         embed.set_footer(text=footer)
     return embed
-
-
 
 
 
