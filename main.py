@@ -207,71 +207,71 @@ def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shor
 
             # vi3 is ordinary embed text: no Markdown table and no code block.
 
-	else:
-	    display = frame.copy()
+		else:
+	 	   display = frame.copy()
 
-	    if "Score" in display.columns:
-	        def format_score(value):
-	            try:
-	                return f"{float(value) / 1_000_000:,.3f}M"
-	            except (TypeError, ValueError):
-	                return str(value)
+	 	   if "Score" in display.columns:
+	  	      def format_score(value):
+	   	         try:
+	    	            return f"{float(value) / 1_000_000:,.3f}M"
+		            except (TypeError, ValueError):
+		                return str(value)
+	
+		        display["Score"] = display["Score"].apply(format_score)
+	
+		    if "Date" in display.columns:
+		        display["Date"] = display["Date"].astype(str).str[:10]
+	
+		    if "Name" in display.columns:
+		        display["Name"] = display["Name"].astype(str).map(
+		            lambda value: shorten_name(value, 7)
+		        )
+	
+		    if shorten_tank and "Tank" in display.columns:
+		        display["Tank"] = display["Tank"].astype(str).str[:7]
+	
+		    rank_col = "Ņ" if "Ņ" in display.columns else None
+		    data_cols = [col for col in display.columns if col != rank_col]
+	
+		    # Put important columns first
+		    preferred_order = ["Tank", "Score", "Name", "ID", "Date"]
+		    data_cols.sort(
+		        key=lambda col: (
+		            preferred_order.index(col)
+		            if col in preferred_order
+		            else len(preferred_order)
+		        )
+		    )
+	
+		    embed = Embed(title=title, color=discord.Color.red())
+	
+		    ranks = [
+		        str(row[rank_col]) if rank_col else str(i)
+		        for i, (_, row) in enumerate(display.iterrows(), start=1)
+		    ]
+	
+		    columns = [
+		        ("Ņ" if rank_col else "Rank", [f"**{rank}.**" for rank in ranks])
+		    ]
+	
+		    for col in data_cols:
+		        values = [
+		            str(value).replace("\n", " ").replace("|", "/")[:10]
+		            for value in display[col]
+		        ]
+		        columns.append((str(col)[:20], values))
+	
+		    for name, values in columns:
+		        embed.add_field(
+		            name=name,
+		            value="\n".join(values) or "\u200b",
+		            inline=True
+		        )
 
-	        display["Score"] = display["Score"].apply(format_score)
+	if footer:
+	    embed.set_footer(text=footer)
 
-	    if "Date" in display.columns:
-	        display["Date"] = display["Date"].astype(str).str[:10]
-
-	    if "Name" in display.columns:
-	        display["Name"] = display["Name"].astype(str).map(
-	            lambda value: shorten_name(value, 7)
-	        )
-
-	    if shorten_tank and "Tank" in display.columns:
-	        display["Tank"] = display["Tank"].astype(str).str[:7]
-
-	    rank_col = "Ņ" if "Ņ" in display.columns else None
-	    data_cols = [col for col in display.columns if col != rank_col]
-
-	    # Put important columns first
-	    preferred_order = ["Tank", "Score", "Name", "ID", "Date"]
-	    data_cols.sort(
-	        key=lambda col: (
-	            preferred_order.index(col)
-	            if col in preferred_order
-	            else len(preferred_order)
-	        )
-	    )
-
-	    embed = Embed(title=title, color=discord.Color.red())
-
-	    ranks = [
-	        str(row[rank_col]) if rank_col else str(i)
-	        for i, (_, row) in enumerate(display.iterrows(), start=1)
-	    ]
-
-	    columns = [
-	        ("Ņ" if rank_col else "Rank", [f"**{rank}.**" for rank in ranks])
-	    ]
-
-	    for col in data_cols:
-	        values = [
-	            str(value).replace("\n", " ").replace("|", "/")[:10]
-	            for value in display[col]
-	        ]
-	        columns.append((str(col)[:20], values))
-
-	    for name, values in columns:
-	        embed.add_field(
-	            name=name,
-	            value="\n".join(values) or "\u200b",
-	            inline=True
-	        )
-
-	    if footer:
-	        embed.set_footer(text=footer)
-
-	    return embed
+	return embed
 
         
 
