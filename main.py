@@ -10,6 +10,7 @@ from discord.errors import HTTPException
 from difflib import get_close_matches
 from datetime import datetime, time as dt_time
 import copy
+import traceback
 
 # Centralized display order: change a command's list here instead of in its handler.
 COLUMN_ORDER = {
@@ -162,86 +163,1093 @@ def make_embed(title, lines, color=discord.Color.red()):
 
 
 def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shorten_tank=True, row_layout=None):
-    """v2 = original layout; v2.5 = previous aligned code-block layout; v3 = spaced regular embed text."""
-    if row_layout is not None:  # Backward compatibility for existing callers.
+    """Render v2's original layout or v3's plain-text, space-aligned embed."""
+    if row_layout is not None:  # Backward compatibility for older callers.
         formatting_type = "v3" if row_layout else "v2"
 
-    display = frame.copy()
-    if "Score" in display.columns:
-        def format_score(value):
-            try:
-                return f"{float(value) / 1_000_000:,.3f} M"
-            except (TypeError, ValueError):
-                return str(value)
-        display["Score"] = display["Score"].apply(format_score)
-    if "Date" in display.columns:
-        display["Date"] = display["Date"].astype(str).str[:10]
-    if "Name" in display.columns:
-        display["Name"] = display["Name"].astype(str).map(lambda value: shorten_name(value, 16))
-    if shorten_tank and "Tank" in display.columns:
-        display["Tank"] = display["Tank"].astype(str).str[:18]
-
-    if formatting_type == "v2":
-        embed = make_embed(title, dataframe_to_markdown_aligned(display, shorten_tank))
-    else:
+    if formatting_type not in {"v3", "v2.5"}:
+        embed = make_embed(title, dataframe_to_markdown_aligned(frame, shorten_tank))
+    elif formatting_type == "v2.5":
+        # Preserve the former aligned code-block style as an optional format.
+        display = frame.copy()
+        if "Score" in display.columns:
+            def format_score(value):
+                try:
+                    return f"{float(value) / 1_000_000:,.3f} M"
+                except (TypeError, ValueError):
+                    return str(value)
+            display["Score"] = display["Score"].apply(format_score)
+        if "Date" in display.columns:
+            display["Date"] = display["Date"].astype(str).str[:10]
+        if "Name" in display.columns:
+            display["Name"] = display["Name"].astype(str).map(lambda value: shorten_name(value, 16))
+        if shorten_tank and "Tank" in display.columns:
+            display["Tank"] = display["Tank"].astype(str).str[:18]
         rank_col = "Ņ" if "Ņ" in display.columns else None
         data_cols = [col for col in display.columns if col != rank_col]
         headers = [rank_col or "Rank", *data_cols]
-        data_rows = []
+        rows = []
         for _, row in display.iterrows():
             rank = str(row[rank_col]) if rank_col else "•"
             values = [str(row[col]).replace("\n", " ").replace("|", "/") for col in data_cols]
-            data_rows.append([rank, *values])
+            rows.append([rank, *values])
+        widths = [max([wcswidth(str(headers[i]))] + [wcswidth(r[i]) for r in rows]) for i in range(len(headers))]
+        widths = [min(max(width, 3), 22) for width in widths]
+        def pad_cell(value, width):
+            value = str(value)
+            while value and wcswidth(value) > width:
+                value = value[:-1]
+            return value + (" " * max(0, width - wcswidth(value)))
+        lines = ["  ".join(pad_cell(value, widths[i]) for i, value in enumerate(headers)).rstrip()]
+        for row in rows:
+            lines.append("  ".join(pad_cell(value, widths[i]) for i, value in enumerate(row)).rstrip())
+        embed = Embed(title=title, description="```text\n" + "\n".join(lines)[:4080] + "\n```", color=discord.Color.red())
+    else:
+        # v3 is ordinary embed text: no Markdown table and no code block.
+        # Widths are computed from actual displayed content. NBSPs preserve the
+        # calculated spacing when Discord renders consecutive spaces.
+        display = frame.copy()
+        if "Score" in display.columns:
+            def format_score(value):
+                try:
+                    return f"{float(value) / 1_000_000:,.3f} M"
+                except (TypeError, ValueError):
+                    return str(value)
+            display["Score"] = display["Score"].apply(format_score)
+        if "Date" in display.columns:
+            display["Date"] = display["Date"].astype(str).str[:10]
+        if "Name" in display.columns:
+            display["Name"] = display["Name"].astype(str).map(lambda value: shorten_name(value, 16))
+        if shorten_tank and "Tank" in display.columns:
+            display["Tank"] = display["Tank"].astype(str).str[:18]
 
-        if formatting_type == "v2.5":
-            # Preserve the previous v3 implementation as an optional style.
-            widths = [
-                min(22, max(3, max([wcswidth(str(headers[i]))] + [wcswidth(r[i]) for r in data_rows])))
-                for i in range(len(headers))
-            ]
-            def pad_cell(value, width):
-                value = str(value)
-                while wcswidth(value) > width and value:
-                    value = value[:-1]
-                return value + (" " * max(0, width - wcswidth(value)))
-            lines = ["  ".join(pad_cell(value, widths[i]) for i, value in enumerate(headers)).rstrip()]
-            for row in data_rows:
-                lines.append("  ".join(pad_cell(value, widths[i]) for i, value in enumerate(row)).rstrip())
-            embed = Embed(
-                title=title,
-                description="```text\n" + "\n".join(lines)[:4080] + "\n```",
-                color=discord.Color.red(),
-            )
-        else:
-            # v3: ordinary embed text, not a Markdown/ASCII table or code block.
-            # Use non-breaking spaces for calculated padding because Markdown
-            # otherwise collapses runs of ordinary spaces in embed descriptions.
-            widths = [
-                min(24, max(wcswidth(str(headers[i])), max([wcswidth(r[i]) for r in data_rows], default=0)))
-                for i in range(len(headers))
-            ]
-            def fit_cell(value, width):
-                value = str(value)
-                while wcswidth(value) > width and value:
-                    value = value[:-1]
-                return value + ("\u00a0" * max(0, width - wcswidth(value)))
+        rank_col = "Ņ" if "Ņ" in display.columns else None
+        data_cols = [col for col in display.columns if col != rank_col]
+        headers = [rank_col or "Rank", *data_cols]
+        rows = []
+        for _, row in display.iterrows():
+            rank = str(row[rank_col]) if rank_col else "•"
+            values = [str(row[col]).replace("\n", " ").replace("|", "/") for col in data_cols]
+            rows.append([rank, *values])
 
-            heading = "**" + " | ".join(fit_cell(h, widths[i]) for i, h in enumerate(headers)).rstrip() + "**"
-            lines = [heading]
-            for row in data_rows:
-                rank = row[0]
-                cells = [fit_cell(value, widths[i + 1]) for i, value in enumerate(row[1:])]
-                lines.append(f"**{rank}.** " + " | ".join(cells).rstrip())
-            embed = Embed(
-                title=title,
-                description="\n".join(lines)[:4080],
-                color=discord.Color.red(),
-            )
+        widths = [max([wcswidth(str(headers[i]))] + [wcswidth(r[i]) for r in rows]) for i in range(len(headers))]
+        widths = [min(max(width, 1), 26) for width in widths]
+
+        def padded(value, width):
+            value = str(value)
+            while value and wcswidth(value) > width:
+                value = value[:-1]
+            return value + ("\u00a0" * max(0, width - wcswidth(value)))
+
+        # Header uses the requested bold, inline style. No divider/table syntax.
+        header_cells = [padded(value, widths[i]) for i, value in enumerate(headers)]
+        header = "**" + " | ".join(header_cells).rstrip() + "**"
+        lines = [header]
+        for row in rows:
+            rank = f"**{row[0]}.**"
+            cells = [padded(row[i + 1], widths[i + 1]) for i in range(len(data_cols))]
+            # NBSP padding is kept inside the normal description so spacing survives.
+            lines.append(rank + " " + " | ".join(cells).rstrip())
+        description = "\n".join(lines)
+        if len(description) > 4096:
+            description = description[:4080] + "\n… (more rows omitted; narrow the range)"
+        embed = Embed(title=title, description=description, color=discord.Color.red())
 
     if footer:
         embed.set_footer(text=footer)
     return embed
 
+
+
+
+
+async def handle_collective_score(message, df, parts):
+    if len(parts) < 3:
+        await safe_send(
+            message.channel,
+            content="Almost, usage: cu!!PlayerName"
+        )
+        return
+    # Prevent the same user from running CU twice at once
+    user_id = message.author.id
+    if user_id in CU_ACTIVE:
+        return
+    CU_ACTIVE.add(user_id)
+    cooking_msg = None
+    try:
+        cooking_msg = await safe_send(
+            message.channel,
+            content="Cooking up"
+        )
+        name_input = parts[2].strip()
+        # Player name lookup
+        names = {
+            str(name).lower(): str(name)
+            for name in df["Name"].dropna().unique()
+        }
+        name_key = name_input.lower()
+        if name_key not in names:
+            matches = get_close_matches(
+                name_key,
+                names.keys(),
+                n=1,
+                cutoff=0.65
+            )
+
+            if not matches:
+                if cooking_msg:
+                    await cooking_msg.edit(
+                        content=f"`{name_input}` not found."
+                    )
+                return
+            name = names[matches[0]]
+        else:
+            name = names[name_key]
+        # Get every score by player
+        player_df = df[
+            df["Name"].astype(str).str.lower() == name.lower()
+        ].copy()
+        if player_df.empty:
+            if cooking_msg:
+                await cooking_msg.edit(
+                    content=f"No scores found for **{name}**."
+                )
+            return
+        player_df = normalize_score(player_df)
+        # Sum ALL scores
+        total_score = player_df["Score"].sum()
+        # Random tank they played
+        played_tanks = (
+            player_df["Tank"]
+            .dropna()
+            .astype(str)
+            .unique()
+            .tolist()
+        )
+        random_tank = (
+            random.choice(played_tanks)
+            if played_tanks
+            else "Unknown"
+        )
+        total_mil = total_score / 1_000_000
+        result = (
+            f"All together **{name}** got **{total_mil:,.3f} M**, "
+            f"and the most integral tank to that was **{random_tank}**."
+        )
+        if cooking_msg:
+            await cooking_msg.edit(content=result)
+    except Exception as e:
+        print("[CU ERROR]", e)
+        if cooking_msg:
+            try:
+                await cooking_msg.edit(
+                    content="Failed cooking that up."
+                )
+            except:
+                pass
+    finally:
+        CU_ACTIVE.discard(user_id)
+
+
+
+
+
+
+class DidYouMeanButton(ui.Button):
+    def __init__(self, label: str):
+        super().__init__(
+            label=label,
+            style=discord.ButtonStyle.secondary
+        )
+
+    
+    async def callback(self, interaction: Interaction):
+        if not interaction.response.is_done():
+            await interaction.response.defer()
+        view: DidYouMeanView = self.view
+        # Parts are parsed as ["", internal_command, arg1, helper1, ...].
+        corrected_parts = list(view.parts)
+        if view.index < 2 or view.index >= len(corrected_parts):
+            await interaction.followup.send(
+                "❌ I couldn't apply that suggestion because the command arguments changed. Please run the command again.",
+                ephemeral=True,
+            )
+            return
+        corrected_parts[view.index] = self.label
+        internal_to_public = {"n": "p", "p": "l"}
+        public_command = internal_to_public.get(
+            corrected_parts[1].lower(), corrected_parts[1].lower()
+        )
+        corrected_command = public_command + "!!" + "/".join(corrected_parts[2:])
+        print(f"[FUZZY] {view.cmd} -> {corrected_command}")
+        # Remove old "Did you mean?" message
+        await interaction.edit_original_response(
+            content=f" Cooking...",
+            embed=None,
+            view=None
+        )
+        # Create a fake message using the ORIGINAL message
+        fake_message = copy.copy(view.message_source)
+        fake_message.content = corrected_command
+        # Execute the whole command again
+        await process_olympus_command(
+            fake_message,
+            bypass_cooldown=True
+        )
+
+
+
+
+
+def handle_random_analysis(df, mode):
+    df = normalize_score(df)
+    best = (
+        df.sort_values("Score", ascending=False)
+          .drop_duplicates("Tank")
+    )
+    used = set(best["Tank"].str.lower())
+    unused = [t for t in TANK_NAMES if t.lower() not in used]
+    if mode == 0:
+        rows = [{
+            "Score": 0,
+            "Tank": t,
+            "Name": "Noone!",
+            "Id": "-"
+        } for t in random.sample(unused, min(10, len(unused)))]
+    elif mode == 1:
+        pool = best[(best["Score"] >= 1_000_000) &
+                    (best["Score"] < 5_000_000)]
+        rows = pool.sample(min(10, len(pool)))[["Score","Tank","Name","Id"]].to_dict("records")
+    elif mode == 2:
+        pool = best[(best["Score"] >= 5_000_000) &
+                    (best["Score"] < 10_000_000)]
+        rows = pool.sample(min(10, len(pool)))[["Score","Tank","Name","Id"]].to_dict("records")
+    else:
+        rows = best[["Score","Tank","Name","Id"]].to_dict("records")
+        rows.extend({
+            "Score": 0,
+            "Tank": t,
+            "Name": "Noone!",
+            "Id": "-"
+        } for t in unused)
+        rows = random.sample(rows, min(10, len(rows)))
+    return pd.DataFrame(rows)[["Score","Tank","Name","Id"]]
+
+
+
+def handle_name_extended(df, name):
+    """
+    Same as p!!PlayerName, but adds:
+      LB       = global leaderboard rank for the score
+      Tank LB  = leaderboard rank within that tank
+    """
+    df = normalize_score(df).copy()
+    # Sort every score globally, highest first
+    df = df.sort_values("Score", ascending=False).reset_index(drop=True)
+    # Overall leaderboard rank
+    df["LB"] = range(1, len(df) + 1)
+    # Rank within each tank
+    df["Tank LB"] = (
+        df.groupby("Tank")["Score"]
+          .rank(method="min", ascending=False)
+          .astype(int)
+    )
+    # Only this player's scores
+    player_df = df[
+        df["Name"].astype(str).str.lower() == name.lower()
+    ].copy()
+    # Keep the player's scores ordered by global score
+    player_df = player_df.sort_values("Score", ascending=False)
+    return player_df
+
+
+
+
+
+
+def handle_nu_range(df):
+    """
+    Uses the 'nu' column as the filter source.
+    Example:
+    w!!1-15
+    Means:
+    show rows where nu is between 1 and 15
+    Output columns:
+    Tank, Name, Score, Id, nu
+    """
+    if "nu" not in df.columns:
+        return pd.DataFrame()
+    df = normalize_score(df).copy()
+    # make nu numeric
+    df["nu"] = pd.to_numeric(df["nu"], errors="coerce")
+    # remove invalid nu rows
+    df = df.dropna(subset=["nu"])
+    # sort by nu ascending
+    df = df.sort_values("nu", ascending=True).reset_index(drop=True)
+    return df
+
+
+
+
+# --- Helper for nt!! ---
+async def handle_name_tank(message, df, parts):
+    if len(parts) < 4 or not parts[2].strip() or not parts[3].strip():
+        await safe_send(message.channel, content="❌ Usage: nt!!PlayerName/TankName")
+        return
+    name_input, tank_input = parts[2].strip(), parts[3].strip()
+
+    # Resolve player first. If it is misspelled, the button reruns nt!! with
+    # the corrected player and then tank matching proceeds second.
+    name = await fuzzy_or_abort(
+        message=message, df=df, user_input=name_input,
+        choices=df["Name"].dropna().unique(), arg_index=2,
+        resolver=handle_name, title="Player not found — did you mean?",
+        result_title="Player Scores", columns=["Ņ", "Tank", "Score", "Date", "Id"],
+        used_fuzzy_matching=True, fuzzy_column="Name",
+    )
+    if name is None:
+        return
+
+    tank = await fuzzy_or_abort(
+        message=message, df=df, user_input=tank_input,
+        choices=df["Tank"].dropna().unique(), arg_index=3,
+        resolver=handle_tank, title="Tank not found — did you mean?",
+        result_title="Tank Scores", columns=["Ņ", "Name", "Score", "Date", "Id"],
+        used_fuzzy_matching=True, fuzzy_column="Tank",
+    )
+    if tank is None:
+        return
+
+    df_filtered = df[
+        (df["Name"].astype(str).str.lower() == name.lower()) &
+        (df["Tank"].astype(str).str.lower() == tank.lower())
+    ].copy()
+    if df_filtered.empty:
+        await safe_send(message.channel, content=f"❌ No scores for **{name}** with **{tank}**.")
+        return
+    df_filtered = normalize_score(df_filtered).sort_values("Score", ascending=False)
+    df_filtered = add_index(df_filtered)
+    df_filtered = df_filtered[[col for col in ["Ņ", "Score", "Date", "Id"] if col in df_filtered.columns]]
+    start, end, range_size, warning = extract_range(parts, max_range=20, total_len=len(df_filtered))
+    view = RangePaginationView(
+        df=df_filtered, start_index=start, range_size=range_size,
+        title=f"Scores for {name} with {tank}", shorten_tank=True,
+    )
+    slice_df = df_filtered.iloc[start-1:end].copy()
+    slice_df["Ņ"] = range(start, min(end, len(df_filtered)) + 1)
+    footer = f"Rows {start}-{min(end, len(df_filtered))} / {len(df_filtered)}"
+    if warning:
+        footer = f"{warning} • {footer}"
+    embed = make_leaderboard_embed(f"Scores for {name} with {tank}", slice_df, footer=footer, formatting_type="v2")
+    msg = await safe_send(message.channel, embed=embed, view=view)
+    view.message = msg
+
+
+
+def read_excel_cached():
+    global DATAFRAME_CACHE
+
+    if DATAFRAME_CACHE is not None:
+        return DATAFRAME_CACHE.copy()
+
+    try:
+        DATAFRAME_CACHE = pd.read_excel("data/Olympus.xlsx")
+        print("Excel loaded locally")
+        return DATAFRAME_CACHE.copy()
+    except Exception as e:
+        print("Excel load failed:", e)
+        return "fetch_error"
+
+
+
+
+def extract_gt(parts, valid=None):
+    """
+    Extract GT filter letter (A, R, F, etc.)
+    Returns (gt_letter or None)
+    """
+    if valid is None:
+        valid = {"a", "r", "f", "l"}
+
+    for p in parts:
+        p = p.strip().lower()
+        if len(p) == 1 and p in valid:
+            return p.upper()
+    return None
+
+
+
+async def send_screenshot(channel, df, screenshot_id):
+    # Ensure Id column exists
+    if "Id" not in df.columns:
+        await safe_send(channel, content="❌ No Id column in data.")
+        return
+
+    # Match Id as string
+    row = df[df["Id"].astype(str) == str(screenshot_id)]
+    if row.empty:
+        await safe_send(channel, content="❌ No screenshot with that Id.")
+        return
+
+    row = row.iloc[0]
+
+    cdn_url = safe_val(row, "CDN", None)
+    if not cdn_url or not isinstance(cdn_url, str):
+        await safe_send(channel, content="❌ No screenshot available for this entry.")
+        return
+
+    embed = Embed(
+        title=f"Screenshot ID: {screenshot_id}",
+        color=discord.Color.red()
+    )
+    embed.set_image(url=cdn_url)
+
+    await safe_send(channel, embed=embed)
+
+
+
+
+BRANCHES_JSON = []
+BRANCHES2_JSON = []
+
+
+def load_branches():
+    """Load the normal branch definitions from data/branches.json."""
+    global BRANCHES_JSON
+
+    if BRANCHES_JSON:
+        return BRANCHES_JSON
+
+    try:
+        with open("data/branches.json", "r") as f:
+            BRANCHES_JSON = json.load(f)
+        print("Branches loaded locally")
+    except Exception as e:
+        print("Branch load failed:", e)
+        return "fetch_error"
+
+    return BRANCHES_JSON
+
+
+def load_branches2():
+    """Load the ;r branch definitions from data/branches2.json."""
+    global BRANCHES2_JSON
+
+    if BRANCHES2_JSON:
+        return BRANCHES2_JSON
+
+    try:
+        with open("data/branches2.json", "r") as f:
+            BRANCHES2_JSON = json.load(f)
+        print("Branches2 loaded locally")
+    except Exception as e:
+        print("Branches2 load failed:", e)
+        return "fetch_error"
+
+    return BRANCHES2_JSON
+
+
+def handle_branch(df, branch_key):
+    branches = load_branches()
+    if not isinstance(branches, dict):
+        return None
+    return branches.get(branch_key)
+
+
+def handle_branch2(df, branch_key):
+    branches = load_branches2()
+    if not isinstance(branches, dict):
+        return None
+    return branches.get(branch_key)
+
+
+def load_combined_branches():
+    """Combine A and R branch definitions for an unfiltered branch leaderboard."""
+    a_branches, r_branches = load_branches(), load_branches2()
+    if not isinstance(a_branches, dict) and not isinstance(r_branches, dict):
+        return None
+    combined = {}
+    for source in (a_branches, r_branches):
+        if not isinstance(source, dict):
+            continue
+        for key, tanks in source.items():
+            current = combined.setdefault(key, [])
+            for tank in (tanks if isinstance(tanks, list) else []):
+                if tank not in current:
+                    current.append(tank)
+    return combined
+
+
+def resolve_combined_branch(df, branch_key):
+    branches = load_combined_branches()
+    return branches.get(branch_key) if isinstance(branches, dict) else None
+
+
+async def handle_branch_command(
+    message,
+    branch_name: str,
+    gt_filter: str | None = None,
+    interaction: Interaction | None = None,
+    branches_loader=load_branches,
+    branch_resolver=handle_branch
+):
+    # Without /a or /r, combine branch definitions and do not filter GT.
+    branches = branches_loader()
+    if not isinstance(branches, dict):
+        content = "❌ Branch list unavailable."
+
+        if interaction:
+            await interaction.edit_original_response(
+                content=content,
+                embed=None,
+                view=None
+            )
+        else:
+            await safe_send(message.channel, content=content)
+        return
+
+    # --- FUZZY BRANCH MATCHING ---
+    branch_key = await fuzzy_or_abort(
+        message=message,
+        interaction=interaction,
+        df=None,
+        user_input=branch_name,
+        choices=branches.keys(),
+        arg_index=2,
+        resolver=branch_resolver,
+        title="Branch not found — did you mean?",
+        result_title="Branch Highscores",
+        columns=["Ņ", "Tank", "Name", "Score", "Id"],
+        cutoff=0.6,
+        used_fuzzy_matching=COMMAND_OPTIONS["br"]["used_fuzzy_matching"],
+        fuzzy_column=COMMAND_OPTIONS["br"]["fuzzy_column"],
+    )
+    if branch_key is None:
+        return
+
+    branch_tanks = branches.get(branch_key)
+    if not branch_tanks:
+        content = "❌ Branch has no tanks defined."
+
+        if interaction:
+            await interaction.edit_original_response(
+                content=content,
+                embed=None,
+                view=None
+            )
+        else:
+            await safe_send(message.channel, content=content)
+        return
+
+    # Load Excel
+    df = read_excel_cached()
+    if isinstance(df, str) or df.empty:
+        content = "❌ Data unavailable."
+
+        if interaction:
+            await interaction.edit_original_response(
+                content=content,
+                embed=None,
+                view=None
+            )
+        else:
+            await safe_send(message.channel, content=content)
+        return
+
+    df.columns = df.columns.str.strip()
+    command_parts = parse_command_parts(message.content)
+    df, date_filter = apply_date_filter(df, command_parts[2:])
+
+    if gt_filter:
+        if "GT" not in df.columns:
+            content = "❌ No 'GT' column found in data."
+            if interaction:
+                await interaction.edit_original_response(content=content, embed=None, view=None)
+            else:
+                await safe_send(message.channel, content=content)
+            return
+        df = df[df["GT"].astype(str).str.strip().str.upper() == gt_filter.upper()].copy()
+        if df.empty:
+            content = f"❌ No results for GT={gt_filter.upper()}."
+            if interaction:
+                await interaction.edit_original_response(content=content, embed=None, view=None)
+            else:
+                await safe_send(message.channel, content=content)
+            return
+
+    df = normalize_score(df)
+
+    # Build rows: top score per tank after the GT filter.
+    rows = []
+    for tank in branch_tanks:
+        tank_rows = df[
+            df["Tank"].astype(str).str.lower() == str(tank).lower()
+        ]
+        if tank_rows.empty:
+            rows.append({"Tank": tank, "Score": 0, "Name": "", "Id": ""})
+        else:
+            best = tank_rows.sort_values("Score", ascending=False).iloc[0]
+            rows.append({
+                "Tank": tank,
+                "Score": int(best["Score"]),
+                "Name": best.get("Name", ""),
+                "Id": best.get("Id", "")
+            })
+
+    rows.sort(key=lambda x: x["Score"], reverse=True)
+    rows = rows[:16]
+
+    display_df = pd.DataFrame(rows)
+    display_df["Ņ"] = range(1, len(display_df) + 1)
+    display_df = display_df[["Ņ", "Tank", "Name", "Score", "Id"]]
+
+    lines = dataframe_to_markdown_aligned(display_df)
+
+    title = f"{branch_key} Branch" + (f" (GT={gt_filter.upper()})" if gt_filter else "")
+    embed = make_embed(title, lines)
+    footer_text = f"{len(display_df)} tanks in this branch" + (f" • GT={gt_filter.upper()}" if gt_filter else " • all GTs")
+    if date_filter:
+        footer_text += f" • Date {date_filter}"
+    embed.set_footer(text=footer_text)
+
+    if interaction:
+        await interaction.edit_original_response(
+            embed=embed,
+            view=None
+        )
+    else:
+        await safe_send(message.channel, embed=embed)
+
+
+async def handle_cumulative_monthly_top20(message, df, parts):
+    """
+    cm!!YYYY-MM
+
+    Build a cumulative top-20 leaderboard using only scores whose
+    Date falls within the requested calendar month.
+    """
+    if len(parts) < 3 or not re.fullmatch(r"\d{4}-\d{2}", parts[2].strip()):
+        await safe_send(
+            message.channel,
+            content="❌ Usage: cm!!YYYY-MM  (example: cm!!2026-07)"
+        )
+        return
+
+    month = parts[2].strip()
+
+    # Validate that YYYY-MM is an actual calendar month.
+    try:
+        datetime.strptime(month, "%Y-%m")
+    except ValueError:
+        await safe_send(
+            message.channel,
+            content=f"❌ Invalid month: `{month}`. Use YYYY-MM, e.g. `2026-07`."
+        )
+        return
+
+    if "Date" not in df.columns:
+        await safe_send(
+            message.channel,
+            content="❌ No Date column found in the data."
+        )
+        return
+
+    cooking_msg = await safe_send(
+        message.channel,
+        content="Cooking up"
+    )
+
+    try:
+        month_df = df.copy()
+        month_df["Date"] = month_df["Date"].astype(str).str[:10]
+        month_df = month_df[
+            month_df["Date"].str.match(r"^\d{4}-\d{2}-\d{2}$", na=False) &
+            month_df["Date"].str[:7].eq(month)
+        ].copy()
+
+        if month_df.empty:
+            if cooking_msg:
+                await cooking_msg.edit(
+                    content=f"❌ No scores found for **{month}**."
+                )
+            return
+
+        month_df = normalize_score(month_df)
+        month_df = month_df.dropna(subset=["Name"])
+        month_df["Name"] = month_df["Name"].astype(str)
+
+        # ---------------- TOTAL SCORES ----------------
+        totals = (
+            month_df.groupby("Name", as_index=False)["Score"]
+                    .sum()
+        )
+
+        # ---------------- FAVOURITE TANK ----------------
+        fave_counts = (
+            month_df.dropna(subset=["Tank"])
+                    .groupby(["Name", "Tank"])
+                    .size()
+                    .reset_index(name="Uses")
+        )
+
+        fave_counts = (
+            fave_counts
+            .sort_values(["Name", "Uses"], ascending=[True, False])
+            .drop_duplicates("Name")
+        )
+
+        # ---------------- MERGE ----------------
+        output = totals.merge(
+            fave_counts[["Name", "Tank"]],
+            on="Name",
+            how="left"
+        )
+        output = output.rename(columns={"Tank": "Fave"})
+        output["Fave"] = output["Fave"].fillna("?")
+
+        # Top 20 cumulative scores for this month only.
+        output = (
+            output.sort_values("Score", ascending=False)
+                  .head(20)
+                  .reset_index(drop=True)
+        )
+
+        output["Ņ"] = range(1, len(output) + 1)
+        output = output[["Ņ", "Name", "Score", "Fave"]]
+
+        output["Fave"] = (
+            output["Fave"]
+            .astype(str)
+            .str[:12]
+        )
+
+        lines = dataframe_to_markdown_aligned(
+            output,
+            shorten_tank=False
+        )
+
+        embed = make_embed(
+            f"Top 20 Cumulative Scores — {month}",
+            lines
+        )
+        embed.set_footer(
+            text=f"All scores from {month} combined • {len(month_df)} scores"
+        )
+
+        if cooking_msg:
+            await cooking_msg.edit(
+                content=None,
+                embed=embed
+            )
+
+    except Exception as e:
+        print("[CM ERROR]", e)
+        if cooking_msg:
+            try:
+                await cooking_msg.edit(
+                    content="❌ Failed cooking that up."
+                )
+            except:
+                pass
+
+
+async def handle_cumulative_top10(message, df):
+    cooking_msg = await safe_send(
+        message.channel,
+        content="Cooking up"
+    )
+
+    try:
+        df = normalize_score(df).copy()
+        # Remove invalid names
+        df = df.dropna(subset=["Name"])
+        df["Name"] = df["Name"].astype(str)
+
+        # ---------------- TOTAL SCORES ----------------
+        totals = (
+            df.groupby("Name", as_index=False)["Score"]
+              .sum()
+        )
+        # ---------------- FAVOURITE TANK ----------------
+        # Tank used the most = most score entries with that tank
+        fave_counts = (
+            df.dropna(subset=["Tank"])
+              .groupby(["Name", "Tank"])
+              .size()
+              .reset_index(name="Uses")
+        )
+        fave_counts = (
+            fave_counts
+            .sort_values(
+                ["Name", "Uses"],
+                ascending=[True, False]
+            )
+            .drop_duplicates("Name")
+        )
+        # ---------------- MERGE ----------------
+        output = totals.merge(
+            fave_counts[["Name", "Tank"]],
+            on="Name",
+            how="left"
+        )
+        output = output.rename(
+            columns={"Tank": "Fave"}
+        )
+        output["Fave"] = output["Fave"].fillna("?")
+        # Top 15 cumulative scores
+        output = (
+            output
+            .sort_values("Score", ascending=False)
+            .head(20)
+            .reset_index(drop=True)
+        )
+        output["Ņ"] = range(1, len(output) + 1)
+        output = output[
+            ["Ņ", "Name", "Score", "Fave"]
+        ]
+        # Shorten favourite tank for table
+        output["Fave"] = (
+            output["Fave"]
+            .astype(str)
+            .str[:12]
+        )
+        lines = dataframe_to_markdown_aligned(
+            output,
+            shorten_tank=False
+        )
+        embed = make_embed(
+            "Top 15 Cumulative Scores",
+            lines
+        )
+        embed.set_footer(
+            text="All scores combined and most played tank"
+        )
+        if cooking_msg:
+            await cooking_msg.edit(
+                content=None,
+                embed=embed
+            )
+    except Exception as e:
+        print("[CU15 ERROR]", e)
+        if cooking_msg:
+            await cooking_msg.edit(
+                content="❌ Failed cooking that up."
+            )
+
+
+
+
+
+
+
+
+
+
+
+def parse_playtime(v):
+    try:
+        if pd.isna(v) or v in ("?", "", None):
+            return 0.0
+        # Debug (remove later)
+        print(f"Playtime value: {v!r}")
+        print(f"Playtime type : {type(v)}")
+        # Timedelta
+        if isinstance(v, pd.Timedelta):
+            return v.total_seconds()
+        # Excel datetime (1900 system)
+        if isinstance(v, (pd.Timestamp, datetime)):
+            base = datetime(1899, 12, 30)
+            return (v.to_pydatetime() if isinstance(v, pd.Timestamp) else v - base).total_seconds()
+        # datetime.time (<24h)
+        if isinstance(v, dt_time):
+            return v.hour * 3600 + v.minute * 60 + v.second
+        # Excel serial number (days)
+        if isinstance(v, (int, float)):
+            return float(v) * 86400
+        # String
+        s = str(v).strip()
+        # "1 day, 2:34:56"
+        if "day" in s:
+            td = pd.to_timedelta(s)
+            return td.total_seconds()
+        # "26:15:10"
+        if ":" in s:
+            h, m, sec = map(int, s.split(":"))
+            return h * 3600 + m * 60 + sec
+        return 0.0
+    except Exception as e:
+        print("parse_playtime error:", e)
+        return 0.0
+
+
+
+
+def parse_score(v):
+    try:
+        if pd.isna(v) or v in ("?", "", None):
+            return 0.0
+        return float(str(v).replace(",", ""))
+    except:
+        return 0.0
+
+
+
+
+async def send_info_embed(channel, df, info_id, interaction=None):
+    # Ensure Id column exists
+    if "Id" not in df.columns:
+        await safe_send(channel, content="❌ No Id column in data.")
+        return
+    # Match base64 Id as string
+    row = df[df["Id"].astype(str) == str(info_id)]
+    if row.empty:
+        await safe_send(channel, content="❌ No entry with that Id.")
+        await maybe_send_random_message(channel, 0.99)
+        return
+    row = row.iloc[0]
+    name1 = safe_val(row, "Name", "Unknown")
+    name = safe_val(row, "Name in game", "Unknown")
+    tank = safe_val(row, "Tank", "Unknown")
+    killer = safe_val(row, "Killer", "Unknown")
+    # Numeric fields (safe)
+    try:
+        score = parse_score(safe_val(row, "Score", 0))
+    except:
+        score = 0
+    try:
+        playtime = parse_playtime(safe_val(row, "Playtime", 0))
+    except:
+        playtime = 0
+    date = str(safe_val(row, "Date", "Unknown"))[:10]
+    ratio = score / (playtime / 3600) if playtime > 0 else None
+    # Playtime display
+    if playtime > 0:
+        playtime_display = f"{round(playtime / 3600, 2)}"
+    else:
+        playtime_display = "Unknown"
+    if ratio is not None:
+        ratio_display = f"{ratio:,.0f}"
+    else:
+        ratio_display = "Unknown"
+    description = (
+  #      f"**{name1}**\n"
+        f"{name} got **{int(score):,}** with **{tank}**.\n"
+        f"It took **{playtime_display}** hours, on **{date}**, "
+        f"with a ratio of **{ratio_display}** per hour.\n"
+        f"{name} died to **{killer}**."
+    )
+    embed = Embed(
+        title=f"{tank} by {name1}",        #        title=f"{tank} — {int(score):,}",
+        description=description,
+        color=discord.Color.green()
+    )
+    # Image 
+    # Image
+    DEFAULT_SCREENSHOT = "https://cdn.discordapp.com/attachments/1466759427955888160/1466762183378604248/id_A.jpg?ex=6a5773bb&is=6a56223b&hm=66161e5238ce024020580aa4346a10e912563c3f4f175c79a2ae2f9a1088292a"
+    cdn_url = safe_val(row, "CDN", None)
+    if (
+        not cdn_url
+        or not isinstance(cdn_url, str)
+        or not cdn_url.strip().startswith(("http://", "https://"))
+    ):
+        cdn_url = DEFAULT_SCREENSHOT
+    # Healer column → Embed footer
+    row_healer = safe_val(row, "Heal", None)
+    if row_healer is None or str(row_healer).strip() in ("", "None", "nan"):
+        embed.set_footer(text="Healers Unknown")
+    else:
+        embed.set_footer(text=f"Healers: {row_healer}")
+    embed.set_image(url=cdn_url)
+    if interaction:
+        await interaction.edit_original_response(
+            content=None,
+            embed=embed
+        )
+    else:
+        await safe_send(channel, embed=embed)
+async def send_description_embed(channel, df, info_id, interaction=None):
+    # Ensure Id column exists
+    if "Id" not in df.columns:
+        await safe_send(channel, content="❌ No Id column in data.")
+        return
+    # Find row by Id
+    row = df[df["Id"].astype(str) == str(info_id)]
+    if row.empty:
+        await safe_send(
+            channel,
+            content="❌ No entry with that Id."
+        )
+        return
+    row = row.iloc[0]
+    # Get values safely
+    name1 = safe_val(row, "Name", "Unknown")
+    name = safe_val(row, "Name in game", "Unknown")
+    tank = safe_val(row, "Tank", "Unknown")
+    score = safe_val(row, "Score", 0)
+    date = safe_val(row, "Date", "Unknown")
+    killer = safe_val(row, "Killer", "Unknown")
+    healer = safe_val(row, "Heal", None)
+    description = safe_val(row, "Description", "No description.")
+    # Format score
+    try:
+        score = int(float(str(score).replace(",", "")))
+        score_display = f"{score:,}"
+    except:
+        score_display = str(score)
+    # Healer
+    if healer is None or str(healer).strip() in ("", "None", "nan", "?"):
+        healer_display = "Healers Unknown"
+    else:
+        healer_display = f"Thanks {healer} for heals"
+    embed_description = (
+        f"**Name:** {name1}\n"
+        f"**Tank:** {tank}\n"
+        f"**In-Game Name:** {name}\n"
+        f"**Score:** {score_display}\n"
+        f"**Date:** {str(date)[:10]}\n"
+        f"**Killer:** {killer}\n"
+        f"**{healer_display}**\n\n"
+        f"**Description:**\n"
+        f"{description}"
+    )
+    embed = Embed(
+        title=f"{tank} by {name1}",
+        description=embed_description,
+        color=discord.Color.green()
+    )
+    if interaction:
+        await interaction.edit_original_response(
+            content=None,
+            embed=embed
+        )
+    else:
+        await safe_send(
+            channel,
+            embed=embed
+        )
+
+
+
+
+
+
+
+TANK_NAMES = []
+def load_tanks():
+    global TANK_NAMES
+
+    if TANK_NAMES:
+        return TANK_NAMES
+
+    try:
+        with open("data/tanks.json", "r") as f:
+            TANK_NAMES = json.load(f)["tanks"]
+        print("Tank list loaded locally")
+    except Exception as e:
+        print("Tank load failed:", e)
+        return "fetch_error"
+
+    return TANK_NAMES
 
 
 
@@ -828,28 +1836,22 @@ async def handle_w_command(message, df, parts):
         return
     cols = [col for col in ["Tank", "Name", "Score", "Id", "nu"] if col in output.columns]
     output = output[cols].reset_index(drop=True)
+    title = f"NU Leaderboard ({start_nu}-{end_nu})"
     page_size = 15
     view = RangePaginationView(
         df=output,
         start_index=1,
         range_size=page_size,
-        title=f"NU Leaderboard ({start_nu}-{end_nu})",
+        title=title,
         shorten_tank=True,
         formatting_type="v2",
     )
-    # The range filters NU values, while the buttons paginate the resulting rows.
     first_page = output.iloc[:page_size].copy()
     first_page["Ņ"] = range(1, len(first_page) + 1)
     footer = f"NU range {start_nu}-{end_nu} • Rows 1-{len(first_page)} / {len(output)}"
     if warning:
         footer = f"{warning} • {footer}"
-    embed = make_leaderboard_embed(
-        f"NU Leaderboard ({start_nu}-{end_nu})",
-        first_page,
-        footer=footer,
-        formatting_type="v2",
-        shorten_tank=True,
-    )
+    embed = make_leaderboard_embed(title, first_page, footer=footer, formatting_type="v2", shorten_tank=True)
     msg = await safe_send(message.channel, embed=embed, view=view)
     view.message = msg
 
@@ -1242,12 +2244,13 @@ async def on_message(message):
     try:
         await process_olympus_command(message)
     except Exception as exc:
-        # Keep a malformed command from producing an unhandled event traceback.
+        # Log the full traceback so actual causes are visible in hosting logs.
         print(f"[COMMAND ERROR] {type(exc).__name__}: {exc}")
+        traceback.print_exc()
         if message.author != bot.user and "!!" in message.content:
             await safe_send(
                 message.channel,
-                content="❌ Something went wrong while processing that command. Check the command syntax and try again.",
+                content=f"❌ Command failed: `{type(exc).__name__}: {str(exc)[:250]}`. The full details are in the bot logs.",
             )
 
 
