@@ -162,116 +162,171 @@ def make_embed(title, lines, color=discord.Color.red()):
     )
 
 
+
 def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shorten_tank=True, row_layout=None):
-    """Render v2's original layout or v3's plain-text, space-aligned embed."""
-    if row_layout is not None:  # Backward compatibility for older callers.
+    """Render v2's original layout or v3's inline-field layout."""
+    if row_layout is not None:
         formatting_type = "v3" if row_layout else "v2"
 
     if formatting_type not in {"v3", "v2.5"}:
-        embed = make_embed(title, dataframe_to_markdown_aligned(frame, shorten_tank))
+        embed = make_embed(
+            title,
+            dataframe_to_markdown_aligned(frame, shorten_tank)
+        )
+
     elif formatting_type == "v2.5":
-        # Preserve the former aligned code-block style as an optional format.
+        # Preserve the aligned code-block style.
         display = frame.copy()
+
         if "Score" in display.columns:
             def format_score(value):
                 try:
                     return f"{float(value) / 1_000_000:,.3f} M"
                 except (TypeError, ValueError):
                     return str(value)
+
             display["Score"] = display["Score"].apply(format_score)
+
         if "Date" in display.columns:
             display["Date"] = display["Date"].astype(str).str[:10]
+
         if "Name" in display.columns:
-            display["Name"] = display["Name"].astype(str).map(lambda value: shorten_name(value, 16))
+            display["Name"] = display["Name"].astype(str).map(
+                lambda value: shorten_name(value, 16)
+            )
+
         if shorten_tank and "Tank" in display.columns:
             display["Tank"] = display["Tank"].astype(str).str[:18]
+
         rank_col = "Ņ" if "Ņ" in display.columns else None
-        data_cols = [col for col in display.columns if col != rank_col]
+        data_cols = [
+            col for col in display.columns
+            if col != rank_col
+        ]
+
         headers = [rank_col or "Rank", *data_cols]
         rows = []
+
         for _, row in display.iterrows():
             rank = str(row[rank_col]) if rank_col else "•"
-            values = [str(row[col]).replace("\n", " ").replace("|", "/") for col in data_cols]
+            values = [
+                str(row[col]).replace("\n", " ").replace("|", "/")
+                for col in data_cols
+            ]
             rows.append([rank, *values])
-        widths = [max([wcswidth(str(headers[i]))] + [wcswidth(r[i]) for r in rows]) for i in range(len(headers))]
+
+        widths = [
+            max(
+                [wcswidth(str(headers[i]))]
+                + [wcswidth(row[i]) for row in rows]
+            )
+            for i in range(len(headers))
+        ]
         widths = [min(max(width, 3), 22) for width in widths]
+
         def pad_cell(value, width):
             value = str(value)
             while value and wcswidth(value) > width:
                 value = value[:-1]
             return value + (" " * max(0, width - wcswidth(value)))
-        lines = ["  ".join(pad_cell(value, widths[i]) for i, value in enumerate(headers)).rstrip()]
+
+        lines = [
+            "  ".join(
+                pad_cell(value, widths[i])
+                for i, value in enumerate(headers)
+            ).rstrip()
+        ]
+
         for row in rows:
-            lines.append("  ".join(pad_cell(value, widths[i]) for i, value in enumerate(row)).rstrip())
-        embed = Embed(title=title, description="```text\n" + "\n".join(lines)[:4080] + "\n```", color=discord.Color.red())
+            lines.append(
+                "  ".join(
+                    pad_cell(value, widths[i])
+                    for i, value in enumerate(row)
+                ).rstrip()
+            )
 
-            # vi3 is ordinary embed text: no Markdown table and no code block.
-#test
-	else:
-		display = frame.copy()
+        embed = Embed(
+            title=title,
+            description="```text\n" + "\n".join(lines)[:4080] + "\n```",
+            color=discord.Color.red()
+        )
 
-	    if "Score" in display.columns:
-	        def format_score(value):
-	            try:
-	                return f"{float(value) / 1_000_000:,.3f}M"
-	            except (TypeError, ValueError):
-	                return str(value)
+    else:
+        # v3: Native Discord inline fields.
+        display = frame.copy()
 
-	        display["Score"] = display["Score"].apply(format_score)
+        if "Score" in display.columns:
+            def format_score(value):
+                try:
+                    return f"{float(value) / 1_000_000:,.3f}M"
+                except (TypeError, ValueError):
+                    return str(value)
 
-	    if "Date" in display.columns:
-	        display["Date"] = display["Date"].astype(str).str[:10]
+            display["Score"] = display["Score"].apply(format_score)
 
-	    if "Name" in display.columns:
-	        display["Name"] = display["Name"].astype(str).map(
-	            lambda value: shorten_name(value, 7)
-	        )
+        if "Date" in display.columns:
+            display["Date"] = display["Date"].astype(str).str[:10]
 
-	    if shorten_tank and "Tank" in display.columns:
-	        display["Tank"] = display["Tank"].astype(str).str[:7]
+        if "Name" in display.columns:
+            display["Name"] = display["Name"].astype(str).map(
+                lambda value: shorten_name(value, 7)
+            )
 
-	    rank_col = "Ņ" if "Ņ" in display.columns else None
-	    data_cols = [col for col in display.columns if col != rank_col]
+        if shorten_tank and "Tank" in display.columns:
+            display["Tank"] = display["Tank"].astype(str).str[:7]
 
-	    # Put important columns first
-	    preferred_order = ["Tank", "Score", "Name", "ID", "Date"]
-	    data_cols.sort(
-	        key=lambda col: (
-	            preferred_order.index(col)
-	            if col in preferred_order
-	            else len(preferred_order)
-	        )
-	    )
+        rank_col = "Ņ" if "Ņ" in display.columns else None
+        data_cols = [
+            col for col in display.columns
+            if col != rank_col
+        ]
 
-	    embed = Embed(title=title, color=discord.Color.red())
+        # Show the most useful columns first.
+        preferred_order = ["Tank", "Score", "Name", "ID", "Date"]
+        data_cols.sort(
+            key=lambda col: (
+                preferred_order.index(col)
+                if col in preferred_order
+                else len(preferred_order)
+            )
+        )
 
-	    ranks = [
-	        str(row[rank_col]) if rank_col else str(i)
-	        for i, (_, row) in enumerate(display.iterrows(), start=1)
-	    ]
+        embed = Embed(
+            title=title,
+            color=discord.Color.red()
+        )
 
-	    columns = [
-	        ("Ņ" if rank_col else "Rank", [f"**{rank}.**" for rank in ranks])
-	    ]
+        ranks = [
+            str(row[rank_col]) if rank_col else str(i)
+            for i, (_, row) in enumerate(
+                display.iterrows(), start=1
+            )
+        ]
 
-	    for col in data_cols:
-	        values = [
-	            str(value).replace("\n", " ").replace("|", "/")[:10]
-	            for value in display[col]
-	        ]
-	        columns.append((str(col)[:20], values))
+        # Rank field.
+        embed.add_field(
+            name="Ņ" if rank_col else "Rank",
+            value="\n".join(f"**{rank}.**" for rank in ranks) or "\u200b",
+            inline=True
+        )
 
-	    for name, values in columns:
-	        embed.add_field(
-	            name=name,
-	            value="\n".join(values) or "\u200b",
-	            inline=True
-	        )
+        # One native inline field for every DataFrame column.
+        for col in data_cols:
+            values = [
+                str(value).replace("\n", " ").replace("|", "/")[:10]
+                for value in display[col]
+            ]
 
-	if footer:
-	embed.set_footer(text=footer)
+            embed.add_field(
+                name=str(col)[:20],
+                value="\n".join(values) or "\u200b",
+                inline=True
+            )
 
-	return embed
+    if footer:
+        embed.set_footer(text=footer)
+
+    return embed
 
         
 
