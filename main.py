@@ -205,9 +205,6 @@ def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shor
             lines.append("  ".join(pad_cell(value, widths[i]) for i, value in enumerate(row)).rstrip())
         embed = Embed(title=title, description="```text\n" + "\n".join(lines)[:4080] + "\n```", color=discord.Color.red())
     else:
-        # v3: Plain-text embed layout without artificial space alignment.
-        # Discord embeds do not support native columns, so use compact,
-        # consistently separated fields instead of trying to align spaces.
         display = frame.copy()
 
         if "Score" in display.columns:
@@ -233,29 +230,35 @@ def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shor
         rank_col = "Ņ" if "Ņ" in display.columns else None
         data_cols = [col for col in display.columns if col != rank_col]
 
-        lines = [
-            "**" + " | ".join(["Ņ" if rank_col else "Rank", *data_cols]) + "**"
+        embed = Embed(title=title, color=discord.Color.red())
+
+        # Rank field
+        ranks = [
+            str(row[rank_col]) if rank_col else str(i)
+            for i, (_, row) in enumerate(display.iterrows(), start=1)
         ]
-
-        for _, row in display.iterrows():
-            rank = str(row[rank_col]) if rank_col else "•"
-            values = [
-                str(row[col]).replace("\n", " ").replace("|", "/")
-                for col in data_cols
-            ]
-            lines.append(f"**{rank}.** " + " | ".join(values))
-
-        description = "\n".join(lines)
-
-        if len(description) > 4096:
-            description = description[:4080].rsplit("\n", 1)[0]
-            description += "\n… (more rows omitted; narrow the range)"
-
-        embed = Embed(
-            title=title,
-            description=description,
-            color=discord.Color.purple()
+        embed.add_field(
+            name="Ņ" if rank_col else "Rank",
+            value="\n\n".join(f"**{rank}.**" for rank in ranks) or "\u200b",
+            inline=True,
         )
+
+        # One separate field per data column
+        for col in data_cols:
+            values = [
+                str(value).replace("\n", " ").replace("|", "/")
+                for value in display[col]
+            ]
+            embed.add_field(
+                name=str(col),
+                value="\n\n".join(values) or "\u200b",
+                inline=True,
+            )
+
+        if footer:
+            embed.set_footer(text=footer)
+
+        return embed
 
     if footer:
         embed.set_footer(text=footer)
