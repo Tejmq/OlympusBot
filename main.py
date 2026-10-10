@@ -179,16 +179,24 @@ def make_leaderboard_embed(title, frame, footer=None, row_layout=False, shorten_
             display["Tank"] = display["Tank"].astype(str).str[:18]
         rank_col = "Ņ" if "Ņ" in display.columns else None
         header_cols = [col for col in display.columns if col != rank_col]
-        header = " | ".join(header_cols)
-        embed.description = f"**{rank_col or 'Rank'} | {header}**"
+        # Column names appear once; each result stays on one line. Inline-code
+        # padding preserves approximate column alignment in Discord Markdown.
+        widths = {}
+        for col in header_cols:
+            values = [str(value).replace("`", "ˋ") for value in display[col].tolist()]
+            widths[col] = min(20, max([len(col)] + [len(value) for value in values]))
+
+        def cell(value, width):
+            value = str(value).replace("`", "ˋ")
+            return f"`{value[:width]:<{width}}`"
+
+        header = " | ".join(cell(col, widths[col]) for col in header_cols)
+        lines = [f"**{rank_col or 'Rank'}** | {header}"]
         for _, row in display.iterrows():
             rank = str(row[rank_col]) if rank_col else "•"
-            values = [str(row[col]) for col in header_cols]
-            embed.add_field(
-                name=f"{rank}.",
-                value=" | ".join(values)[:1024] or "​",
-                inline=False,
-            )
+            values = [cell(row[col], widths[col]) for col in header_cols]
+            lines.append(f"**{rank}.** | " + " | ".join(values))
+        embed.description = "\n".join(lines)[:4096]
     if footer:
         embed.set_footer(text=footer)
     return embed
@@ -303,13 +311,19 @@ class DidYouMeanButton(ui.Button):
         if not interaction.response.is_done():
             await interaction.response.defer()
         view: DidYouMeanView = self.view
-        # Copy original command parts
-        corrected_parts = view.parts.copy()
-        # Replace ONLY the fuzzy-matched parameter
+        # Parts are parsed as ["", internal_command, arg1, helper1, ...].
+        corrected_parts = list(view.parts)
+        if view.index < 2 or view.index >= len(corrected_parts):
+            await interaction.followup.send(
+                "❌ I couldn't apply that suggestion because the command arguments changed. Please run the command again.",
+                ephemeral=True,
+            )
+            return
         corrected_parts[view.index] = self.label
-        # Rebuild the exact command
         internal_to_public = {"n": "p", "bch": "br", "p": "l"}
-        public_command = internal_to_public.get(corrected_parts[1].lower(), corrected_parts[1].lower())
+        public_command = internal_to_public.get(
+            corrected_parts[1].lower(), corrected_parts[1].lower()
+        )
         corrected_command = public_command + "!!" + "/".join(corrected_parts[2:])
         print(f"[FUZZY] {view.cmd} -> {corrected_command}")
         # Remove old "Did you mean?" message
@@ -1371,7 +1385,13 @@ def handle_record_each(df, name, personal=False):
 
 
 async def handle_records_player(message, df, parts):
-    # Detect + anywhere after the player name
+    if len(parts) < 3 or not parts[2].strip():
+        await safe_send(
+            message.channel,
+            content="❌ Usage: re!!PlayerName (add /+ for personal bests)",
+        )
+        return
+    # Detect + anywhere after the player name.
     personal_mode = any(p.strip() == "+" for p in parts[3:])
     name_input = parts[2].strip()
     name = await fuzzy_or_abort(
@@ -1455,12 +1475,18 @@ async def fuzzy_or_abort(
     resolver,
     title,
     result_title,
-    columns,
+    columns=None,
     max_results=5,
     cutoff=0.65,
     used_fuzzy_matching=True,
     fuzzy_column=None,
 ):
+    if user_input is None or not str(user_input).strip():
+        await safe_send(
+            message.channel,
+            content=f"❌ Usage: {message.content.split('!!', 1)[0]}!!<name>",
+        )
+        return None
     if used_fuzzy_matching and fuzzy_column and df is not None and fuzzy_column in df.columns:
         choices = df[fuzzy_column].dropna().unique()
     lookup = {str(c).lower(): str(c) for c in choices if pd.notna(c)}
@@ -1494,7 +1520,7 @@ async def fuzzy_or_abort(
         message_source=message,
         channel=message.channel,
         df=df,
-        parts=message.content.split(";"),
+        parts=parse_command_parts(message.content),
         index=arg_index,
         resolver=resolver,
         title=result_title,
@@ -1602,6 +1628,7 @@ async def handle_tank_command(message, df, parts):
         resolver=handle_tank,
         title="Tank not found — did you mean?",
         result_title="Tank Scores",
+        columns=["Ņ", "Score", "Name", "Date", "Id"],
         used_fuzzy_matching=COMMAND_OPTIONS["t"]["used_fuzzy_matching"],
         fuzzy_column=COMMAND_OPTIONS["t"]["fuzzy_column"],
     )
@@ -2029,6 +2056,12 @@ async def process_olympus_command(
 
     
     elif cmd == "re":
+        if len(parts) < 3 or not parts[2].strip():
+            await safe_send(
+                message.channel,
+                content="❌ Usage: re!!PlayerName (add /+ for personal bests)",
+            )
+            return
         await handle_records_player(message, df, parts)
         return
 
@@ -2217,7 +2250,16 @@ async def process_olympus_command(
 
 @bot.event
 async def on_message(message):
-    await process_olympus_command(message)
+    try:
+        await process_olympus_command(message)
+    except Exception as exc:
+        # Keep a malformed command from producing an unhandled event traceback.
+        print(f"[COMMAND ERROR] {type(exc).__name__}: {exc}")
+        if message.author != bot.user and "!!" in message.content:
+            await safe_send(
+                message.channel,
+                content="❌ Something went wrong while processing that command. Check the command syntax and try again.",
+            )
 
 
 if __name__ == "__main__":
