@@ -29,7 +29,7 @@ COMMAND_OPTIONS = {
     "c": {"used_lb_type": True, "used_fuzzy_matching": False, "fuzzy_column": None, "allow_range": True, "formatting_type": "v3"},
     "b": {"used_lb_type": True, "used_fuzzy_matching": False, "fuzzy_column": None, "allow_range": True, "formatting_type": "v3"},
     "p": {"used_lb_type": True, "used_fuzzy_matching": False, "fuzzy_column": None, "allow_range": True, "formatting_type": "v2"},
-    "bch": {"used_lb_type": True, "used_fuzzy_matching": True, "fuzzy_column": "Branch", "allow_range": False, "formatting_type": "v2"},
+    "br": {"used_lb_type": True, "used_fuzzy_matching": True, "fuzzy_column": "Branch", "allow_range": False, "formatting_type": "v2"},
 }
 COOLDOWN_SECONDS = 3
 user_cooldowns = {}
@@ -162,7 +162,7 @@ def make_embed(title, lines, color=discord.Color.red()):
 
 
 def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shorten_tank=True, row_layout=None):
-    """v2 is the original aligned table; v3 is one plain, compact line per score."""
+    """v2 is the original aligned table; v3 is a compact, aligned one-row-per-score table."""
     if row_layout is not None:  # Backward compatibility for existing callers.
         formatting_type = "v3" if row_layout else "v2"
     if formatting_type != "v3":
@@ -182,19 +182,33 @@ def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shor
             display["Name"] = display["Name"].astype(str).map(lambda value: shorten_name(value, 16))
         if shorten_tank and "Tank" in display.columns:
             display["Tank"] = display["Tank"].astype(str).str[:18]
+
         rank_col = "Ņ" if "Ņ" in display.columns else None
         data_cols = [col for col in display.columns if col != rank_col]
-        header = " | ".join(data_cols)
-        lines = [f"**{rank_col or 'Rank'} | {header}**"]
+        headers = [rank_col or "Rank", *data_cols]
+        rows = []
         for _, row in display.iterrows():
             rank = str(row[rank_col]) if rank_col else "•"
             values = [str(row[col]).replace("\n", " ").replace("|", "/") for col in data_cols]
-            lines.append(f"**{rank}.** " + " | ".join(values))
-        embed = Embed(title=title, description="\n".join(lines)[:4096], color=discord.Color.red())
+            rows.append([rank, *values])
+        # Compute visual widths using terminal display width (Unicode-safe), then pad
+        # every cell so short values line up under their column headings.
+        widths = [max(wcswidth(str(headers[i])), *(wcswidth(r[i]) for r in rows)) if rows else wcswidth(str(headers[i])) for i in range(len(headers))]
+        widths = [min(max(width, 3), 22) for width in widths]
+        def pad_cell(value, width):
+            value = str(value)
+            while wcswidth(value) > width and value:
+                value = value[:-1]
+            return value + (" " * max(0, width - wcswidth(value)))
+        header_line = "  ".join(pad_cell(value, widths[i]) for i, value in enumerate(headers)).rstrip()
+        divider_line = "  ".join("─" * width for width in widths).rstrip()
+        lines = [header_line, divider_line]
+        for row in rows:
+            lines.append("  ".join(pad_cell(value, widths[i]) for i, value in enumerate(row)).rstrip())
+        embed = Embed(title=title, description="```text\n" + "\n".join(lines)[:4080] + "\n```", color=discord.Color.red())
     if footer:
         embed.set_footer(text=footer)
     return embed
-
 
 
 
@@ -312,7 +326,7 @@ class DidYouMeanButton(ui.Button):
             )
             return
         corrected_parts[view.index] = self.label
-        internal_to_public = {"n": "p", "bch": "br", "p": "l"}
+        internal_to_public = {"n": "p", "p": "l"}
         public_command = internal_to_public.get(
             corrected_parts[1].lower(), corrected_parts[1].lower()
         )
@@ -599,15 +613,37 @@ def handle_branch2(df, branch_key):
     return branches.get(branch_key)
 
 
+def load_combined_branches():
+    """Combine A and R branch definitions for an unfiltered branch leaderboard."""
+    a_branches, r_branches = load_branches(), load_branches2()
+    if not isinstance(a_branches, dict) and not isinstance(r_branches, dict):
+        return None
+    combined = {}
+    for source in (a_branches, r_branches):
+        if not isinstance(source, dict):
+            continue
+        for key, tanks in source.items():
+            current = combined.setdefault(key, [])
+            for tank in (tanks if isinstance(tanks, list) else []):
+                if tank not in current:
+                    current.append(tank)
+    return combined
+
+
+def resolve_combined_branch(df, branch_key):
+    branches = load_combined_branches()
+    return branches.get(branch_key) if isinstance(branches, dict) else None
+
+
 async def handle_branch_command(
     message,
     branch_name: str,
-    gt_filter: str,
+    gt_filter: str | None = None,
     interaction: Interaction | None = None,
     branches_loader=load_branches,
     branch_resolver=handle_branch
 ):
-    # The caller must explicitly choose GT=A or GT=R; there is no default mode.
+    # Without /a or /r, combine branch definitions and do not filter GT.
     branches = branches_loader()
     if not isinstance(branches, dict):
         content = "❌ Branch list unavailable."
@@ -635,8 +671,8 @@ async def handle_branch_command(
         result_title="Branch Highscores",
         columns=["Ņ", "Tank", "Name", "Score", "Id"],
         cutoff=0.6,
-        used_fuzzy_matching=COMMAND_OPTIONS["bch"]["used_fuzzy_matching"],
-        fuzzy_column=COMMAND_OPTIONS["bch"]["fuzzy_column"],
+        used_fuzzy_matching=COMMAND_OPTIONS["br"]["used_fuzzy_matching"],
+        fuzzy_column=COMMAND_OPTIONS["br"]["fuzzy_column"],
     )
     if branch_key is None:
         return
@@ -674,37 +710,22 @@ async def handle_branch_command(
     command_parts = parse_command_parts(message.content)
     df, date_filter = apply_date_filter(df, command_parts[2:])
 
-    # Branch commands always go through the GT filter:
-    # normal bch = A, bch;r = R.
-    if "GT" not in df.columns:
-        content = "❌ No 'GT' column found in data."
-
-        if interaction:
-            await interaction.edit_original_response(
-                content=content,
-                embed=None,
-                view=None
-            )
-        else:
-            await safe_send(message.channel, content=content)
-        return
-
-    df = df[
-        df["GT"].astype(str).str.strip().str.upper() == gt_filter.upper()
-    ].copy()
-
-    if df.empty:
-        content = f"❌ No results for GT={gt_filter.upper()}."
-
-        if interaction:
-            await interaction.edit_original_response(
-                content=content,
-                embed=None,
-                view=None
-            )
-        else:
-            await safe_send(message.channel, content=content)
-        return
+    if gt_filter:
+        if "GT" not in df.columns:
+            content = "❌ No 'GT' column found in data."
+            if interaction:
+                await interaction.edit_original_response(content=content, embed=None, view=None)
+            else:
+                await safe_send(message.channel, content=content)
+            return
+        df = df[df["GT"].astype(str).str.strip().str.upper() == gt_filter.upper()].copy()
+        if df.empty:
+            content = f"❌ No results for GT={gt_filter.upper()}."
+            if interaction:
+                await interaction.edit_original_response(content=content, embed=None, view=None)
+            else:
+                await safe_send(message.channel, content=content)
+            return
 
     df = normalize_score(df)
 
@@ -734,9 +755,9 @@ async def handle_branch_command(
 
     lines = dataframe_to_markdown_aligned(display_df)
 
-    title = f"{branch_key} Branch (GT={gt_filter.upper()})"
+    title = f"{branch_key} Branch" + (f" (GT={gt_filter.upper()})" if gt_filter else "")
     embed = make_embed(title, lines)
-    footer_text = f"{len(display_df)} tanks in this branch • GT={gt_filter.upper()}"
+    footer_text = f"{len(display_df)} tanks in this branch" + (f" • GT={gt_filter.upper()}" if gt_filter else " • all GTs")
     if date_filter:
         footer_text += f" • Date {date_filter}"
     embed.set_footer(text=footer_text)
@@ -1691,13 +1712,15 @@ def apply_date_filter(df, parts):
     if not target or "Date" not in df.columns:
         return df.copy(), None
     result = df.copy()
-    result["Date"] = result["Date"].astype(str).str[:10]
+    # Parse both ISO dates and day-first dates from the spreadsheet consistently.
+    parsed_dates = pd.to_datetime(result["Date"], errors="coerce", format="mixed", dayfirst=True)
+    normalized_dates = parsed_dates.dt.strftime("%Y-%m-%d")
     if operator == "<":
-        result = result[result["Date"] < target]
+        result = result[normalized_dates < target]
     elif operator == ">":
-        result = result[result["Date"] > target]
+        result = result[normalized_dates > target]
     else:
-        result = result[result["Date"] == target]
+        result = result[normalized_dates == target]
     return result, f"{operator}{target}"
 
 
@@ -1713,10 +1736,16 @@ def parse_command_parts(content):
         return []
     command, raw = match.groups()
     public_command = command.lower()
-    if public_command in {"n", "bch"}:
+    # Public commands only; player searches use p!! and branches use br!!.
+    supported_public_commands = {
+        "p", "t", "i", "l", "br", "player", "tank", "info", "leaderboard",
+        "records", "best", "a", "b", "c", "e", "nt", "r", "ra", "re",
+        "s", "d", "say", "w", "cu", "cm", "cua", "help", "help2",
+    }
+    if public_command not in supported_public_commands:
         return []
     aliases = {
-        "p": "n", "t": "t", "i": "i", "l": "p", "br": "bch",
+        "p": "n", "t": "t", "i": "i", "l": "p", "br": "br",
         "player": "n", "tank": "t", "info": "i", "leaderboard": "p",
         "records": "re", "best": "b",
     }
@@ -1762,6 +1791,81 @@ async def handle_w_command(message, df, parts):
         footer = f"{warning} • {footer}"
     embed.set_footer(text=footer)
     await safe_send(message.channel, embed=embed)
+
+
+async def handle_screenshot_command(message, parts):
+    if len(parts) < 3 or not parts[2].strip():
+        await safe_send(message.channel, content="❌ Usage: s!!ID")
+        return
+    df = read_excel_cached()
+    if isinstance(df, str) or df.empty:
+        await safe_send(message.channel, content="❌ Data unavailable.")
+        return
+    df.columns = df.columns.str.strip()
+    await send_screenshot(message.channel, df, parts[2].strip())
+
+
+async def handle_description_command(message, parts):
+    if len(parts) < 3 or not parts[2].strip():
+        await safe_send(message.channel, content="❌ Usage: d!!ID")
+        return
+    df = read_excel_cached()
+    if isinstance(df, str) or df.empty:
+        await safe_send(message.channel, content="❌ Data unavailable.")
+        return
+    df.columns = df.columns.str.strip()
+    await send_description_embed(message.channel, df, parts[2].strip())
+
+
+async def handle_info_command(message, parts):
+    if len(parts) < 3 or not parts[2].strip():
+        await safe_send(message.channel, content="❌ Usage: i!!ID")
+        return
+    df = read_excel_cached()
+    if isinstance(df, str) or df.empty:
+        await safe_send(message.channel, content="❌ Data unavailable.")
+        return
+    df.columns = df.columns.str.strip()
+    await send_info_embed(message.channel, df, parts[2].strip())
+
+
+async def handle_random_analysis_command(message, df, parts):
+    if len(parts) < 3 or not parts[2].strip():
+        await safe_send(message.channel, content=(
+            "ra!!0 - 10 random unscored tanks\n"
+            "ra!!1 - 10 random tanks with records from 1Mil-5Mil\n"
+            "ra!!2 - 10 random tanks with records from 5Mil-10Mil\n"
+            "ra!!3 - 10 completely random tanks"
+        ))
+        return
+    try:
+        mode = int(parts[2])
+        if mode not in (0, 1, 2, 3):
+            raise ValueError
+    except (TypeError, ValueError):
+        await safe_send(message.channel, content="❌ Invalid mode. Use ra!!0, ra!!1, ra!!2, or ra!!3.")
+        return
+    output = handle_random_analysis(df, mode).copy()
+    output["Tank"] = output["Tank"].astype(str).str[:14]
+    embed = make_embed("Random Recommendations", dataframe_to_markdown_aligned(output, shorten_tank=False))
+    embed.set_footer(text="🎲 Click the button to reroll")
+    view = RandomAnalysisView(df, mode)
+    msg = await safe_send(message.channel, embed=embed, view=view)
+    view.message = msg
+
+
+async def handle_branch_request(message, parts):
+    if len(parts) < 3 or not parts[2].strip() or extract_date_filter([parts[2]])[1]:
+        await safe_send(message.channel, content="❌ Usage: br!!BranchName[/a|/r][/YYYY-MM-DD]")
+        return
+    branch_name = parts[2].strip()
+    branch_mode = next((value.strip().lower() for value in parts[3:] if value.strip().lower() in {"a", "r"}), None)
+    if branch_mode == "a":
+        await handle_branch_command(message, branch_name, gt_filter="A", branches_loader=load_branches, branch_resolver=handle_branch)
+    elif branch_mode == "r":
+        await handle_branch_command(message, branch_name, gt_filter="R", branches_loader=load_branches2, branch_resolver=handle_branch2)
+    else:
+        await handle_branch_command(message, branch_name, gt_filter=None, branches_loader=load_combined_branches, branch_resolver=resolve_combined_branch)
 
 
 async def process_olympus_command(
@@ -1894,98 +1998,21 @@ async def process_olympus_command(
         return
     
     elif cmd == "s":
-        if len(parts) < 3:
-            await safe_send(
-                message.channel,
-                content="❌ Usage: s!!ID"
-            )
-            return
-
-        df = read_excel_cached()
-        if isinstance(df, str) or df.empty:
-            await safe_send(message.channel, content="❌ Data unavailable.")
-            return
-
-        df.columns = df.columns.str.strip()
-        screenshot_id = parts[2].strip()
-        await send_screenshot(message.channel, df, screenshot_id)
+        await handle_screenshot_command(message, parts)
         return
 
     elif cmd == "d":
-        if len(parts) < 3:
-            await safe_send(
-                message.channel,
-                content="❌ Usage: d!!ID"
-            )
-            return
-        info_id = parts[2].strip()
-        df = read_excel_cached()
-        if isinstance(df, str) or df.empty:
-            await safe_send(
-                message.channel,
-                content="❌ Data unavailable."
-            )
-            return
-        df.columns = df.columns.str.strip()
-        await send_description_embed(
-            message.channel,
-            df,
-            info_id
-        )
+        await handle_description_command(message, parts)
         return
-
 
     elif cmd == "ra":
-        if len(parts) == 2:
-            await safe_send(
-                message.channel,
-                content=(
-                    "ra!!0 - 10 random unscored tanks\n"
-                    "ra!!1 - 10 random tanks with records from 1Mil-5Mil\n"
-                    "ra!!2 - 10 random tanks with records from 5Mil-10Mil\n"
-                    "ra!!3 - 10 completely random tanks"
-                )
-            )
-            return
-        try:
-            mode = int(parts[2])
-            if mode not in (0,1,2,3):
-                raise ValueError
-        except:
-            await safe_send(message.channel, content="❌ Invalid mode.")
-            return
-        output = handle_random_analysis(df, mode)
-        output = output.copy()
-        output["Tank"] = output["Tank"].astype(str).str[:14]
-        lines = dataframe_to_markdown_aligned(output, shorten_tank=False)
-        embed = make_embed("Random Recommendations", lines)
-        embed.set_footer(text="🎲 Click the button to reroll")
-        view = RandomAnalysisView(df, mode)
-        msg = await safe_send(message.channel, embed=embed, view=view)
-        view.message = msg
+        await handle_random_analysis_command(message, df, parts)
         return
 
-    
-
-
-
     elif cmd == "i":
-        if len(parts) < 3:
-            await safe_send(
-                message.channel,
-                content="❌ Usage: i!!ID"
-            )
-            return
-        info_id = parts[2].strip()
-        df = read_excel_cached()
-        if isinstance(df, str) or df.empty:
-            await safe_send(message.channel, content="❌ Data unavailable.")
-            return
-        df.columns = df.columns.str.strip()
-        await send_info_embed(message.channel, df, info_id)
-        return   
+        await handle_info_command(message, parts)
+        return
 
-    
     elif cmd == "re":
         if len(parts) < 3 or not parts[2].strip():
             await safe_send(
@@ -1998,33 +2025,8 @@ async def process_olympus_command(
 
     
     # --- Call in on_message ---
-    elif cmd == "bch":
-        if len(parts) < 3 or not parts[2].strip():
-            await safe_send(message.channel, content="❌ Usage: br!!BranchName[/a|/r][/YYYY-MM-DD]")
-            return
-        branch_name = parts[2].strip()
-        branch_mode = next((p.strip().lower() for p in parts[3:] if p.strip().lower() in {"a", "r"}), None)
-        if branch_mode == "a":
-            await handle_branch_command(message, branch_name, gt_filter="A", branches_loader=load_branches, branch_resolver=handle_branch)
-        elif branch_mode == "r":
-            await handle_branch_command(message, branch_name, gt_filter="R", branches_loader=load_branches2, branch_resolver=handle_branch2)
-        else:
-            # If the name is already exact, show A and R separately. If it is
-            # misspelled, only open one suggestion view; choosing it reruns this
-            # command and then both modes are displayed sequentially.
-            branches_a = load_branches()
-            branches_r = load_branches2()
-            exact_a = isinstance(branches_a, dict) and any(str(key).lower() == branch_name.lower() for key in branches_a)
-            exact_r = isinstance(branches_r, dict) and any(str(key).lower() == branch_name.lower() for key in branches_r)
-            if exact_a or exact_r:
-                if exact_a:
-                    await handle_branch_command(message, branch_name, gt_filter="A", branches_loader=load_branches, branch_resolver=handle_branch)
-                if exact_r:
-                    await handle_branch_command(message, branch_name, gt_filter="R", branches_loader=load_branches2, branch_resolver=handle_branch2)
-            else:
-                # One fuzzy prompt only; after choosing, rerunning the command
-                # will show whichever A/R definitions exist for that branch.
-                await handle_branch_command(message, branch_name, gt_filter="A", branches_loader=load_branches, branch_resolver=handle_branch)
+    elif cmd == "br":
+        await handle_branch_request(message, parts)
         return
 
 
