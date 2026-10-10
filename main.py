@@ -20,6 +20,16 @@ COLUMN_ORDER = {
     "e": ["Ņ", "Score", "Tank", "LB", "Tank LB", "Id"],
 }
 FIRST_COLUMN = "Score"
+# Per-command behavior switches. Edit these instead of duplicating logic.
+COMMAND_OPTIONS = {
+    "n": {"used_lb_type": True, "used_fuzzy_matching": True, "fuzzy_column": "Name", "allow_range": True},
+    "t": {"used_lb_type": True, "used_fuzzy_matching": True, "fuzzy_column": "Tank", "allow_range": True},
+    "e": {"used_lb_type": True, "used_fuzzy_matching": True, "fuzzy_column": "Name", "allow_range": True},
+    "c": {"used_lb_type": True, "used_fuzzy_matching": False, "fuzzy_column": None, "allow_range": True},
+    "b": {"used_lb_type": True, "used_fuzzy_matching": False, "fuzzy_column": None, "allow_range": True},
+    "p": {"used_lb_type": True, "used_fuzzy_matching": False, "fuzzy_column": None, "allow_range": True},
+    "bch": {"used_lb_type": True, "used_fuzzy_matching": True, "fuzzy_column": "Branch", "allow_range": False},
+}
 COOLDOWN_SECONDS = 7
 user_cooldowns = {}
 CU_ACTIVE = set()
@@ -168,11 +178,17 @@ def make_leaderboard_embed(title, frame, footer=None, row_layout=False, shorten_
         if shorten_tank and "Tank" in display.columns:
             display["Tank"] = display["Tank"].astype(str).str[:18]
         rank_col = "Ņ" if "Ņ" in display.columns else None
+        header_cols = [col for col in display.columns if col != rank_col]
+        header = " | ".join(header_cols)
+        embed.description = f"**{rank_col or 'Rank'} | {header}**"
         for _, row in display.iterrows():
             rank = str(row[rank_col]) if rank_col else "•"
-            cells = [f"**{col}:** {row[col]}" for col in display.columns if col != rank_col]
-            embed.add_field(name=f"{rank}.  " + str(row.get("Tank", row.get("Name", "Result"))),
-                            value="  ·  ".join(cells)[:1024] or "​", inline=False)
+            values = [str(row[col]) for col in header_cols]
+            embed.add_field(
+                name=f"{rank}.",
+                value=" | ".join(values)[:1024] or "​",
+                inline=False,
+            )
     if footer:
         embed.set_footer(text=footer)
     return embed
@@ -187,7 +203,7 @@ async def handle_collective_score(message, df, parts):
     if len(parts) < 3:
         await safe_send(
             message.channel,
-            content="Almost, usage: !o;cu;<Player>"
+            content="Almost, usage: cu!!PlayerName"
         )
         return
     # Prevent the same user from running CU twice at once
@@ -292,10 +308,10 @@ class DidYouMeanButton(ui.Button):
         # Replace ONLY the fuzzy-matched parameter
         corrected_parts[view.index] = self.label
         # Rebuild the exact command
-        corrected_command = ";".join(corrected_parts)
-        print(
-            f"[FUZZY] {view.cmd} -> {corrected_command}"
-        )
+        internal_to_public = {"n": "p", "bch": "br", "p": "l"}
+        public_command = internal_to_public.get(corrected_parts[1].lower(), corrected_parts[1].lower())
+        corrected_command = public_command + "!!" + "/".join(corrected_parts[2:])
+        print(f"[FUZZY] {view.cmd} -> {corrected_command}")
         # Remove old "Did you mean?" message
         await interaction.edit_original_response(
             content=f" Cooking...",
@@ -353,7 +369,7 @@ def handle_random_analysis(df, mode):
 
 def handle_name_extended(df, name):
     """
-    Same as !o;n;<Player>, but adds:
+    Same as p!!PlayerName, but adds:
       LB       = global leaderboard rank for the score
       Tank LB  = leaderboard rank within that tank
     """
@@ -385,7 +401,7 @@ def handle_nu_range(df):
     """
     Uses the 'nu' column as the filter source.
     Example:
-    !o;w;1-15
+    w!!1-15
     Means:
     show rows where nu is between 1 and 15
     Output columns:
@@ -405,10 +421,10 @@ def handle_nu_range(df):
 
 
 
-# --- Helper for !o;nt ---
+# --- Helper for nt!! ---
 async def handle_name_tank(message, df, parts):
     if len(parts) < 4:
-        await safe_send(message.channel, content="❌ Usage: !o;nt;<Name>;<Tank>")
+        await safe_send(message.channel, content="❌ Usage: nt!!PlayerName/TankName")
         return
     input1, input2 = parts[2].strip(), parts[3].strip()
     name_choices = df["Name"].dropna().unique()
@@ -611,13 +627,12 @@ def handle_branch2(df, branch_key):
 async def handle_branch_command(
     message,
     branch_name: str,
+    gt_filter: str,
     interaction: Interaction | None = None,
-    gt_filter: str = "A",
     branches_loader=load_branches,
     branch_resolver=handle_branch
 ):
-    # Normal !o;bch uses branches.json + GT=A.
-    # !o;bch;branch;r uses branches2.json + GT=R.
+    # The caller must explicitly choose GT=A or GT=R; there is no default mode.
     branches = branches_loader()
     if not isinstance(branches, dict):
         content = "❌ Branch list unavailable."
@@ -644,7 +659,9 @@ async def handle_branch_command(
         title="Branch not found — did you mean?",
         result_title="Branch Highscores",
         columns=["Ņ", "Tank", "Name", "Score", "Id"],
-        cutoff=0.6
+        cutoff=0.6,
+        used_fuzzy_matching=COMMAND_OPTIONS["bch"]["used_fuzzy_matching"],
+        fuzzy_column=COMMAND_OPTIONS["bch"]["fuzzy_column"],
     )
     if branch_key is None:
         return
@@ -757,7 +774,7 @@ async def handle_branch_command(
 
 async def handle_cumulative_monthly_top20(message, df, parts):
     """
-    !o;cm;YYYY-MM
+    cm!!YYYY-MM
 
     Build a cumulative top-20 leaderboard using only scores whose
     Date falls within the requested calendar month.
@@ -765,7 +782,7 @@ async def handle_cumulative_monthly_top20(message, df, parts):
     if len(parts) < 3 or not re.fullmatch(r"\d{4}-\d{2}", parts[2].strip()):
         await safe_send(
             message.channel,
-            content="❌ Usage: !o;cm;YYYY-MM  (example: !o;cm;2026-07)"
+            content="❌ Usage: cm!!YYYY-MM  (example: cm!!2026-07)"
         )
         return
 
@@ -1440,11 +1457,17 @@ async def fuzzy_or_abort(
     result_title,
     columns,
     max_results=5,
-    cutoff=0.65
+    cutoff=0.65,
+    used_fuzzy_matching=True,
+    fuzzy_column=None,
 ):
+    if used_fuzzy_matching and fuzzy_column and df is not None and fuzzy_column in df.columns:
+        choices = df[fuzzy_column].dropna().unique()
     lookup = {str(c).lower(): str(c) for c in choices if pd.notna(c)}
 
-    key = user_input.lower()
+    key = str(user_input).lower().strip()
+    if not used_fuzzy_matching:
+        return lookup.get(key)
     if key in lookup:
         return lookup[key]
     matches = get_close_matches(
@@ -1541,6 +1564,81 @@ def handle_tank(df, tank):
     df = normalize_score(df)
     return df[df["Tank"].str.lower() == tank.lower()].sort_values("Score", ascending=False)
 
+
+async def handle_player_command(message, df, parts):
+    """Resolve a player name and return (scores, title) for the dispatcher."""
+    if len(parts) < 3 or not parts[2].strip():
+        await safe_send(message.channel, content="❌ Usage: p!!PlayerName")
+        return None, None
+    name = await fuzzy_or_abort(
+        message=message,
+        df=df,
+        user_input=parts[2].strip(),
+        choices=df["Name"].dropna().unique(),
+        arg_index=2,
+        resolver=handle_name,
+        title="Player not found — did you mean?",
+        result_title="Player Scores",
+        columns=["Ņ", "Tank", "Score", "Date", "Id"],
+        used_fuzzy_matching=COMMAND_OPTIONS["n"]["used_fuzzy_matching"],
+        fuzzy_column=COMMAND_OPTIONS["n"]["fuzzy_column"],
+    )
+    if name is None:
+        return None, None
+    return handle_name(df, name), f"All scores of {name}"
+
+
+async def handle_tank_command(message, df, parts):
+    """Resolve a tank name and return (scores, title) for the dispatcher."""
+    if len(parts) < 3 or not parts[2].strip():
+        await safe_send(message.channel, content="❌ Usage: t!!TankName")
+        return None, None
+    tank = await fuzzy_or_abort(
+        message=message,
+        df=df,
+        user_input=parts[2].strip(),
+        choices=df["Tank"].dropna().unique(),
+        arg_index=2,
+        resolver=handle_tank,
+        title="Tank not found — did you mean?",
+        result_title="Tank Scores",
+        used_fuzzy_matching=COMMAND_OPTIONS["t"]["used_fuzzy_matching"],
+        fuzzy_column=COMMAND_OPTIONS["t"]["fuzzy_column"],
+    )
+    if tank is None:
+        return None, None
+    await maybe_send_random_message(message.channel, 0.05)
+    return handle_tank(df, tank), f"All scores of {tank}"
+
+
+async def handle_extended_player_command(message, df, parts):
+    """Resolve an extended player search and return (scores, title)."""
+    if len(parts) < 3 or not parts[2].strip():
+        await safe_send(message.channel, content="❌ Usage: e!!PlayerName")
+        return None, None
+    name = await fuzzy_or_abort(
+        message=message,
+        df=df,
+        user_input=parts[2].strip(),
+        choices=df["Name"].dropna().unique(),
+        arg_index=2,
+        resolver=handle_name_extended,
+        title="Player not found — did you mean?",
+        result_title="Player Scores",
+        columns=["Ņ", "Score", "Tank", "LB", "Tank LB", "Id"],
+        used_fuzzy_matching=COMMAND_OPTIONS["e"]["used_fuzzy_matching"],
+        fuzzy_column=COMMAND_OPTIONS["e"]["fuzzy_column"],
+    )
+    if name is None:
+        return None, None
+    output = handle_name_extended(df, name)
+    if output.empty:
+        await safe_send(message.channel, content=f"❌ No scores found for **{name}**.")
+        return None, None
+    output = output[["Score", "Tank", "LB", "Tank LB", "Id"]].copy()
+    output.insert(0, "Ņ", range(1, len(output) + 1))
+    return output, f"All scores of {name} — Extended"
+
 def extract_range(parts, max_range=20, total_len=0):
     """
     Extract start, end, and size from user input like '1-5'.
@@ -1616,29 +1714,26 @@ def split_helpers(text):
     return [part.strip() for part in re.split(r"[;:/\\|]+", text) if part.strip()]
 
 
-def normalize_command_message(message):
-    """Translate the compact `command!!arg/helper` syntax to internal parts."""
-    content = message.content.strip()
-    match = re.match(r"^([a-z]+)!!(.*)$", content, flags=re.IGNORECASE | re.DOTALL)
+def parse_command_parts(content):
+    """Parse public <command>!!<arg>/<helper> syntax into internal parts."""
+    match = re.match(r"^([a-z]+)!!(.*)$", content.strip(), flags=re.IGNORECASE | re.DOTALL)
     if not match:
-        return None
+        return []
     command, raw = match.groups()
     aliases = {
-        "p": "n",       # player search
-        "t": "t",       # tank search
-        "i": "i",       # info by ID
-        "l": "p",       # leaderboard
-        "br": "bch",    # branch
-        "player": "n", "tank": "t", "info": "i",
-        "leaderboard": "p", "branch": "bch",
-        "records": "re", "best": "b", "c": "c", "b": "b",
+        "p": "n", "t": "t", "i": "i", "l": "p", "br": "bch",
+        "player": "n", "tank": "t", "info": "i", "leaderboard": "p",
+        "branch": "bch", "records": "re", "best": "b",
     }
     command = aliases.get(command.lower(), command.lower())
-    helpers = split_helpers(raw)
-    normalized = "!o;" + ";".join([command, *helpers])
-    rewritten = copy.copy(message)
-    rewritten.content = normalized
-    return rewritten
+    return ["", command, *split_helpers(raw)]
+
+
+def normalize_command_message(message):
+    """Return a copy only when the message uses the public !! command syntax."""
+    if not re.match(r"^[a-z]+!!", message.content.strip(), flags=re.IGNORECASE):
+        return None
+    return copy.copy(message)
 
 
 async def process_olympus_command(
@@ -1648,13 +1743,11 @@ async def process_olympus_command(
     if message.author == bot.user:
         return
 
-    # Public syntax is now `<command>!!<argument>/<range>/<date>`.
-    # The legacy internal form is retained only for fuzzy-button reruns.
+    # Every command, including fuzzy-button reruns, uses public !! syntax.
     compact = normalize_command_message(message)
-    if compact is not None:
-        message = compact
-    elif not message.content.startswith("!o;"):
+    if compact is None:
         return
+    message = compact
 
     
     if not bypass_cooldown:    
@@ -1668,9 +1761,7 @@ async def process_olympus_command(
             )
             return
         user_cooldowns[message.author.id] = now
-    parts = message.content.split(";")
-    
-    
+    parts = parse_command_parts(message.content)
     if len(parts) < 2:
         return
     cmd = parts[1].lower()
@@ -1720,31 +1811,10 @@ async def process_olympus_command(
         output = handle_best(df)
         
     elif cmd == "n":
-        if len(parts) < 3:
-            await safe_send(
-                message.channel,
-                content="❌ Usage: !o;n;PlayerName"
-            )
+        output, title = await handle_player_command(message, df, parts)
+        if output is None:
             return
-        name_input = parts[2].strip()
-        name = await fuzzy_or_abort(
-            message=message,
-            df=df,
-            user_input=name_input,
-            choices=df["Name"].dropna().unique(),
-            arg_index=2,
-            resolver=handle_name,
-            title="Player not found — did you mean?",
-            result_title="Player Scores",
-            columns=["Ņ", "Tank", "Score", "Date", "Id"]
-        )
-        if name is None:
-            return
-        output = handle_name(df, name)
-        # ✅ SET TITLE HERE
-        title = f"All scores of {name}"
 
-    
     elif cmd == "nt":
         await handle_name_tank(message, df, parts)
         return
@@ -1758,64 +1828,16 @@ async def process_olympus_command(
         await maybe_send_random_message(message.channel, 0.05)
 
     elif cmd == "t":
-        tank_input = parts[2].strip()
-        tank = await fuzzy_or_abort(
-            message=message,
-            df=df,
-            user_input=tank_input,
-            choices=df["Tank"].dropna().unique(),
-            arg_index=2,
-            resolver=handle_tank,
-            title="Tank not found — did you mean?",
-            result_title="Tank Scores",
-            columns=["Ņ", "Name", "Score", "date", "Id"]
-        )
-        if tank is None:
+        output, title = await handle_tank_command(message, df, parts)
+        if output is None:
             return
-        output = handle_tank(df, tank)
-        await maybe_send_random_message(message.channel, 0.05)
-        # ✅ SET TITLE HERE
-        title = f"All scores of {tank}"
-
 
     elif cmd == "e":
-        if len(parts) < 3:
-            await safe_send(
-                message.channel,
-                content="❌ Usage: !o;e;PlayerName"
-            )
+        output, title = await handle_extended_player_command(message, df, parts)
+        if output is None:
             return
-        name_input = parts[2].strip()
-        name = await fuzzy_or_abort(
-            message=message,
-            df=df,
-            user_input=name_input,
-            choices=df["Name"].dropna().unique(),
-            arg_index=2,
-            resolver=handle_name_extended,
-            title="Player not found — did you mean?",
-            result_title="Player Scores",
-            columns=["Ņ", "Score", "Tank", "LB", "Tank LB", "Id"]
-        )
-        if name is None:
-            return
-        output = handle_name_extended(df, name)
-        if output.empty:
-            await safe_send(
-                message.channel,
-                content=f"❌ No scores found for **{name}**."
-            )
-            return
-        # Display order
-        output = output[
-            ["Score", "Tank", "LB", "Tank LB", "Id"]
-        ].copy()
-        # Local row number, same idea as !o;n
-        output.insert(0, "Ņ", range(1, len(output) + 1))
-        title = f"All scores of {name} — Extended"
-        
+        shorten_tank = True
 
-    
     elif cmd == "say":
         msgs = load_messages()
         if not msgs:
@@ -1829,15 +1851,15 @@ async def process_olympus_command(
 
     elif cmd == "w":
         """
-        !o;w;1-15
+        w!!1-15
         Means:
         show all rows where nu >= 1 and nu <= 15
         Max allowed range:
         20
         Examples:
-        !o;w;1-15
-        !o;w;40-50
-        !o;w;100-120
+        w!!1-15
+        w!!40-50
+        w!!100-120
         """
         if "nu" not in df.columns:
             await safe_send(
@@ -1917,7 +1939,7 @@ async def process_olympus_command(
         if len(parts) < 3:
             await safe_send(
                 message.channel,
-                content="❌ Usage: !o;s;<Id>"
+                content="❌ Usage: s!!ID"
             )
             return
 
@@ -1935,7 +1957,7 @@ async def process_olympus_command(
         if len(parts) < 3:
             await safe_send(
                 message.channel,
-                content="❌ Usage: !o;d;<Id>"
+                content="❌ Usage: d!!ID"
             )
             return
         info_id = parts[2].strip()
@@ -1960,10 +1982,10 @@ async def process_olympus_command(
             await safe_send(
                 message.channel,
                 content=(
-                    "!o;ra;0 - 10 random unscored tanks\n"
-                    "!o;ra;1 - 10 random tanks with records from 1Mil-5Mil\n"
-                    "!o;ra;2 - 10 random tanks with records from 5Mil-10Mil\n"
-                    "!o;ra;3 - 10 completely random tanks"
+                    "ra!!0 - 10 random unscored tanks\n"
+                    "ra!!1 - 10 random tanks with records from 1Mil-5Mil\n"
+                    "ra!!2 - 10 random tanks with records from 5Mil-10Mil\n"
+                    "ra!!3 - 10 completely random tanks"
                 )
             )
             return
@@ -1993,7 +2015,7 @@ async def process_olympus_command(
         if len(parts) < 3:
             await safe_send(
                 message.channel,
-                content="❌ Usage: !o;i;<Id>"
+                content="❌ Usage: i!!ID"
             )
             return
         info_id = parts[2].strip()
@@ -2016,19 +2038,20 @@ async def process_olympus_command(
         if len(parts) < 3:
             await safe_send(
                 message.channel,
-                content="❌ Usage: !o;bch;<branchname>[;r]"
+                content="❌ Usage: br!!BranchName/a or br!!BranchName/r"
             )
             return
 
         branch_name = parts[2].strip()
+        branch_mode = next((p.strip().lower() for p in parts[3:] if p.strip().lower() in {"a", "r"}), None)
+        if not branch_name or branch_mode is None:
+            await safe_send(
+                message.channel,
+                content="❌ Choose a branch and type: br!!BranchName/a or br!!BranchName/r",
+            )
+            return
 
-        # !o;bch;Branch -> branches.json, GT=A
-        # !o;bch;Branch;r -> branches2.json, GT=R
-        regular_mode = not any(
-            p.strip().lower() == "r" for p in parts[3:]
-        )
-
-        if regular_mode:
+        if branch_mode == "a":
             await handle_branch_command(
                 message,
                 branch_name,
@@ -2055,40 +2078,35 @@ async def process_olympus_command(
                 "t!!TankName        - Tank scores\n"
                 "p!!PlayerName      - Player scores\n"
                 "i!!ID              - Score info\n"
-                "br!!BranchName     - Every tank in a score branch\n"
-                "!o;ra             - Random recommendation\n"            
+                "br!!BranchName/a  - Every tank in an AR branch\n"
+                "r!!a             - Random recommendation\n"            
 
-                "!o;help2            -for more commands\n"
+                "help2!!            -for more commands\n"
             )
         await safe_send(message.channel, content=help_message)
         return
 
     elif cmd == "help2":
         help_message = (
-                "Commands:\n"
-                "!o;re;Player       - Score records of a player\n"  
-                "!o;bch;BranchName;r  - Every tank in a non-AR branch\n"
-
-                "(*add at the end of other commands*)\n" 
-                ";1-15    -to imput range\n" 
-                ";r    -to see non-AR scores\n" 
-                ";YYYY-MM-DD    -on a date \n"  
-                ";<YYYY-MM-DD    - before a date \n"   
-            
-                "!o;c              - Top tank list\n"
-                "!o;b              - Top player list\n"
-                "!o;e;Player       - Player scores with global + tank ranks\n"    
-                "!o;s;id               - Screenshot of the score\n"
-                "!o;cu;Player          - Cumulative lb of a player\n"
-                "!o;cua            - Cumulative lb of all time\n" 
-                "!o;cm;YYYY-MM     - Cumulative lb of a month\n"  
-                "!o;w;1-15         - See new added\n"
-                "!o;r                    - Random recommendation\n" 
-                "!o;nt;Player;Tank     - Player and Tank\n"  
-                "!o;say;             - For an rng text\n"
-                "Use p!! / t!! for player or tank searches\n"   
-            
-            )
+            "Commands:\n"
+            "re!!PlayerName       - Score records of a player\n"
+            "br!!BranchName/a     - AR branch highscores\n"
+            "br!!BranchName/r     - non-AR branch highscores\n"
+            "c!!                  - Top tank list\n"
+            "b!!                  - Top player list\n"
+            "e!!PlayerName        - Player scores with global + tank ranks\n"
+            "s!!ID                - Screenshot of a score\n"
+            "d!!ID                - Score description\n"
+            "cu!!PlayerName       - Cumulative leaderboard for a player\n"
+            "cua!!                - Cumulative leaderboard of all time\n"
+            "cm!!YYYY-MM          - Cumulative leaderboard for a month\n"
+            "w!!1-15              - See newly added scores\n"
+            "ra!!0/1/2/3          - Random recommendations\n"
+            "r!!a/b/r             - Random tank recommendation modes\n"
+            "nt!!Player/Tank      - Search a player and tank together\n"
+            "say!!                - Random text\n"
+            "Add /1-15 to limit results, or /YYYY-MM-DD, /<YYYY-MM-DD, />YYYY-MM-DD to filter by date."
+        )
         await safe_send(message.channel, content=help_message)
         return
 
@@ -2097,9 +2115,9 @@ async def process_olympus_command(
             await safe_send(
                 message.channel,
                 content=(
-                    "**!o;r;a** for a tank with a player record!\n"
-                    "**!o;r;b** for the tank with no score!\n"
-                    "**!o;r;r** for a fully random tank!"
+                    "**r!!a** for a tank with a player record!\n"
+                    "**r!!b** for the tank with no score!\n"
+                    "**r!!r** for a fully random tank!"
                 )
             )
             return
@@ -2133,7 +2151,8 @@ async def process_olympus_command(
 
 
     # ---------------- GT FILTER HERE ----------------
-    gt_filter = extract_gt(parts)
+    command_options = COMMAND_OPTIONS.get(cmd, {"allow_range": True, "used_lb_type": True})
+    gt_filter = extract_gt(parts) if command_options.get("used_lb_type", True) else None
     if gt_filter and "GT" in output.columns:
         output = output[
             output["GT"].astype(str).str.upper() == gt_filter
@@ -2161,7 +2180,10 @@ async def process_olympus_command(
         }
         title = title_map.get(cmd, "Olymp Leaderboard")
 
-    start, end, range_size, warning = extract_range(parts, max_range=20, total_len=len(output))
+    if command_options.get("allow_range", True):
+        start, end, range_size, warning = extract_range(parts, max_range=20, total_len=len(output))
+    else:
+        start, end, range_size, warning = 1, min(15, len(output)), min(15, len(output)), None
 
 
     row_layout = cmd in {"c", "b"}  # Toggle here to compare row-style vs text-table embeds.
@@ -2191,7 +2213,7 @@ async def process_olympus_command(
 
 
 
-    # -------------!o;p;1-10------------------------
+    # -------------l!!1-10------------------------
 
 @bot.event
 async def on_message(message):
