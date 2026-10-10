@@ -232,24 +232,33 @@ def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shor
             values = [str(row[col]).replace("\n", " ").replace("|", "/") for col in data_cols]
             rows.append([rank, *values])
 
-        widths = [max([wcswidth(str(headers[i]))] + [wcswidth(r[i]) for r in rows]) for i in range(len(headers))]
-        widths = [min(max(width, 1), 26) for width in widths]
+        # Recalculate widths from this exact page every time the command is
+        # rendered (including Prev/Next). Use the longest displayed value in
+        # each column, including its heading, so shorter values are padded to
+        # the same visual width. NBSPs preserve runs of spaces in Discord's
+        # proportional-font embed renderer; this is still plain embed text,
+        # not a Markdown table or a code block.
+        widths = []
+        for col_index, heading in enumerate(data_cols):
+            values = [heading] + [row[col_index + 1] for row in rows]
+            widths.append(max(1, max(wcswidth(str(value)) for value in values)))
 
         def padded(value, width):
             value = str(value)
-            while value and wcswidth(value) > width:
-                value = value[:-1]
-            return value + ("\u00a0" * max(0, width - wcswidth(value)))
+            visible_width = wcswidth(value)
+            if visible_width < 0:
+                visible_width = len(value)
+            return value + ("\u00a0" * max(0, width - visible_width))
 
-        # Header uses the requested bold, inline style. No divider/table syntax.
-        header_cells = [padded(value, widths[i]) for i, value in enumerate(headers)]
-        header = "**" + " | ".join(header_cells).rstrip() + "**"
+        # Keep the requested compact header and one result per line. Rank is
+        # deliberately outside the data columns, as in the requested example.
+        header_cells = [padded(value, widths[i]) for i, value in enumerate(data_cols)]
+        header = "**Ņ | " + " | ".join(header_cells) + "**"
         lines = [header]
         for row in rows:
             rank = f"**{row[0]}.**"
-            cells = [padded(row[i + 1], widths[i + 1]) for i in range(len(data_cols))]
-            # NBSP padding is kept inside the normal description so spacing survives.
-            lines.append(rank + " " + " | ".join(cells).rstrip())
+            cells = [padded(row[i + 1], widths[i]) for i in range(len(data_cols))]
+            lines.append(rank + " " + " | ".join(cells).rstrip("\u00a0 "))
         description = "\n".join(lines)
         if len(description) > 4096:
             description = description[:4080] + "\n… (more rows omitted; narrow the range)"
@@ -1301,29 +1310,40 @@ class RangePaginationView(ui.View):
 
 
     async def update(self, interaction: Interaction):
-        if interaction.response.is_done():
-            return
+        # Render the slice for the current page, not the original first page.
+        # make_leaderboard_embed recalculates v3 column widths from this slice.
         slice_df, start, end = self.get_slice()
         slice_df = slice_df.copy()
         slice_df["Ņ"] = range(start + 1, end + 1)
-        footer = f"Rows {start+1}-{end} / {len(self.df)}"
+        footer = f"Rows {start + 1}-{end} / {len(self.df)}"
         embed = make_leaderboard_embed(
-            self.title, slice_df, footer=footer,
-            formatting_type=self.formatting_type, shorten_tank=self.shorten_tank
+            self.title,
+            slice_df,
+            footer=footer,
+            formatting_type=self.formatting_type,
+            shorten_tank=self.shorten_tank,
         )
-        await interaction.response.edit_message(embed=embed, view=self)
-        await asyncio.sleep(0.8)
+        try:
+            await interaction.response.edit_message(embed=embed, view=self)
+        except discord.InteractionResponded:
+            # Fallback if another callback has already acknowledged this click.
+            await interaction.edit_original_response(embed=embed, view=self)
     
 
     @ui.button(label="⬅ Prev", style=discord.ButtonStyle.secondary)
     async def prev(self, interaction: Interaction, _):
-        # Decrement page but clamp at 0
-        self.page = max(self.page - 1, 0)
+        if self.page <= 0:
+            await interaction.response.defer()
+            return
+        self.page -= 1
         await self.update(interaction)
 
     @ui.button(label="Next ➡", style=discord.ButtonStyle.secondary)
     async def next(self, interaction: Interaction, _):
-        self.page = min(self.page + 1, self.max_page)
+        if self.page >= self.max_page:
+            await interaction.response.defer()
+            return
+        self.page += 1
         await self.update(interaction)
 
 
