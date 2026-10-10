@@ -1533,18 +1533,35 @@ class RangePaginationView(ui.View):
         slice_df = slice_df.copy()
         slice_df["Ņ"] = range(start + 1, end + 1)
         footer = f"Rows {start + 1}-{end} / {len(self.df)}"
-        embed = make_leaderboard_embed(
+        rendered = make_leaderboard_embed(
             self.title,
             slice_df,
             footer=footer,
             formatting_type=self.formatting_type,
             shorten_tank=self.shorten_tank,
         )
+
+        # v3 returns both an embed and an image file; v2/v2.5 return only an embed.
+        if isinstance(rendered, tuple):
+            embed, image_file = rendered
+        else:
+            embed, image_file = rendered, None
+
         try:
-            await interaction.response.edit_message(embed=embed, view=self)
+            if image_file is not None:
+                await interaction.response.edit_message(
+                    embed=embed, attachments=[image_file], view=self
+                )
+            else:
+                await interaction.response.edit_message(embed=embed, view=self)
         except discord.InteractionResponded:
             # Fallback if another callback has already acknowledged this click.
-            await interaction.edit_original_response(embed=embed, view=self)
+            if image_file is not None:
+                await interaction.edit_original_response(
+                    embed=embed, attachments=[image_file], view=self
+                )
+            else:
+                await interaction.edit_original_response(embed=embed, view=self)
     
 
     @ui.button(label="⬅ Prev", style=discord.ButtonStyle.secondary)
@@ -2461,13 +2478,19 @@ async def process_olympus_command(
     footer = f"Rows {start}-{min(end, len(output))} / {len(output)}"
     if warning:
         footer = f"{warning} • {footer}"
-    embed = make_leaderboard_embed(
+    rendered = make_leaderboard_embed(
         title, slice_df, footer=footer,
         formatting_type=formatting_type, shorten_tank=shorten_tank
     )
 
-
-    msg = await safe_send(message.channel, embed=embed, view=view)
+    # v3 returns (embed, image_file); v2/v2.5 return only an embed.
+    if isinstance(rendered, tuple):
+        embed, image_file = rendered
+        msg = await safe_send(
+            message.channel, embed=embed, file=image_file, view=view
+        )
+    else:
+        msg = await safe_send(message.channel, embed=rendered, view=view)
     view.message = msg
     await bot.process_commands(message) 
     
