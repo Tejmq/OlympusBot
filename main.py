@@ -214,7 +214,6 @@ def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shor
                     return f"{float(value) / 1_000_000:,.3f} M"
                 except (TypeError, ValueError):
                     return str(value)
-
             display["Score"] = display["Score"].apply(format_score)
 
         if "Date" in display.columns:
@@ -222,11 +221,11 @@ def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shor
 
         if "Name" in display.columns:
             display["Name"] = display["Name"].astype(str).map(
-                lambda value: shorten_name(value, 16)
+                lambda value: shorten_name(value, 7)
             )
 
         if shorten_tank and "Tank" in display.columns:
-            display["Tank"] = display["Tank"].astype(str).str[:18]
+            display["Tank"] = display["Tank"].astype(str).str[:7]
 
         rank_col = "Ņ" if "Ņ" in display.columns else None
         data_cols = [col for col in display.columns if col != rank_col]
@@ -246,7 +245,7 @@ def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shor
 
         for col in data_cols:
             values = [
-                str(value).replace("\n", " ").replace("|", "/")
+                str(value).replace("\n", " ").replace("|", "/")[:7]
                 for value in display[col]
             ]
 
@@ -260,6 +259,7 @@ def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shor
             embed.set_footer(text=footer)
 
         return embed
+        
 
 
 
