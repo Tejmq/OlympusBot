@@ -204,6 +204,7 @@ def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shor
         for row in rows:
             lines.append("  ".join(pad_cell(value, widths[i]) for i, value in enumerate(row)).rstrip())
         embed = Embed(title=title, description="```text\n" + "\n".join(lines)[:4080] + "\n```", color=discord.Color.red())
+#vi3
     else:
         display = frame.copy()
 
@@ -232,26 +233,26 @@ def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shor
 
         embed = Embed(title=title, color=discord.Color.red())
 
-        # Rank field
         ranks = [
             str(row[rank_col]) if rank_col else str(i)
             for i, (_, row) in enumerate(display.iterrows(), start=1)
         ]
+
         embed.add_field(
             name="Ņ" if rank_col else "Rank",
-            value="\n\n".join(f"**{rank}.**" for rank in ranks) or "\u200b",
+            value="\n".join(f"**{rank}.**" for rank in ranks) or "\u200b",
             inline=True,
         )
 
-        # One separate field per data column
         for col in data_cols:
             values = [
                 str(value).replace("\n", " ").replace("|", "/")
                 for value in display[col]
             ]
+
             embed.add_field(
                 name=str(col),
-                value="\n\n".join(values) or "\u200b",
+                value="\n".join(values) or "\u200b",
                 inline=True,
             )
 
@@ -260,9 +261,6 @@ def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shor
 
         return embed
 
-    if footer:
-        embed.set_footer(text=footer)
-    return embed
 
 
 
