@@ -207,94 +207,94 @@ def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shor
 
             # vi3 is ordinary embed text: no Markdown table and no code block.
     else:
-    display = frame.copy()
+        display = frame.copy()
 
-    if "Score" in display.columns:
-        def format_score(value):
-            try:
-                return f"{float(value) / 1_000_000:,.3f} M"
-            except (TypeError, ValueError):
-                return str(value)
+        if "Score" in display.columns:
+            def format_score(value):
+                try:
+                    return f"{float(value) / 1_000_000:,.3f} M"
+                except (TypeError, ValueError):
+                    return str(value)
 
-        display["Score"] = display["Score"].apply(format_score)
+            display["Score"] = display["Score"].apply(format_score)
 
-    if "Date" in display.columns:
-        display["Date"] = display["Date"].astype(str).str[:10]
+        if "Date" in display.columns:
+            display["Date"] = display["Date"].astype(str).str[:10]
 
-    if "Name" in display.columns:
-        display["Name"] = display["Name"].astype(str).map(
-            lambda value: shorten_name(value, 7)
-        )
+        if "Name" in display.columns:
+            display["Name"] = display["Name"].astype(str).map(
+                lambda value: shorten_name(value, 7)
+            )
 
-    if shorten_tank and "Tank" in display.columns:
-        display["Tank"] = display["Tank"].astype(str).str[:7]
+        if shorten_tank and "Tank" in display.columns:
+            display["Tank"] = display["Tank"].astype(str).str[:7]
 
-    # Detect the rank column
-    rank_col = "Ņ" if "Ņ" in display.columns else None
+        # Detect the rank column
+        rank_col = "Ņ" if "Ņ" in display.columns else None
 
-    # Include every other column automatically
-    data_cols = [
-        col for col in display.columns
-        if col != rank_col
-    ]
-
-    embed = Embed(
-        title=title,
-        color=discord.Color.red()
-    )
-
-    # Build the header
-    headers = ["Ņ" if rank_col else "Rank"] + [
-        str(col) for col in data_cols
-    ]
-
-    # Build each row with every column on the same line
-    rows = []
-
-    for i, (_, row) in enumerate(display.iterrows(), start=1):
-        rank = str(row[rank_col]) if rank_col else str(i)
-
-        values = [
-            str(row[col])
-            .replace("\n", " ")
-            .replace("|", "/")
-            .replace("`", "'")
-            for col in data_cols
+        # Include every other column automatically
+        data_cols = [
+            col for col in display.columns
+            if col != rank_col
         ]
 
-        rows.append(" | ".join([rank] + values))
+        embed = Embed(
+            title=title,
+            color=discord.Color.red()
+        )
 
-    # Put everything into one code block
-    table = " | ".join(headers) + "\n"
-    table += "\n".join(rows)
+        # Build the header
+        headers = ["Ņ" if rank_col else "Rank"] + [
+            str(col) for col in data_cols
+        ]
 
-    # Discord embed descriptions have a 4096-character limit.
-    # Split long tables across multiple fields if necessary.
-    max_length = 4000
+        # Build each row with every column on the same line
+        rows = []
 
-    if len(table) <= max_length:
-        embed.description = f"```text\n{table}\n```"
-    else:
-        # Keep each chunk within Discord's embed field limit
-        chunks = []
-        current = " | ".join(headers) + "\n"
+        for i, (_, row) in enumerate(display.iterrows(), start=1):
+            rank = str(row[rank_col]) if rank_col else str(i)
 
-        for row in rows:
-            if len(current) + len(row) + 1 > 1000:
+            values = [
+                str(row[col])
+                .replace("\n", " ")
+                .replace("|", "/")
+                .replace("`", "'")
+                for col in data_cols
+            ]
+
+            rows.append(" | ".join([rank] + values))
+
+        # Put everything into one code block
+        table = " | ".join(headers) + "\n"
+        table += "\n".join(rows)
+
+        # Discord embed descriptions have a 4096-character limit.
+        # Split long tables across multiple fields if necessary.
+        max_length = 4000
+
+        if len(table) <= max_length:
+            embed.description = f"```text\n{table}\n```"
+        else:
+            # Keep each chunk within Discord's embed field limit
+            chunks = []
+            current = " | ".join(headers) + "\n"
+
+            for row in rows:
+                if len(current) + len(row) + 1 > 1000:
+                    chunks.append(current.rstrip())
+                    current = " | ".join(headers) + "\n"
+
+                current += row + "\n"
+
+            if current.strip():
                 chunks.append(current.rstrip())
-                current = " | ".join(headers) + "\n"
 
-            current += row + "\n"
-
-        if current.strip():
-            chunks.append(current.rstrip())
-
-        for i, chunk in enumerate(chunks):
-            embed.add_field(
-                name=f"Results ({i + 1}/{len(chunks)})",
-                value=f"```text\n{chunk[:1010]}\n```",
-                inline=False
-            )
+            for i, chunk in enumerate(chunks):
+                embed.add_field(
+                    name=f"Results ({i + 1}/{len(chunks)})",
+                    value=f"```text\n{chunk[:1010]}\n```",
+                    inline=False
+                )
 
     if footer:
         embed.set_footer(text=footer)
