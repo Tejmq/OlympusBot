@@ -225,7 +225,7 @@ def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shor
             )
 
         if shorten_tank and "Tank" in display.columns:
-            display["Tank"] = display["Tank"].astype(str).str[:7]
+            display["Tank"] = display["Tank"].astype(str).str[:4]
 
         rank_col = "Ņ" if "Ņ" in display.columns else None
         data_cols = [col for col in display.columns if col != rank_col]
