@@ -208,7 +208,7 @@ def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shor
             # vi3 is ordinary embed text: no Markdown table and no code block.
 #test
 	else:
-	    display = frame.copy()
+		display = frame.copy()
 
 	    if "Score" in display.columns:
 	        def format_score(value):
@@ -268,10 +268,10 @@ def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shor
 	            inline=True
 	        )
 
-	    if footer:
-	        embed.set_footer(text=footer)
+	if footer:
+	embed.set_footer(text=footer)
 
-	    return embed
+	return embed
 
         
 
