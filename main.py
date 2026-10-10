@@ -5,17 +5,20 @@ import os, time, json, random, re
 from keep_alive import keep_alive
 from discord import Embed
 from discord import ui, Interaction
-from threading import Lock
 import asyncio
 from discord.errors import HTTPException
-import re
 from difflib import get_close_matches
 from datetime import datetime, time as dt_time
 import copy
 
-COLUMNS_DEFAULT = ["Ņ", "Score", "Name", "Tank", "Id"]
-COLUMNS_C = ["Ņ", "Tank", "Name", "Score", "Id"]
-
+# Centralized display order: change a command's list here instead of in its handler.
+COLUMN_ORDER = {
+    "default": ["Ņ", "Score", "Name", "Tank", "Id"],
+    "c": ["Ņ", "Tank", "Name", "Score", "Id"],
+    "n": ["Ņ", "Score", "Tank", "Date", "Id"],
+    "t": ["Ņ", "Score", "Name", "Date", "Id"],
+    "e": ["Ņ", "Score", "Tank", "LB", "Tank LB", "Id"],
+}
 FIRST_COLUMN = "Score"
 COOLDOWN_SECONDS = 7
 user_cooldowns = {}
@@ -25,9 +28,8 @@ intents = discord.Intents.default()
 intents.message_content = True
 
 from discord.ext import commands
-from discord import app_commands
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(command_prefix="!!", intents=intents)
 
 DATAFRAME_CACHE = None
 CACHE_TTL = 300  # 5 minutes
@@ -96,20 +98,6 @@ async def maybe_send_random_message(channel, chance=0.5):
 
 
 
-def fuzzy_matches(query, choices, max_results=5, cutoff=0.7):
-    """
-    Returns up to max_results close matches.
-    cutoff ~ similarity (0.0–1.0)
-    """
-    query = query.lower()
-    choices_lower = {c.lower(): c for c in choices}
-    matches = get_close_matches(
-        query,
-        choices_lower.keys(),
-        n=max_results,
-        cutoff=cutoff
-    )
-    return [choices_lower[m] for m in matches]
 
 
 
@@ -162,11 +150,34 @@ def make_embed(title, lines, color=discord.Color.red()):
     )
 
 
-def apply_footer(embed, start, end, total, warning=None):
-    footer = f"Rows {start}-{min(end, total)} / {total}"
-    if warning:
-        footer = f"{warning} • {footer}"
-    embed.set_footer(text=footer)
+def make_leaderboard_embed(title, frame, footer=None, row_layout=False, shorten_tank=True):
+    """Render either the compact text table or a readable row-by-row embed."""
+    if not row_layout:
+        embed = make_embed(title, dataframe_to_markdown_aligned(frame, shorten_tank))
+    else:
+        embed = Embed(title=title, color=discord.Color.red())
+        display = frame.copy()
+        if "Score" in display.columns:
+            display["Score"] = display["Score"].apply(
+                lambda value: f"{float(value) / 1_000_000:,.3f} M"
+            )
+        if "Date" in display.columns:
+            display["Date"] = display["Date"].astype(str).str[:10]
+        if "Name" in display.columns:
+            display["Name"] = display["Name"].astype(str).map(lambda value: shorten_name(value, 16))
+        if shorten_tank and "Tank" in display.columns:
+            display["Tank"] = display["Tank"].astype(str).str[:18]
+        rank_col = "Ņ" if "Ņ" in display.columns else None
+        for _, row in display.iterrows():
+            rank = str(row[rank_col]) if rank_col else "•"
+            cells = [f"**{col}:** {row[col]}" for col in display.columns if col != rank_col]
+            embed.add_field(name=f"{rank}.  " + str(row.get("Tank", row.get("Name", "Result"))),
+                            value="  ·  ".join(cells)[:1024] or "​", inline=False)
+    if footer:
+        embed.set_footer(text=footer)
+    return embed
+
+
 
 
 
@@ -1180,11 +1191,6 @@ def load_tanks():
 async def on_ready():
     print("Bot starting...")
     try:
-        synced = await bot.tree.sync()  # GLOBAL sync
-        print(f"Synced {len(synced)} global slash commands")
-    except Exception as e:
-        print("Slash sync failed:", e)
-    try:
         read_excel_cached()
         print("Initial data load OK")
     except Exception as e:
@@ -1198,12 +1204,13 @@ async def on_ready():
 
 
 class RangePaginationView(ui.View):
-    def __init__(self, df, start_index, range_size, title, shorten_tank):
+    def __init__(self, df, start_index, range_size, title, shorten_tank, row_layout=False):
         super().__init__(timeout=180)
         self.df = df.reset_index(drop=True)
         self.range_size = range_size
         self.title = title
         self.shorten_tank = shorten_tank
+        self.row_layout = row_layout
 
         # Start page calculation
         self.page = (start_index - 1) // range_size
@@ -1232,9 +1239,11 @@ class RangePaginationView(ui.View):
         slice_df, start, end = self.get_slice()
         slice_df = slice_df.copy()
         slice_df["Ņ"] = range(start + 1, end + 1)
-        lines = dataframe_to_markdown_aligned(slice_df, self.shorten_tank)
-        embed = make_embed(self.title, lines)
-        embed.set_footer(text=f"Rows {start+1}-{end} / {len(self.df)}")
+        footer = f"Rows {start+1}-{end} / {len(self.df)}"
+        embed = make_leaderboard_embed(
+            self.title, slice_df, footer=footer,
+            row_layout=self.row_layout, shorten_tank=self.shorten_tank
+        )
         await interaction.response.edit_message(embed=embed, view=self)
         await asyncio.sleep(0.8)
     
@@ -1273,14 +1282,6 @@ def add_index(df):
     df["Ņ"] = range(1, len(df) + 1)
     return df
 
-def parse_range(text, max_range=20):
-    try:
-        a, b = map(int, text.split("-"))
-        if b - a + 1 > max_range:
-            return None
-        return a, b
-    except:
-        return None
 
 def dataframe_to_markdown_aligned(df, shorten_tank=True):
     df = df.copy()
@@ -1420,13 +1421,6 @@ async def handle_records_player(message, df, parts):
 
 
 
-async def send_embed_table(channel, title, lines, page=1, total=1):
-    text = "\n".join(lines)
-
-    embed = make_embed(title, lines)
-
-    embed.set_footer(text=f"Page {page}/{total}")
-    await channel.send(embed=embed)
 
 
 
@@ -1579,563 +1573,87 @@ def extract_range(parts, max_range=20, total_len=0):
 
 
 
-# ============================================================
-# x!Something — automatic Player/Tank leaderboard lookup
-# ============================================================
-
-def x_lookup_exact(df, query):
-    """Return exact case-insensitive matches for Name and Tank."""
-    key = str(query).strip().lower()
-
-    player_matches = {
-        str(v).strip().lower(): str(v).strip()
-        for v in df["Name"].dropna().unique()
-    }
-    tank_matches = {
-        str(v).strip().lower(): str(v).strip()
-        for v in df["Tank"].dropna().unique()
-    }
-
-    return player_matches.get(key), tank_matches.get(key)
-
-
-def x_lookup_fuzzy(df, query, max_results=5, cutoff=0.65):
-    """
-    Fuzzy-search both Name and Tank columns.
-    Returns:
-        [("player", display_name), ("tank", display_name), ...]
-    """
-    player_lookup = {
-        str(v).strip().lower(): str(v).strip()
-        for v in df["Name"].dropna().unique()
-    }
-    tank_lookup = {
-        str(v).strip().lower(): str(v).strip()
-        for v in df["Tank"].dropna().unique()
-    }
-    # Combine the actual searchable names.
-    # If the same name exists as both a player and tank,
-    # keep both types.
-    candidates = {}
-    for key, value in player_lookup.items():
-        candidates.setdefault(key, []).append(("player", value))
-    for key, value in tank_lookup.items():
-        candidates.setdefault(key, []).append(("tank", value))
-    query_key = str(query).strip().lower()
-    # IMPORTANT:
-    # Compare against the actual name, NOT "player:name"
-    matches = get_close_matches(
-        query_key,
-        list(candidates.keys()),
-        n=max_results,
-        cutoff=cutoff
-    )
-    results = []
-    for match in matches:
-        for kind, value in candidates[match]:
-            results.append((kind, value))
-    return results[:max_results]
-
-
-
-def x_tank_output(df, tank):
-    """
-    Same display columns as !o;t:
-    Ņ, Score, Name, Date, Id
-    """
-    output = handle_tank(df, tank).copy()
-    if output.empty:
-        return output
-
-    output = output[["Score", "Name", "Date", "Id"]].copy()
-    output.insert(0, "Ņ", range(1, len(output) + 1))
-    return output
-
-
-
-
-def x_player_output(df, name):
-    """
-    Same display columns as !o;n:
-    Ņ, Score, Tank, Date, Id
-    """
-    output = handle_name(df, name).copy()
-    if output.empty:
-        return output
-    output = output[["Score", "Tank", "Date", "Id"]].copy()
-    output.insert(0, "Ņ", range(1, len(output) + 1))
-    return output
-
-
-
-
-def handle_name(df, name):
-    df = normalize_score(df)
-    return (
-        df[df["Name"].str.lower() == name.lower()]
-        .sort_values("Score", ascending=False)
-    )
-
-
-
-
-async def show_x_player(message, df, name):
-    output = x_player_output(df, name)
-
-    if output.empty:
-        await safe_send(
-            message.channel,
-            content=f"❌ No scores found for **{name}**."
-        )
-        return
-
-    start, end, range_size, warning = extract_range(
-        message.content.split(";"),
-        max_range=20,
-        total_len=len(output)
-    )
-
-    title = f"All scores of {name}"
-
-    view = RangePaginationView(
-        df=output,
-        start_index=start,
-        range_size=range_size,
-        title=title,
-        shorten_tank=True
-    )
-
-    slice_df = output.iloc[start - 1:end].copy()
-    slice_df["Ņ"] = range(start, min(end, len(output)) + 1)
-
-    lines = dataframe_to_markdown_aligned(slice_df, shorten_tank=True)
-    embed = make_embed(title, lines)
-
-    footer = f"Rows {start}-{min(end, len(output))} / {len(output)}"
-    if warning:
-        footer = f"{warning} • {footer}"
-    embed.set_footer(text=footer)
-
-    msg = await safe_send(message.channel, embed=embed, view=view)
-    view.message = msg
-
-
-async def show_x_tank(message, df, tank):
-    output = x_tank_output(df, tank)
-
-    if output.empty:
-        await safe_send(
-            message.channel,
-            content=f"❌ No scores found for **{tank}**."
-        )
-        return
-
-    start, end, range_size, warning = extract_range(
-        message.content.split(";"),
-        max_range=20,
-        total_len=len(output)
-    )
-
-    title = f"All scores of {tank}"
-
-    view = RangePaginationView(
-        df=output,
-        start_index=start,
-        range_size=range_size,
-        title=title,
-        shorten_tank=True
-    )
-
-    slice_df = output.iloc[start - 1:end].copy()
-    slice_df["Ņ"] = range(start, min(end, len(output)) + 1)
-
-    # Same column layout as !o;t.
-    lines = dataframe_to_markdown_aligned(slice_df, shorten_tank=True)
-    embed = make_embed(title, lines)
-
-    footer = f"Rows {start}-{min(end, len(output))} / {len(output)}"
-    if warning:
-        footer = f"{warning} • {footer}"
-    embed.set_footer(text=footer)
-
-    msg = await safe_send(message.channel, embed=embed, view=view)
-    view.message = msg
-
-
-class XLookupChoiceView(ui.View):
-    """
-    Used when x!Something is both a player and a tank.
-
-    Buttons rewrite the command to:
-        x!p;Something
-        x!t;Something
-    """
-
-    def __init__(self, message_source, df, player_name, tank_name):
-        super().__init__(timeout=30)
-        self.message_source = message_source
-        self.df = df
-        self.player_name = player_name
-        self.tank_name = tank_name
-        self.message = None
-
-    async def on_timeout(self):
-        for item in self.children:
-            item.disabled = True
-        if self.message:
+def extract_date_filter(parts):
+    """Return (operator, ISO date) from helper arguments, or (None, None)."""
+    pattern = re.compile(r"([<>=]?)(\d{4}-\d{2}-\d{2}|\d{2}-\d{2}-\d{4})")
+    for part in parts:
+        match = pattern.fullmatch(str(part).strip())
+        if not match:
+            continue
+        operator, date_text = match.groups()
+        if re.fullmatch(r"\d{2}-\d{2}-\d{4}", date_text):
             try:
-                await self.message.edit(view=self)
-            except:
-                pass
-
-    async def _rewrite_and_run(self, interaction, command):
-        await interaction.response.defer()
-
-        fake_message = copy.copy(self.message_source)
-        fake_message.content = command
-
-        try:
-            await interaction.edit_original_response(
-                content=f"Cooking...",
-                embed=None,
-                view=None
-            )
-        except:
-            pass
-
-        await process_olympus_command(
-            fake_message,
-            bypass_cooldown=True
-        )
-
-    @ui.button(label="Player", style=discord.ButtonStyle.primary)
-    async def player(self, interaction: discord.Interaction, _):
-        await self._rewrite_and_run(
-            interaction,
-            f"x!p;{self.player_name}"
-        )
-
-    @ui.button(label="Tank", style=discord.ButtonStyle.secondary)
-    async def tank(self, interaction: discord.Interaction, _):
-        await self._rewrite_and_run(
-            interaction,
-            f"x!t;{self.tank_name}"
-        )
-
-
-class XLookupFuzzyView(ui.View):
-    def __init__(self, message_source, df):
-        super().__init__(timeout=30)
-        self.message_source = message_source
-        self.df = df
-        self.message = None
-
-    async def on_timeout(self):
-        for item in self.children:
-            item.disabled = True
-        if self.message:
+                date_text = datetime.strptime(date_text, "%d-%m-%Y").strftime("%Y-%m-%d")
+            except ValueError:
+                return None, None
+        else:
             try:
-                await self.message.edit(view=self)
-            except:
-                pass
+                datetime.strptime(date_text, "%Y-%m-%d")
+            except ValueError:
+                return None, None
+        return operator or "=", date_text
+    return None, None
 
 
-class XFuzzyButton(ui.Button):
-    def __init__(self, label, kind, message_source, df):
-        super().__init__(
-            label=label[:80],
-            style=(
-                discord.ButtonStyle.primary
-                if kind == "player"
-                else discord.ButtonStyle.secondary
-            )
-        )
-        self.kind = kind
-        self.value = label
-        self.message_source = message_source
-        self.df = df
-
-    async def callback(self, interaction: Interaction):
-        await interaction.response.defer()
-
-        command = (
-            f"x!p;{self.value}"
-            if self.kind == "player"
-            else f"x!t;{self.value}"
-        )
-
-        fake_message = copy.copy(self.message_source)
-        fake_message.content = command
-
-        try:
-            await interaction.edit_original_response(
-                content=f"Cooking...",
-                embed=None,
-                view=None
-            )
-        except:
-            pass
-
-        await process_olympus_command(
-            fake_message,
-            bypass_cooldown=True
-        )
+def apply_date_filter(df, parts):
+    """Apply an optional date helper without mutating the source frame."""
+    operator, target = extract_date_filter(parts)
+    if not target or "Date" not in df.columns:
+        return df.copy(), None
+    result = df.copy()
+    result["Date"] = result["Date"].astype(str).str[:10]
+    if operator == "<":
+        result = result[result["Date"] < target]
+    elif operator == ">":
+        result = result[result["Date"] > target]
+    else:
+        result = result[result["Date"] == target]
+    return result, f"{operator}{target}"
 
 
-async def handle_x_lookup(message, df, query):
-    """
-    x!Something
+def split_helpers(text):
+    """Split command arguments on any supported helper separator."""
+    return [part.strip() for part in re.split(r"[;:/\\|]+", text) if part.strip()]
 
-    Exact:
-      player only -> !o;n-style result
-      tank only   -> !o;t-style result
-      both        -> Player/Tank buttons
 
-    No exact match:
-      fuzzy search BOTH Name and Tank columns.
-    """
-    query = query.strip()
-
-    if not query:
-        await safe_send(
-            message.channel,
-            content="❌ Usage: `x!Something`"
-        )
-        return
-
-    player_match, tank_match = x_lookup_exact(df, query)
-
-    if player_match and not tank_match:
-        await show_x_player(message, df, player_match)
-        return
-
-    if tank_match and not player_match:
-        await show_x_tank(message, df, tank_match)
-        return
-
-    if player_match and tank_match:
-        embed = Embed(
-            title="Which leaderboard?",
-            description=(
-                f"`{query}` exists as both a **player** and a **tank**.\n\n"
-                "Choose which one you want:"
-            ),
-            color=discord.Color.orange()
-        )
-
-        view = XLookupChoiceView(
-            message_source=message,
-            df=df,
-            player_name=player_match,
-            tank_name=tank_match
-        )
-
-        msg = await safe_send(
-            message.channel,
-            embed=embed,
-            view=view
-        )
-        view.message = msg
-        return
-
-    # --------------------------------------------------------
-    # Fuzzy matching across BOTH columns
-    # --------------------------------------------------------
-    matches = x_lookup_fuzzy(df, query, max_results=5, cutoff=0.65)
-
-    if not matches:
-        await safe_send(
-            message.channel,
-            content=f"❌ `{query}` was not found as a player or tank."
-        )
-        return
-
-    embed = Embed(
-        title="Did you mean?",
-        description=(
-            f"No exact match for `{query}`.\n"
-            "Choose the player or tank you meant:"
-        ),
-        color=discord.Color.red()
-    )
-
-    view = XLookupFuzzyView(message, df)
-
-    for kind, value in matches:
-        view.add_item(
-            XFuzzyButton(
-                label=value,
-                kind=kind,
-                message_source=message,
-                df=df
-            )
-        )
-
-    msg = await safe_send(
-        message.channel,
-        embed=embed,
-        view=view
-    )
-    view.message = msg
-
+def normalize_command_message(message):
+    """Translate the compact `command!!arg/helper` syntax to internal parts."""
+    content = message.content.strip()
+    match = re.match(r"^([a-z]+)!!(.*)$", content, flags=re.IGNORECASE | re.DOTALL)
+    if not match:
+        return None
+    command, raw = match.groups()
+    aliases = {
+        "p": "n",       # player search
+        "t": "t",       # tank search
+        "i": "i",       # info by ID
+        "l": "p",       # leaderboard
+        "br": "bch",    # branch
+        "player": "n", "tank": "t", "info": "i",
+        "leaderboard": "p", "branch": "bch",
+        "records": "re", "best": "b", "c": "c", "b": "b",
+    }
+    command = aliases.get(command.lower(), command.lower())
+    helpers = split_helpers(raw)
+    normalized = "!o;" + ";".join([command, *helpers])
+    rewritten = copy.copy(message)
+    rewritten.content = normalized
+    return rewritten
 
 
 async def process_olympus_command(
     message,
     bypass_cooldown=False
 ):
-    # ========================================================
-    # x!Something automatic Player/Tank lookup
-    # ========================================================
-    if message.content.startswith("x!"):
-        raw = message.content[2:].strip()
-
-        if not raw:
-            await safe_send(
-                message.channel,
-                content="❌ Usage: `x!Something`"
-            )
-            return
-
-        # Internal rewritten commands from the buttons.
-        if raw.startswith("p;"):
-            name = raw[2:].strip()
-
-            if not name:
-                await safe_send(
-                    message.channel,
-                    content="❌ Usage: `x!p;PlayerName`"
-                )
-                return
-
-            df_x = read_excel_cached()
-
-            if isinstance(df_x, str) or df_x.empty:
-                await safe_send(
-                    message.channel,
-                    content="❌ Data unavailable."
-                )
-                return
-
-            df_x.columns = df_x.columns.str.strip()
-
-            lookup = {
-                str(v).strip().lower(): str(v).strip()
-                for v in df_x["Name"].dropna().unique()
-            }
-
-            # Exact first, then fuzzy.
-            resolved = lookup.get(name.lower())
-
-            if resolved is None:
-                matches = get_close_matches(
-                    name.lower(),
-                    list(lookup.keys()),
-                    n=1,
-                    cutoff=0.50
-                )
-                if matches:
-                    resolved = lookup[matches[0]]
-
-            if resolved is None:
-                await safe_send(
-                    message.channel,
-                    content=f"❌ Player `{name}` not found."
-                )
-                return
-
-            await show_x_player(message, df_x, resolved)
-            return
-
-        if raw.startswith("t;"):
-            tank = raw[2:].strip()
-
-            if not tank:
-                await safe_send(
-                    message.channel,
-                    content="❌ Usage: `x!t;TankName`"
-                )
-                return
-
-            df_x = read_excel_cached()
-
-            if isinstance(df_x, str) or df_x.empty:
-                await safe_send(
-                    message.channel,
-                    content="❌ Data unavailable."
-                )
-                return
-
-            df_x.columns = df_x.columns.str.strip()
-
-            lookup = {
-                str(v).strip().lower(): str(v).strip()
-                for v in df_x["Tank"].dropna().unique()
-            }
-
-            # Exact first, then fuzzy.
-            resolved = lookup.get(tank.lower())
-
-            if resolved is None:
-                matches = get_close_matches(
-                    tank.lower(),
-                    list(lookup.keys()),
-                    n=1,
-                    cutoff=0.50
-                )
-                if matches:
-                    resolved = lookup[matches[0]]
-
-            if resolved is None:
-                await safe_send(
-                    message.channel,
-                    content=f"❌ Tank `{tank}` not found."
-                )
-                return
-
-            await show_x_tank(message, df_x, resolved)
-            return
-
-        df_x = read_excel_cached()
-
-        if isinstance(df_x, str) or df_x.empty:
-            await safe_send(
-                message.channel,
-                content="❌ Data unavailable."
-            )
-            return
-
-        df_x.columns = df_x.columns.str.strip()
-
-        await handle_x_lookup(
-            message,
-            df_x,
-            raw
-        )
-        return
-
-    
-    # --- Debug: show every message received ---
-    print(f"[DEBUG] Received message from {message.author}: {message.content}")
     if message.author == bot.user:
         return
 
-    # --------------------------------------------------------
-    # New x!Something command
-    # Searches both Name and Tank columns.
-    # --------------------------------------------------------
-    if message.content.startswith("x!"):
-        raw = message.content[2:].strip()
-        df_x = read_excel_cached()
-        if isinstance(df_x, str) or df_x.empty:
-            await safe_send(message.channel, content="❌ Data unavailable.")
-            return
-        df_x.columns = df_x.columns.str.strip()
-        await handle_x_lookup(message, df_x, raw)
-        return
-
-    if not message.content.startswith("!o;"):
-        await bot.process_commands(message)
+    # Public syntax is now `<command>!!<argument>/<range>/<date>`.
+    # The legacy internal form is retained only for fuzzy-button reruns.
+    compact = normalize_command_message(message)
+    if compact is not None:
+        message = compact
+    elif not message.content.startswith("!o;"):
         return
 
     
@@ -2159,45 +1677,16 @@ async def process_olympus_command(
 
     # --- Load Excel first ---
     df = read_excel_cached()
-    print(f"[DEBUG] read_excel_cached returned type: {type(df)}")
-    if isinstance(df, pd.DataFrame):
-        print(f"[DEBUG] DataFrame shape: {df.shape}, columns: {df.columns.tolist()}")
-    else:
+    if not isinstance(df, pd.DataFrame):
         await safe_send(message.channel, content="❌ Data unavailable.")
         return
 
-    # --- Date filter addon ---
-    date_pattern = re.compile(r'([<>=]?)(\d{4}-\d{2}-\d{2}|\d{2}-\d{2}-\d{4})')
-    date_operator = None
-    date_target = None
-
-    for p in parts[2:]:  # skip cmd
-        match = date_pattern.fullmatch(p.strip())
-        if match:
-            date_operator, date_str = match.groups()
-            if re.match(r"\d{2}-\d{2}-\d{4}", date_str):
-                d, m, y = date_str.split("-")
-                date_target = f"{y}-{m}-{d}"
-            else:
-                date_target = date_str
-            break  # only first date addon considered
-
-    if date_target:
-        df["Date"] = df["Date"].astype(str).str[:10]
-        if date_operator == "<":
-            df = df[df["Date"] < date_target]
-        elif date_operator == ">":
-            df = df[df["Date"] > date_target]
-        else:  # "=" or None
-            df = df[df["Date"] == date_target]
-
-        # if filtering removed everything, warn early
-        if df.empty:
-            await safe_send(
-                message.channel,
-                content=f"❌ No results for {date_operator or '='}{date_target}"
-            )
-            return
+    df.columns = df.columns.str.strip()
+    # Date helper (YYYY-MM-DD or DD-MM-YYYY, optionally prefixed by <, >, =).
+    df, date_filter = apply_date_filter(df, parts[2:])
+    if date_filter and df.empty:
+        await safe_send(message.channel, content=f"❌ No results for {date_filter}")
+        return
 
     # ... continue with your normal cmd handling (p, b, n, t, etc.)
     
@@ -2219,6 +1708,7 @@ async def process_olympus_command(
 
     output = None
     shorten_tank = True
+    title = None
 
     if cmd == "a":
         if not is_tejm(message.author):
@@ -2561,11 +2051,11 @@ async def process_olympus_command(
     elif cmd == "help":
         help_message = (
                 "Commands:\n"
-                "!o;p              - Part of the scoreboard\n"            
-                "!o;t;TankName     - Best score of a tank\n"
-                "!o;n;Player       - Best scores of a player\n"
-                "!o;i;id              - Score info\n"
-                "!o;bch;BranchName    - Every tank in a score branch\n"
+                "l!!                - Leaderboard\n"            
+                "t!!TankName        - Tank scores\n"
+                "p!!PlayerName      - Player scores\n"
+                "i!!ID              - Score info\n"
+                "br!!BranchName     - Every tank in a score branch\n"
                 "!o;ra             - Random recommendation\n"            
 
                 "!o;help2            -for more commands\n"
@@ -2596,7 +2086,7 @@ async def process_olympus_command(
                 "!o;r                    - Random recommendation\n" 
                 "!o;nt;Player;Tank     - Player and Tank\n"  
                 "!o;say;             - For an rng text\n"
-                "x!Something         - Find a player or tank (experimental)\n"   
+                "Use p!! / t!! for player or tank searches\n"   
             
             )
         await safe_send(message.channel, content=help_message)
@@ -2656,16 +2146,7 @@ async def process_olympus_command(
         return
     # ------------------------------------------------
 
-    if cmd == "n":  # player
-        cols = ["Ņ", "Score", "Tank", "Date", "Id"]
-    elif cmd == "t":  # tank
-        cols = ["Ņ", "Score", "Name", "Date", "Id"]
-    elif cmd == "e":  # extended player
-        cols = ["Ņ", "Score", "Tank", "LB", "Tank LB", "Id"]    
-    elif cmd == "c":
-        cols = COLUMNS_C.copy()
-    else:
-        cols = COLUMNS_DEFAULT.copy()
+    cols = COLUMN_ORDER.get(cmd, COLUMN_ORDER["default"]).copy()
     cols = [c for c in cols if c in output.columns]
     output = output[cols]
 
@@ -2683,22 +2164,24 @@ async def process_olympus_command(
     start, end, range_size, warning = extract_range(parts, max_range=20, total_len=len(output))
 
 
+    row_layout = cmd in {"c", "b"}  # Toggle here to compare row-style vs text-table embeds.
     view = RangePaginationView(
         df=output,
         start_index=start,
         range_size=range_size,
         title=title,
-        shorten_tank=shorten_tank
+        shorten_tank=shorten_tank,
+        row_layout=row_layout,
     )
-    slice_df = output.iloc[start-1:end]
+    slice_df = output.iloc[start-1:end].copy()
     slice_df["Ņ"] = range(start, min(end, len(output)) + 1)
-    lines = dataframe_to_markdown_aligned(slice_df, shorten_tank)
-    embed = make_embed(title, lines)
     footer = f"Rows {start}-{min(end, len(output))} / {len(output)}"
     if warning:
         footer = f"{warning} • {footer}"
-
-    embed.set_footer(text=footer)
+    embed = make_leaderboard_embed(
+        title, slice_df, footer=footer,
+        row_layout=row_layout, shorten_tank=shorten_tank
+    )
 
 
     msg = await safe_send(message.channel, embed=embed, view=view)
@@ -2713,109 +2196,6 @@ async def process_olympus_command(
 @bot.event
 async def on_message(message):
     await process_olympus_command(message)
-
-
-@bot.tree.command(name="leaderboard", description="Leaderboard with optional filters")
-@app_commands.describe(
-    start="Starting rank (default: 1)",
-    end="Ending rank (default: 15)",
-    gt="GT filter (A, R, F, L)",
-    date="Date filter. Example: 2024-01-01 or >2024-01-01"
-)
-async def leaderboard_EXPERIMENTAL(
-    interaction: discord.Interaction,
-    start: int = 1,
-    end: int = 15,
-    gt: str | None = None,
-    date: str | None = None
-):
-    await interaction.response.defer()
-    df = read_excel_cached()
-    if isinstance(df, str) or df.empty:
-        await interaction.followup.send("Data unavailable.")
-        return
-    df.columns = df.columns.str.strip()
-
-    # ---------------- DATE FILTER ----------------
-    if date:
-
-        date_pattern = re.compile(r'([<>=]?)(\d{4}-\d{2}-\d{2})')
-        match = date_pattern.fullmatch(date.strip())
-        if not match:
-            await interaction.followup.send("Invalid date format.")
-            return
-        operator, date_target = match.groups()
-        df["Date"] = df["Date"].astype(str).str[:10]
-        if operator == "<":
-            df = df[df["Date"] < date_target]
-        elif operator == ">":
-            df = df[df["Date"] > date_target]
-        else:
-            df = df[df["Date"] == date_target]
-        if df.empty:
-            await interaction.followup.send("No results for that date filter.")
-            return
-    # ---------------- NORMALIZE & SORT ----------------
-    df = normalize_score(df).sort_values("Score", ascending=False)
-
-    # ---------------- GT FILTER ----------------
-    if gt and "GT" in df.columns:
-        df = df[df["GT"].astype(str).str.upper() == gt.upper()]
-        if df.empty:
-            await interaction.followup.send(f"No results for GT={gt.upper()}")
-            return
-    df = add_index(df)
-
-    # ---------------- RANGE LOGIC ----------------
-    if start < 1:
-        start = 1
-    if end < start:
-        end = start
-    total_len = len(df)
-    end = min(end, total_len)
-    range_size = end - start + 1
-
-    # ---------------- PAGINATION VIEW ----------------
-    view = RangePaginationView(
-        df=df[["Ņ", "Score", "Name", "Tank", "Id"]],
-        start_index=start,
-        range_size=range_size,
-        title="Leaderboard",
-        shorten_tank=True
-    )
-    slice_df = df.iloc[start-1:end].copy()
-    slice_df["Ņ"] = range(start, end + 1)
-    lines = dataframe_to_markdown_aligned(slice_df)
-    embed = discord.Embed(
-        title="Leaderboard",
-        description=f"```text\n{chr(10).join(lines)}\n```",
-        color=discord.Color.red()
-    )
-    embed.set_footer(text=f"Rows {start}-{end} / {total_len}")
-    msg = await interaction.followup.send(embed=embed, view=view)
-    view.message = msg
-
-
-
-
-
-# ---------------- i command ----------------
-@bot.tree.command(name="info", description="Detailed score information by ID")
-@app_commands.describe(id="Score ID, for example Qr")
-async def info(interaction: discord.Interaction, id: str):
-    await interaction.response.defer()
-    df = read_excel_cached()
-    if isinstance(df, str) or df.empty:
-        await interaction.edit_original_response(
-            content="❌ Data unavailable. Or is it?"
-        )
-        return
-    df.columns = df.columns.str.strip()
-    # Reuse existing function — but pass interaction
-    await send_info_embed(interaction.channel, df, id, interaction=interaction)
-
-
-
 
 
 if __name__ == "__main__":
