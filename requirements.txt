@@ -1,6 +1,4 @@
-discord.py>=2.3.0
+discord.py>=2.3.2
 pandas>=2.0.0
-requests>=2.31.0
-openpyxl>=3.1.0
-wcwidth>=0.2.0
-flask>=2.3.0
+wcwidth>=0.2.13
+Pillow>=10.0.0
