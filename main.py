@@ -11,6 +11,8 @@ from difflib import get_close_matches
 from datetime import datetime, time as dt_time
 import copy
 import traceback
+from io import BytesIO
+from PIL import Image, ImageDraw, ImageFont
 
 # Centralized display order: change a command's list here instead of in its handler.
 COLUMN_ORDER = {
@@ -163,10 +165,20 @@ def make_embed(title, lines, color=discord.Color.red()):
 
 
 
-def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shorten_tank=True, row_layout=None):
-    """Render v2's original layout or v3's inline-field layout."""
+def make_leaderboard_embed(
+    title,
+    frame,
+    footer=None,
+    formatting_type="v2",
+    shorten_tank=True,
+    row_layout=None
+):
+    """Render v2, v2.5, or v3 leaderboard formats."""
+
     if row_layout is not None:
         formatting_type = "v3" if row_layout else "v2"
+
+    image_file = None
 
     if formatting_type not in {"v3", "v2.5"}:
         embed = make_embed(
@@ -175,7 +187,7 @@ def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shor
         )
 
     elif formatting_type == "v2.5":
-        # Preserve the aligned code-block style.
+        # Preserve the aligned code-block format.
         display = frame.copy()
 
         if "Score" in display.columns:
@@ -252,7 +264,7 @@ def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shor
         )
 
     else:
-        # v3: Native Discord inline fields.
+        # v3: Custom image with all columns on each row.
         display = frame.copy()
 
         if "Score" in display.columns:
@@ -269,11 +281,11 @@ def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shor
 
         if "Name" in display.columns:
             display["Name"] = display["Name"].astype(str).map(
-                lambda value: shorten_name(value, 7)
+                lambda value: shorten_name(value, 12)
             )
 
         if shorten_tank and "Tank" in display.columns:
-            display["Tank"] = display["Tank"].astype(str).str[:7]
+            display["Tank"] = display["Tank"].astype(str).str[:12]
 
         rank_col = "Ņ" if "Ņ" in display.columns else None
         data_cols = [
@@ -281,7 +293,7 @@ def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shor
             if col != rank_col
         ]
 
-        # Show the most useful columns first.
+        # Keep important columns first, followed by all other columns.
         preferred_order = ["Tank", "Score", "Name", "ID", "Date"]
         data_cols.sort(
             key=lambda col: (
@@ -291,43 +303,186 @@ def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shor
             )
         )
 
+        headers = [rank_col or "Rank"] + [str(col) for col in data_cols]
+
+        rows = []
+        for i, (_, row) in enumerate(display.iterrows(), start=1):
+            rank = str(row[rank_col]) if rank_col else str(i)
+
+            values = [
+                str(row[col])
+                .replace("\n", " ")
+                .replace("\r", " ")
+                .replace("|", "/")
+                for col in data_cols
+            ]
+
+            rows.append([rank] + values)
+
+        # Load fonts, falling back if system fonts are unavailable.
+        try:
+            font = ImageFont.truetype("DejaVuSans.ttf", 17)
+            header_font = ImageFont.truetype("DejaVuSans-Bold.ttf", 17)
+            title_font = ImageFont.truetype("DejaVuSans-Bold.ttf", 24)
+        except OSError:
+            font = ImageFont.load_default()
+            header_font = font
+            title_font = font
+
+        probe = Image.new("RGB", (1, 1))
+        measure = ImageDraw.Draw(probe)
+
+        padding = 12
+        min_col_width = 65
+        max_col_width = 230
+
+        # Calculate widths for every column.
+        col_widths = []
+
+        for i, header in enumerate(headers):
+            values = [header] + [row[i] for row in rows]
+
+            max_text_width = max(
+                (
+                    measure.textbbox((0, 0), value, font=font)[2]
+                    for value in values
+                ),
+                default=0
+            )
+
+            header_width = measure.textbbox(
+                (0, 0), header, font=header_font
+            )[2]
+
+            width = max(max_text_width, header_width) + padding * 2
+
+            col_widths.append(
+                min(max(width, min_col_width), max_col_width)
+            )
+
+        # Set image dimensions.
+        margin = 20
+        title_height = 55
+        header_height = 42
+        row_height = 34
+
+        image_width = sum(col_widths) + margin * 2
+        image_height = (
+            margin * 2
+            + title_height
+            + header_height
+            + len(rows) * row_height
+        )
+
+        image = Image.new(
+            "RGB",
+            (image_width, image_height),
+            "#18191c"
+        )
+        draw = ImageDraw.Draw(image)
+
+        # Draw the title.
+        draw.text(
+            (margin, margin),
+            str(title),
+            fill="#ffffff",
+            font=title_font
+        )
+
+        table_top = margin + title_height
+
+        # Draw the header background.
+        draw.rectangle(
+            [
+                margin,
+                table_top,
+                image_width - margin,
+                table_top + header_height
+            ],
+            fill="#b4232f"
+        )
+
+        # Draw column names.
+        x = margin
+
+        for i, header in enumerate(headers):
+            draw.text(
+                (x + padding, table_top + 11),
+                header,
+                fill="#ffffff",
+                font=header_font
+            )
+            x += col_widths[i]
+
+        # Draw each record as a single horizontal row.
+        for row_index, row in enumerate(rows):
+            y = table_top + header_height + row_index * row_height
+
+            background = (
+                "#25272b"
+                if row_index % 2 == 0
+                else "#1d1f23"
+            )
+
+            draw.rectangle(
+                [
+                    margin,
+                    y,
+                    image_width - margin,
+                    y + row_height
+                ],
+                fill=background
+            )
+
+            x = margin
+
+            for col_index, value in enumerate(row):
+                available_width = col_widths[col_index] - padding * 2
+                text = value
+
+                # Shorten text that doesn't fit its column.
+                while text and measure.textbbox(
+                    (0, 0), text, font=font
+                )[2] > available_width:
+                    text = text[:-1]
+
+                if text != value and text:
+                    text = text[:-1] + "…"
+
+                draw.text(
+                    (x + padding, y + 8),
+                    text,
+                    fill="#e6e6e6",
+                    font=font
+                )
+
+                x += col_widths[col_index]
+
+        # Save image into memory for Discord.
+        image_buffer = BytesIO()
+        image.save(image_buffer, format="PNG", optimize=True)
+        image_buffer.seek(0)
+
+        image_file = discord.File(
+            image_buffer,
+            filename="leaderboard.png"
+        )
+
         embed = Embed(
             title=title,
             color=discord.Color.red()
         )
 
-        ranks = [
-            str(row[rank_col]) if rank_col else str(i)
-            for i, (_, row) in enumerate(
-                display.iterrows(), start=1
-            )
-        ]
-
-        # Rank field.
-        embed.add_field(
-            name="Ņ" if rank_col else "Rank",
-            value="\n".join(f"**{rank}.**" for rank in ranks) or "\u200b",
-            inline=True
-        )
-
-        # One native inline field for every DataFrame column.
-        for col in data_cols:
-            values = [
-                str(value).replace("\n", " ").replace("|", "/")[:10]
-                for value in display[col]
-            ]
-
-            embed.add_field(
-                name=str(col)[:20],
-                value="\n".join(values) or "\u200b",
-                inline=True
-            )
+        embed.set_image(url="attachment://leaderboard.png")
 
     if footer:
         embed.set_footer(text=footer)
 
-    return embed
+    # v3 returns both the embed and its image attachment.
+    if image_file is not None:
+        return embed, image_file
 
+    return embed
         
 
 
