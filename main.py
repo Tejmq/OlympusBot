@@ -31,7 +31,7 @@ COMMAND_OPTIONS = {
     "p": {"used_lb_type": True, "used_fuzzy_matching": False, "fuzzy_column": None, "allow_range": True, "formatting_type": "v2"},
     "br": {"used_lb_type": True, "used_fuzzy_matching": True, "fuzzy_column": "Branch", "allow_range": False, "formatting_type": "v2"},
 }
-COOLDOWN_SECONDS = 3
+COOLDOWN_SECONDS = 2
 user_cooldowns = {}
 CU_ACTIVE = set()
 
@@ -191,21 +191,28 @@ def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shor
             rank = str(row[rank_col]) if rank_col else "•"
             values = [str(row[col]).replace("\n", " ").replace("|", "/") for col in data_cols]
             rows.append([rank, *values])
-        # Compute visual widths using terminal display width (Unicode-safe), then pad
-        # every cell so short values line up under their column headings.
-        widths = [max(wcswidth(str(headers[i])), *(wcswidth(r[i]) for r in rows)) if rows else wcswidth(str(headers[i])) for i in range(len(headers))]
-        widths = [min(max(width, 3), 22) for width in widths]
+        # Simulate aligned columns using ordinary spaces in a monospace block.
+        # No Markdown table, pipes, or decorative divider: just one heading row
+        # and one compact line per score.
+        widths = [
+            min(22, max(3, max([wcswidth(str(headers[i]))] + [wcswidth(r[i]) for r in rows])))
+            for i in range(len(headers))
+        ]
+
         def pad_cell(value, width):
             value = str(value)
             while wcswidth(value) > width and value:
                 value = value[:-1]
             return value + (" " * max(0, width - wcswidth(value)))
-        header_line = "  ".join(pad_cell(value, widths[i]) for i, value in enumerate(headers)).rstrip()
-        divider_line = "  ".join("─" * width for width in widths).rstrip()
-        lines = [header_line, divider_line]
+
+        lines = ["  ".join(pad_cell(value, widths[i]) for i, value in enumerate(headers)).rstrip()]
         for row in rows:
             lines.append("  ".join(pad_cell(value, widths[i]) for i, value in enumerate(row)).rstrip())
-        embed = Embed(title=title, description="```text\n" + "\n".join(lines)[:4080] + "\n```", color=discord.Color.red())
+        embed = Embed(
+            title=title,
+            description="```text\n" + "\n".join(lines)[:4080] + "\n```",
+            color=discord.Color.red(),
+        )
     if footer:
         embed.set_footer(text=footer)
     return embed
@@ -1785,12 +1792,31 @@ async def handle_w_command(message, df, parts):
         await safe_send(message.channel, content="❌ No rows found in that nu range.")
         return
     cols = [col for col in ["Tank", "Name", "Score", "Id", "nu"] if col in output.columns]
-    embed = make_embed(f"NU Leaderboard ({start_nu}-{end_nu})", dataframe_to_markdown_aligned(output[cols], True))
-    footer = f"NU range {start_nu}-{end_nu} • {len(output)} rows"
+    output = output[cols].reset_index(drop=True)
+    page_size = 15
+    view = RangePaginationView(
+        df=output,
+        start_index=1,
+        range_size=page_size,
+        title=f"NU Leaderboard ({start_nu}-{end_nu})",
+        shorten_tank=True,
+        formatting_type="v2",
+    )
+    # The range filters NU values, while the buttons paginate the resulting rows.
+    first_page = output.iloc[:page_size].copy()
+    first_page["Ņ"] = range(1, len(first_page) + 1)
+    footer = f"NU range {start_nu}-{end_nu} • Rows 1-{len(first_page)} / {len(output)}"
     if warning:
         footer = f"{warning} • {footer}"
-    embed.set_footer(text=footer)
-    await safe_send(message.channel, embed=embed)
+    embed = make_leaderboard_embed(
+        f"NU Leaderboard ({start_nu}-{end_nu})",
+        first_page,
+        footer=footer,
+        formatting_type="v2",
+        shorten_tank=True,
+    )
+    msg = await safe_send(message.channel, embed=embed, view=view)
+    view.message = msg
 
 
 async def handle_screenshot_command(message, parts):
