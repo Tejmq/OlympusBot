@@ -206,7 +206,7 @@ def make_leaderboard_embed(title, frame, footer=None, formatting_type="v2", shor
         embed = Embed(title=title, description="```text\n" + "\n".join(lines)[:4080] + "\n```", color=discord.Color.red())
 
             # vi3 is ordinary embed text: no Markdown table and no code block.
-```python
+
 	else:
 	    display = frame.copy()
 
