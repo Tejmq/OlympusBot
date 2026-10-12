@@ -30,7 +30,7 @@ COMMAND_OPTIONS = {
     "t": {"used_lb_type": True, "used_fuzzy_matching": True, "fuzzy_column": "Tank", "allow_range": True, "formatting_type": "v2.5"},
     "e": {"used_lb_type": True, "used_fuzzy_matching": True, "fuzzy_column": "Name", "allow_range": True, "formatting_type": "v2"},
     "c": {"used_lb_type": True, "used_fuzzy_matching": False, "fuzzy_column": None, "allow_range": True, "formatting_type": "v3"},
-    "b": {"used_lb_type": True, "used_fuzzy_matching": False, "fuzzy_column": None, "allow_range": True, "formatting_type": "v3"},
+    "b": {"used_lb_type": True, "used_fuzzy_matching": False, "fuzzy_column": None, "allow_range": True, "formatting_type": "v3.5"},
     "p": {"used_lb_type": True, "used_fuzzy_matching": False, "fuzzy_column": None, "allow_range": True, "formatting_type": "v2.5"},
     "br": {"used_lb_type": True, "used_fuzzy_matching": True, "fuzzy_column": "Branch", "allow_range": False, "formatting_type": "v3"},
 }
@@ -173,14 +173,14 @@ def make_leaderboard_embed(
     shorten_tank=True,
     row_layout=None
 ):
-    """Render v2, v2.5, or v3 leaderboard formats."""
+    """Render v2, v2.5, v3, or v3.5 leaderboard formats."""
 
     if row_layout is not None:
         formatting_type = "v3" if row_layout else "v2"
 
     image_file = None
 
-    if formatting_type not in {"v3", "v2.5"}:
+    if formatting_type not in {"v3", "v2.5", "v3.5"}:
         embed = make_embed(
             title,
             dataframe_to_markdown_aligned(frame, shorten_tank)
@@ -262,6 +262,46 @@ def make_leaderboard_embed(
             description="```text\n" + "\n".join(lines)[:4080] + "\n```",
             color=discord.Color.red()
         )
+
+    elif formatting_type == "v3.5":
+        # Discord-native three-column layout (no table/image). Combine the
+        # first two and final two columns so five source columns become three.
+        display = frame.copy()
+        if "Score" in display.columns:
+            def format_score(value):
+                try:
+                    return f"{float(value) / 1_000_000:,.3f} M"
+                except (TypeError, ValueError):
+                    return str(value)
+            display["Score"] = display["Score"].apply(format_score)
+        if "Date" in display.columns:
+            display["Date"] = display["Date"].astype(str).str[:10]
+        if "Name" in display.columns:
+            display["Name"] = display["Name"].astype(str).map(lambda value: shorten_name(value, 16))
+        if shorten_tank and "Tank" in display.columns:
+            display["Tank"] = display["Tank"].astype(str).str[:18]
+
+        columns = [str(col) for col in display.columns]
+        # Rank + first data column; middle column(s); final two columns.
+        if len(columns) >= 5:
+            groups = [columns[:2], columns[2:-2], columns[-2:]]
+        elif len(columns) == 4:
+            groups = [columns[:2], columns[2:3], columns[3:]]
+        elif len(columns) == 3:
+            groups = [columns[:1], columns[1:2], columns[2:]]
+        else:
+            groups = [columns, [], []]
+        groups = [group for group in groups if group]
+        embed = Embed(title=title, color=discord.Color.red())
+        for group in groups:
+            field_name = " + ".join(group)
+            lines = []
+            for _, row in display.iterrows():
+                lines.append(" • ".join(str(row[col]).replace("\n", " ").replace("\r", " ") for col in group))
+            value = "\n".join(lines) or "—"
+            if len(value) > 1024:
+                value = value[:1021] + "..."
+            embed.add_field(name=field_name[:256], value=value, inline=True)
 
     else:
         # v3: Custom image with all columns on each row.
@@ -1031,7 +1071,7 @@ async def handle_branch_command(
 
     lines = dataframe_to_markdown_aligned(display_df)
 
-    title = f"{branch_key} Branch" + (f" (GT={gt_filter.upper()})" if gt_filter else "")
+    title = f"{branch_key} Branch"
     embed = make_embed(title, lines)
     footer_text = f"{len(display_df)} tanks in this branch" + (f" • GT={gt_filter.upper()}" if gt_filter else " • all GTs")
     if date_filter:
@@ -2035,7 +2075,7 @@ def split_helpers(text):
 
 def parse_command_parts(content):
     """Parse public <command>!!<arg>/<helper> syntax into internal parts."""
-    match = re.match(r"^([a-z]+)!!(.*)$", content.strip(), flags=re.IGNORECASE | re.DOTALL)
+    match = re.match(r"^([a-z][a-z0-9]*)!!(.*)$", content.strip(), flags=re.IGNORECASE | re.DOTALL)
     if not match:
         return []
     command, raw = match.groups()
@@ -2059,7 +2099,7 @@ def parse_command_parts(content):
 
 def normalize_command_message(message):
     """Return a copy only when the message uses the public !! command syntax."""
-    if not re.match(r"^[a-z]+!!", message.content.strip(), flags=re.IGNORECASE):
+    if not re.match(r"^[a-z][a-z0-9]*!!", message.content.strip(), flags=re.IGNORECASE):
         return None
     return copy.copy(message)
 
@@ -2191,6 +2231,16 @@ async def process_olympus_command(
 ):
     if message.author == bot.user:
         return
+
+    # Translate legacy !o; commands into their modern public equivalents.
+    # Supports both !o;pName and !o;p!!Name-style input.
+    legacy = re.match(r"^!o;(p|n|bch|t)(?:!!)?(.*)$", message.content.strip(), flags=re.IGNORECASE | re.DOTALL)
+    if legacy:
+        legacy_name, legacy_args = legacy.groups()
+        legacy_targets = {"p": "l", "n": "p", "bch": "br", "t": "t"}
+        target = legacy_targets[legacy_name.lower()]
+        message = copy.copy(message)
+        message.content = target + "!!" + legacy_args.lstrip()
 
     # Every command, including fuzzy-button reruns, uses public !! syntax.
     compact = normalize_command_message(message)
@@ -2383,6 +2433,7 @@ async def process_olympus_command(
             "r!!a/b/r             - Random tank recommendation modes\n"
             "nt!!Player/Tank      - Search a player and tank together\n"
             "say!!                - Random text\n"
+            "Legacy aliases: !o;p → l!!, !o;n → p!!, !o;bch → br!!, !o;t → t!!\n"
             "Add /1-15 to limit results, or /YYYY-MM-DD, /<YYYY-MM-DD, />YYYY-MM-DD to filter by date."
         )
         await safe_send(message.channel, content=help_message)
@@ -2483,7 +2534,7 @@ async def process_olympus_command(
         formatting_type=formatting_type, shorten_tank=shorten_tank
     )
 
-    # v3 returns (embed, image_file); v2/v2.5 return only an embed.
+    # v3 returns (embed, image_file); v2/v2.5/v3.5 return an embed.
     if isinstance(rendered, tuple):
         embed, image_file = rendered
         msg = await safe_send(
