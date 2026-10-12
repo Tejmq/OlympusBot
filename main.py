@@ -264,8 +264,8 @@ def make_leaderboard_embed(
         )
 
     elif formatting_type == "v3.5":
-        # Discord-native three-column layout (no table/image). Combine the
-        # first two and final two columns so five source columns become three.
+        # Discord-native three-column layout. Combined columns are aligned
+        # with a monospace code block, without plus signs between headers.
         display = frame.copy()
         if "Score" in display.columns:
             def format_score(value):
@@ -293,14 +293,35 @@ def make_leaderboard_embed(
             groups = [columns, [], []]
         groups = [group for group in groups if group]
         embed = Embed(title=title, color=discord.Color.red())
+
         for group in groups:
-            field_name = " + ".join(group)
-            lines = []
-            for _, row in display.iterrows():
-                lines.append(" • ".join(str(row[col]).replace("\n", " ").replace("\r", " ") for col in group))
-            value = "\n".join(lines) or "—"
+            # A plain space between header names, never a plus sign.
+            field_name = "  ".join(group)
+            raw_rows = [
+                [str(row[col]).replace("\n", " ").replace("\r", " ") for col in group]
+                for _, row in display.iterrows()
+            ]
+            # Measure each component independently, then pad to the longest
+            # value in that component so the united columns line up exactly.
+            widths = [
+                max([len(group[i])] + [len(values[i]) for values in raw_rows])
+                for i in range(len(group))
+            ]
+            lines = [
+                "  ".join(value.ljust(widths[i]) for i, value in enumerate(values)).rstrip()
+                for values in raw_rows
+            ]
+            # Code blocks preserve repeated spaces and use a monospace font.
+            value = "```text\n" + "\n".join(lines or ["—"]) + "\n```"
             if len(value) > 1024:
-                value = value[:1021] + "..."
+                # Keep complete rows only so the layout is not cut mid-line.
+                kept = []
+                for line in lines:
+                    candidate = "```text\n" + "\n".join(kept + [line]) + "\n```"
+                    if len(candidate) > 1024:
+                        break
+                    kept.append(line)
+                value = "```text\n" + "\n".join(kept or ["…"]) + "\n```"
             embed.add_field(name=field_name[:256], value=value, inline=True)
 
     else:
