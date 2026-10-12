@@ -264,25 +264,33 @@ def make_leaderboard_embed(
         )
 
     elif formatting_type == "v3.5":
-        # Discord-native three-column layout. Combined columns are aligned
-        # with a monospace code block, without plus signs between headers.
+        # Discord-native inline embed fields, no table or code block.
+        # Combine the first two and final two source columns, then use
+        # whitespace padding to visually align the combined columns.
         display = frame.copy()
+
         if "Score" in display.columns:
             def format_score(value):
                 try:
                     return f"{float(value) / 1_000_000:,.3f} M"
                 except (TypeError, ValueError):
                     return str(value)
+
             display["Score"] = display["Score"].apply(format_score)
+
         if "Date" in display.columns:
             display["Date"] = display["Date"].astype(str).str[:10]
+
         if "Name" in display.columns:
-            display["Name"] = display["Name"].astype(str).map(lambda value: shorten_name(value, 16))
+            display["Name"] = display["Name"].astype(str).map(
+                lambda value: shorten_name(value, 16)
+            )
+
         if shorten_tank and "Tank" in display.columns:
             display["Tank"] = display["Tank"].astype(str).str[:18]
 
         columns = [str(col) for col in display.columns]
-        # Rank + first data column; middle column(s); final two columns.
+
         if len(columns) >= 5:
             groups = [columns[:2], columns[2:-2], columns[-2:]]
         elif len(columns) == 4:
@@ -291,39 +299,66 @@ def make_leaderboard_embed(
             groups = [columns[:1], columns[1:2], columns[2:]]
         else:
             groups = [columns, [], []]
+
         groups = [group for group in groups if group]
         embed = Embed(title=title, color=discord.Color.red())
 
-        for group in groups:
-            # A plain space between header names, never a plus sign.
-            field_name = "  ".join(group)
-            raw_rows = [
-                [str(row[col]).replace("\n", " ").replace("\r", " ") for col in group]
-                for _, row in display.iterrows()
-            ]
-            # Measure each component independently, then pad to the longest
-            # value in that component so the united columns line up exactly.
-            widths = [
-                max([len(group[i])] + [len(values[i]) for values in raw_rows])
-                for i in range(len(group))
-            ]
-            lines = [
-                "  ".join(value.ljust(widths[i]) for i, value in enumerate(values)).rstrip()
-                for values in raw_rows
-            ]
-            # Code blocks preserve repeated spaces and use a monospace font.
-            value = "```text\n" + "\n".join(lines or ["—"]) + "\n```"
-            if len(value) > 1024:
-                # Keep complete rows only so the layout is not cut mid-line.
-                kept = []
-                for line in lines:
-                    candidate = "```text\n" + "\n".join(kept + [line]) + "\n```"
-                    if len(candidate) > 1024:
-                        break
-                    kept.append(line)
-                value = "```text\n" + "\n".join(kept or ["…"]) + "\n```"
-            embed.add_field(name=field_name[:256], value=value, inline=True)
+        # Discord collapses repeated ordinary spaces in some contexts.
+        # Use an invisible separator between padding spaces to preserve them.
+        spacer = "\u200b "
 
+        for group in groups:
+            # No plus signs between combined column names.
+            field_name = "  ".join(group)
+
+            # Measure the maximum text width of each source column.
+            widths = {
+                col: max(
+                    len(col),
+                    max(
+                        (
+                            len(str(value).replace("\n", " ").replace("\r", " "))
+                            for value in display[col]
+                        ),
+                        default=0,
+                    ),
+                )
+                for col in group
+            }
+
+            lines = []
+            for _, row in display.iterrows():
+                parts = []
+                for col in group:
+                    text = str(row[col]).replace("\n", " ").replace("\r", " ")
+                    padding = max(0, widths[col] - len(text))
+                    parts.append(text + spacer * padding)
+                lines.append("   ".join(parts).rstrip())
+
+            # Keep each field within Discord's 1024-character value limit.
+            value = "\n".join(lines) or "—"
+            if len(value) > 1024:
+                kept_lines = []
+                current_length = 0
+
+                for line in lines:
+                    extra_length = len(line) + (1 if kept_lines else 0)
+                    if current_length + extra_length > 1021:
+                        break
+                    kept_lines.append(line)
+                    current_length += extra_length
+
+                value = "\n".join(kept_lines)
+                if len(kept_lines) < len(lines):
+                    value += "\n..."
+
+                value = value or "—"
+
+            embed.add_field(
+                name=field_name[:256],
+                value=value,
+                inline=True,
+            )
     else:
         # v3: Custom image with all columns on each row.
         display = frame.copy()
