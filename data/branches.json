@@ -432,7 +432,9 @@
     "Landmine",
     "Bonker",
     "Banger",
-    "Drifter"
+    "Drifter",
+    "Accelerator",
+    "Oversmasher"
   ],
 
   "Healer": [
@@ -3037,6 +3039,100 @@
     "Mega Wark"
   ],
 
+  "Mega-Smasher": [
+    "Ultra-Smasher",
+    "Mega-Spike",
+    "Mega-Landmine",
+    "Auto-Mega-Smasher",
+    "Mega-Bonker",
+    "Mega-Banger",
+    "Mega-Drifter",
+    "Mega-Accelerator"
+  ],
+
+  "Spike": [
+    "Thorn",
+    "Mega-Spike",
+    "Claymore",
+    "Auto-Spike",
+    "Spear",
+    "Prick",
+    "Cauldron",
+    "Porcupine"
+  ],
+
+  "Auto-Smasher": [
+    "Mega Auto-Smasher",
+    "Triple Auto-Smasher",
+    "Double Auto-Smasher",
+    "Bent Auto-Smasher",
+    "Gunner Auto-Smasher",
+    "Hexa Auto-Smasher",
+    "Auto-Mega-Smasher",
+    "Auto-Spike",
+    "Auto-Landmine",
+    "Auto-Bonker",
+    "Auto-Banger",
+    "Auto-Drifter",
+    "Auto-Accelerator",
+    "Wark Auto-Smasher"
+  ],
+
+  "Landmine": [
+    "Limpet",
+    "Mega-Landmine",
+    "Claymore",
+    "Auto-Landmine",
+    "Decoy",
+    "Tripwire",
+    "Veseel",
+    "Springlock"
+  ],
+
+  "Bonker": [
+    "Decoy",
+    "Spear",
+    "Auto-Bonker",
+    "Mega-Bonker",
+    "Basher",
+    "Thwacker",
+    "Blunder",
+    "Mosquito"
+  ],
+
+  "Banger": [
+    "Slammer",
+    "Mega-Banger",
+    "Prick",
+    "Auto-Banger",
+    "Tripwire",
+    "Thwacker",
+    "Sharper",
+    "Wrecking Ball"
+  ],
+
+  "Drifter": [
+    "Buncher",
+    "Mega-Drifter",
+    "Auto-Drifter",
+    "Vessel",
+    "Cauldron",
+    "Sharper",
+    "Bundler",
+    "Neutralizer"
+  ],
+
+  "Accelerator": [
+    "Springlock",
+    "Velocity",
+    "Mega-Accelerator",
+    "Porcupine",
+    "Auto-Accelerator",
+    "Wrecking Ball",
+    "Mosquito",
+    "Neutralizer"
+  ],
+
   "Medic": [
     "Intern",
     "Ointment",
@@ -3154,6 +3250,6 @@
   "Test": [
     "Big",
     "Owawawa",
-    "hunwashere"
+    "Hunhere!"
   ]
 }
