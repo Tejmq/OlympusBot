@@ -10,7 +10,8 @@
     "Trapper",
     "Single",
     "Whirlwind",
-    "Healer"
+    "Healer",
+    "Smasher"
   ],
 
   "Twin": [
@@ -299,6 +300,12 @@
         "Hurricane": [
 	"Typhoon",
 	"Blizzard"
+  ],
+        "Smasher": [
+	"Mega-Smasher",
+	"Spike",
+	"Auto-Smasher",
+	"Landmine"
   ]
     
 
