@@ -101,7 +101,7 @@
     "Musket",
     "Crossbow",
     "Armsman",
-    "Revolver (re)"
+    "Revolver"
   ],
 
    "Marksman": [
@@ -306,7 +306,13 @@
 	"Spike",
 	"Auto-Smasher",
 	"Landmine"
+  ],
+        "Underseer": [
+	"Necromancer",
+	"Malefictor",
+	"Infestor"
   ]
+    
     
 
 	
