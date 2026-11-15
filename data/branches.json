@@ -202,6 +202,8 @@
   "Machine Trapper": [
     "Diesel Trapper",
     "Barricade",
+    "Frother",
+    "Discharger",
     "Equalizer",
     "Machine Guard",
     "Encricler",
@@ -210,8 +212,77 @@
     "Expeller",
     "Auto-Machine Trapper",
     "Deviation",
-    "Frother",
     "Machine Mega Trapper"
+  ],
+
+
+  "Diesel Trapper": [
+    "Jalopy Trapper",
+    "Tri-Diesel Trapper",
+    "Landau",
+    "Concoctor",
+    "Contrivance",
+    "Restrainer",
+    "Artificer",
+    "Strainer",
+    "Blight",
+    "Expeller",
+    "Auto-Diesel Trapper",
+    "Afterburner",
+    "Roadblock"
+  ],
+
+ "Barricade": [
+    "Blockade",
+    "Barrier",
+    "Binder",
+    "Rampart",
+    "Auto-Barricade",
+    "Maw",
+    "Goshawk",
+    "Clasp",
+    "Fortifier",
+    "Propper",
+    "Bent Blockade",
+    "Tri-Blockade",
+    "Roadblock"
+  ],
+
+  "Frother": [
+    "Catalyst",
+    "Whisker",
+    "Bubbler",
+    "Frother Guard",
+    "Detergent",
+    "Android",
+    "Tri-Frother",
+    "Propagator",
+    "Nebulizer",
+    "Afterburner",
+    "Suds",
+    "Aethon",
+    "Auto-Frother"
+  ],
+
+
+  "Equalizer": [
+    "Auto-Equalizer",
+    "Whirlwind",
+    "Brink",
+    "Contrivance",
+    "Binder",
+    "Overequalizer",
+    "Cleaver",
+    "Cutlass",
+    "Baton",
+    "Blackjack",
+    "Double Equalizer",
+    "Dagger",
+    "Machete",
+    "Hardware",
+    "Equalizer Guard",
+    "Counter",
+    "Equalizer-4"
   ],
 
   "Flank Guard": [
@@ -266,8 +337,8 @@
     "Auto-Trap Guard",
     "Machine Guard",
     "Tri-Trap Guard",
+    "Pinwheel",
     "Garrison",
-    "Maw",
     "Overtrap Guard",
     "Custodian"
   ],
@@ -281,7 +352,7 @@
     "Tri-Mech",
     "Tri-Machine",
     "Tri-Trap Guard",
-    "Tri-Barricade",
+    "Prodigy",
     "Tri-Mega Trapper",
     "Warkwarkwark"
   ],
@@ -498,18 +569,6 @@
     "Auto-Warkwark"
   ],
 
-  "Bent Double": [
-    "Penta Double",
-    "Auto-Bent Double",
-    "Double Triplet",
-    "Cleft",
-    "Double Spreadshot",
-    "Bent Flank Double",
-    "Bent Double Gunner",
-    "Bent Double Minigun",
-    "Split Double",
-    "Waarrkwaarrk"
-  ],
 
   "Double Flank Twin": [
     "Quad Twin",
@@ -688,10 +747,10 @@
     "Dagger",
     "Bent Barricade",
     "Fault",
-    "Bent Bulwark",
     "Brig",
     "Yard",
-    "Spitter"
+    "Spitter",
+    "Bent Bulwark"
   ],
 
   "Dual": [
@@ -716,7 +775,8 @@
     "Stockade",
     "Fencer",
     "Impeder",
-    "Quadwark"
+    "Quadwark",
+    "Thumbscrew"
   ],
 
   "Musket": [
@@ -961,7 +1021,8 @@
     "Blowgun",
     "Lockup",
     "Watchman",
-    "Tri-Bushwacker"
+    "Tri-Bushwacker",
+    "Windmill"
   ],
 
   "Railgun": [
@@ -1020,19 +1081,6 @@
     "Sandstorm"
   ],
 
-  "Wowowowo": [
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    ""
-  ],
 
   "Vulture": [
     "Ossifrage",
@@ -1065,20 +1113,6 @@
     "Pepper"
   ],
 
-  "Bent Minigun": [
-    "Flexed Minigun",
-    "Bent Double Minigun",
-    "Junker",
-    "Hackshot",
-    "Minilet",
-    "Bent Streamliner",
-    "Bent Barricade",
-    "Bent Subverter",
-    "Besra",
-    "Sizzler",
-    "Auto-Bent Minigun",
-    "Bent Widget"
-  ],
 
   "Auto-Minigun": [
     "Mega Auto-Minigun",
@@ -1140,6 +1174,7 @@
     "Cleaver",
     "Vallation",
     "Lure",
+    "Volley Trapper",
     "Tacker",
     "Auto-Gunner Trapper",
     "Gunner Builder",
@@ -1147,7 +1182,11 @@
     "Gunner Pen",
     "Gunner Mech",
     "Lavisher",
-    "Gunner Tri-Trapper"
+    "Satelite",
+    "Gunner Tri-Trapper",
+    "DH.98",
+    "Shuriken",
+    "Corvette Trapper"
   ],
 
   "Overgunner": [
@@ -1203,31 +1242,6 @@
     "Double Volley",
     "Machine Volley",
     "Volley Hybrid"
-  ],
-
-  "Double Gunner": [
-    "Triple Gunner",
-    "Hewn Gunner",
-    "Auto-Double Gunner",
-    "Bent Double Gunner",
-    "Double Flank Gunner",
-    "Double Nailgun",
-    "Double Machine Gunner",
-    "Overdouble Gunner",
-    "Double Battery",
-    "Double Rimfire",
-    "Double Volley",
-    "Double Equalizer"
-  ],
-
-  "Bent Gunner": [
-    "Flexed Gunner",
-    "Spambrid",
-    "Bent Double Gunner",
-    "Auto-Bent Gunner",
-    "Dagger",
-    "Bent Volley",
-    "Donkey"
   ],
 
   "Jalopy": [
@@ -1355,16 +1369,6 @@
     "Aspirer"
   ],
 
-  "Falcon": [
-    "Merlin",
-    "Peregrine",
-    "Owl",
-    "Auto-Falcon",
-    "Harpy",
-    "Sparrow",
-    "Merganser",
-    "Cassowary"
-  ],
 
   "Bomber": [
     "Blockbuster",
@@ -1435,20 +1439,6 @@
     "Virago"
   ],
 
-  "Vulture": [
-    "Ossifrage",
-    "Kestrel",
-    "Goshawk",
-    "Osprey",
-    "Circus",
-    "Himalayan",
-    "Rüppell",
-    "Auto-Vulture",
-    "Shikra",
-    "Besra",
-    "Accipiter",
-    "Marabou"
-  ],
 
   "Cockatiel": [
     "Parakeet",
@@ -1458,7 +1448,8 @@
     "Galah",
     "Auto-Cockatiel",
     "Parrot",
-    "Corella"
+    "Corella",
+    "Katala"
   ],
 
   "Integrator": [
@@ -1528,17 +1519,6 @@
     "Shade"
   ],
 
-  "Sniper-3": [
-    "Assassin-3",
-    "Creeper",
-    "Sniper-5",
-    "Phantom",
-    "Lever",
-    "Auto-Sniper-3",
-    "Alloy",
-    "Rifle-3",
-    "Hunter-3"
-  ],
 
   "Crowbar": [
     "Pryer",
@@ -1575,7 +1555,8 @@
     "Peashooterdrive",
     "Pommel",
     "Dotter",
-    "Tri-Peashooter"
+    "Tri-Peashooter",
+    "Cogwheel"
   ],
 
   "Incarcerator": [
@@ -1588,7 +1569,8 @@
     "Confiner",
     "Auto-Incarcerator",
     "Jailer",
-    "Tri-Incarcerator"
+    "Tri-Incarcerator",
+    "Glaive"
   ],
 
   "Mech Guard": [
@@ -1601,7 +1583,8 @@
     "Patrol",
     "Auto-Mech Guard",
     "Jailer",
-    "Tri-Mech Guard"
+    "Tri-Mech Guard",
+    "Pendulum"
   ],
 
   "Auto-Trap Guard": [
@@ -1615,7 +1598,8 @@
     "Auto-Peashooter",
     "Auto-Incarcerator",
     "Auto-Mech Guard",
-    "Auto-Machine Guard"
+    "Auto-Machine Guard",
+    "Auto-Pinwheel"
   ],
 
   "Machine Guard": [
@@ -1630,21 +1614,48 @@
     "Auto-Machine Guard",
     "Restrainer",
     "Tri-Machine Guard",
-    "Scout"
+    "Scout",
+    "Frother Guard",
+    "Radial",
+    "Maw"
   ],
 
   "Tri-Trap Guard": [
     "Tri-Bushwhacker",
     "Gunner Tri-Trapper",
     "Quadwark",
+    "B-17",
     "Tri-Peashooter",
     "Tri-Incarcerator",
     "Tri-Mech Guard",
     "Tri-Machine Guard",
     "Hexa-Trap Guard",
     "Septa-Trap Guard",
-    "Architect Guard"
+    "Architect Guard",
+    "Discus"
   ],
+
+
+
+  "Pinwheel": [
+    "Sawblade",
+    "Timmy",
+    "Oscillator",
+    "Colossus",
+    "Scythe",
+    "Windmill",
+    "Shuriken",
+    "Imperator",
+    "Thumbscrew",
+    "Cogwheel",
+    "Glaive",
+    "Fleeter",
+    "Pendulum",
+    "Auto-Pinwheel",
+    "Radial",
+    "Discus"
+  ],
+
 
   "Overlord": [
     "Overczar",
@@ -1924,7 +1935,9 @@
     "Maestro",
     "Oasis",
     "Scholar",
-    "Exemplar"
+    "Exemplar",
+    "Maven",
+    "Flakturme"
   ],
 
   "Overdose": [
@@ -2156,7 +2169,11 @@
     "Overthrower",
     "Pulverizer",
     "Overrunner",
-    "Massacer"
+    "Dumper",
+    "Massacer",
+    "Connector",
+    "Imperator",
+    "Subjugator"
   ],
 
   "Annihilator": [
@@ -2576,6 +2593,7 @@
     "Overwhelmer",
     "Creator",
     "Hurdle",
+    "Buster",
     "Meld",
     "Stormer",
     "Settler",
@@ -2716,20 +2734,23 @@
 
   "Fortress": [
     "Corral",
+    "Donjon",
     "Bastion",
     "Refuge",
     "Castle",
     "Stronghold",
     "Bunker",
     "Fortdrive",
+    "Citadel",
     "Palisade",
     "Outpost",
-    "Fortalice"
+    "Fortalice",
+    "Flakturme"
   ],
 
   "Hexa-Trapper": [
     "Mega Hexa-Trapper",
-    "Auto-Hexa-Trapper",
+    "Triple Hexa-Trapper",
     "Hexa-Machine",
     "Octo-Trapper",
     "Designer",
@@ -2738,7 +2759,7 @@
     "Coop",
     "Hexa-Mech",
     "Hexa-Trap Guard",
-    "Band"
+    "Oasis"
   ],
 
   "Septa-Trapper": [
@@ -2757,7 +2778,8 @@
     "Paddock",
     "Coop",
     "Tri-Operator",
-    "Tri-Incarcerator"
+    "Tri-Incarcerator",
+    "Maven"
   ],
 
   "Tri-Mech": [
@@ -2767,7 +2789,8 @@
     "Septa-Mech",
     "Originator",
     "Tri-Operator",
-    "Tri-Mech Guard"
+    "Tri-Mech Guard",
+    "Einstein"
   ],
 
   "Tri-Machine": [
@@ -2777,7 +2800,10 @@
     "Tri-Encircler",
     "Tri-Machine Mech",
     "Tri-Diesel Trapper",
-    "Tri-Machine Guard"
+    "Tri-Machine Guard",
+    "Tri-Frother",
+    "Maestro",
+    "Tri-Barricade"
   ],
 
 
@@ -2791,12 +2817,12 @@
     "Hutch",
     "Interner",
     "Auto-Pen",
-    "Fortifier",
     "Sty"
   ],
 
   "Encircler": [
     "Quarrion",
+    "Hatchet",
     "Machete",
     "Tri-Encircler",
     "Picket",
@@ -2804,7 +2830,9 @@
     "Auto-Encircler",
     "Environ",
     "Landau",
-    "Kraal"
+    "Kraal",
+    "Bubbler",
+    "Fortifier"
   ],
 
   "Operator": [
@@ -2865,7 +2893,6 @@
     "Cog",
     "Cobbler",
     "Auto-Mech",
-    "Propper",
     "Technician"
   ],
 
@@ -2875,9 +2902,12 @@
     "Exerter",
     "Auto-Machine Mech",
     "Repairman",
+    "Kitter",
     "Hardware",
     "Artificer",
-    "Rigger"
+    "Rigger",
+    "Android",
+    "Propper"
   ],
 
   "Cog": [
@@ -2897,7 +2927,7 @@
     "Fuser",
     "Repairman",
     "Automation",
-    "Cobbledrive",
+    "cobbledrive",
     "Restorer",
     "Machinist",
     "Contriver",
@@ -2926,7 +2956,8 @@
     "Stainer",
     "Partition",
     "Throttler",
-    "Auto-Expeller"
+    "Auto-Expeller",
+    "Detergent"
   ],
 
   "Auto-Machine Trapper": [
@@ -2935,11 +2966,13 @@
     "Auto-Deviation",
     "Auto-Diesel Trapper",
     "Auto-Barricade",
+    "Auto-Discharger",
     "Auto-Equalizer",
     "Auto-Encircler",
     "Auto-Machine Mech",
     "Auto-Machine Guard",
-    "Auto-Expeller"
+    "Auto-Expeller",
+    "Auto-Frother"
   ],
 
   "Deviation": [
@@ -2950,10 +2983,12 @@
     "Overmach",
     "Contradictor",
     "Blight",
+    "Vitality",
     "Rampart",
     "Environ",
     "Repairman",
-    "Throttler"
+    "Throttler",
+    "Suds"
   ],
 
   "Coalesce": [
@@ -2984,12 +3019,13 @@
 
   "Overtrapper": [
     "Kingpin",
-    "OverMach",
+    "Overmach",
     "Auto-Overtrapper",
     "Overtrapperdrive",
     "Battletrapper",
     "Captrapper",
     "Foretrapper",
+    "Pothead",
     "Overbuilder",
     "Overtrap Guard",
     "Overpen",
@@ -3175,14 +3211,19 @@
   ],
 
   "Builder": [
-    "Builder",
     "Constructor",
     "Auto-Builder",
     "Engineer",
     "Boomer",
-    "Compilator",
     "Architect",
-    "Conqueror"
+    "Conqueror",
+    "Assembler",
+    "Forger",
+    "Stall",
+    "Fashioner",
+    "Charger",
+    "Blockade",
+    "Chipmunk"
   ],
 
   "Marksman": [
