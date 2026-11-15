@@ -49,8 +49,7 @@
     "Defect",
     "Waarrk",
     "Threefold",
-    "Flintlock",
-    "Bent Bulwark"
+    "Flintlock"
   ],
 
   "Gunner": [
@@ -70,6 +69,7 @@
     "Bent Gunner",
     "Equalizer",
     "Corvette",
+    "Heat",
     "Dam"
   ],
 
@@ -81,7 +81,8 @@
     "Auto-Hexa Tank",
     "Mingler",
     "Combo",
-    "Triple Flank Twin"
+    "Triple Flank Twin",
+    "Canvasser"
   ],
 
   "Wark": [
@@ -105,8 +106,7 @@
     "Rifle",
     "Bushwhacker",
     "Railgun",
-    "Sharpshooter",
-    "Marksman"
+    "Sharpshooter"
   ],
 
   "Assassin": [
@@ -132,7 +132,9 @@
     "Mega Hunter",
     "Prober",
     "Courser",
+    "Scoper",
     "Butcher",
+    "Canvasser",
     "Reverberator"
   ],
 
@@ -878,17 +880,6 @@
     "Carnage",
     "Lyncher",
     "Broadsider"
-  ],
-
-  "Dual": [
-    "Threefold",
-    "Double Dual",
-    "Ravisher",
-    "Shark",
-    "Nimrod",
-    "Auto-Dual",
-    "Bifold",
-    "Dyadic"
   ],
 
   "Auto-Hunter": [
@@ -1714,8 +1705,7 @@
     "Auto-Foreman",
     "Spirit",
     "Stocker",
-    "Ganger",
-    "Doppelganger"
+    "Ganger"
   ],
 
   "Dopeseer": [
@@ -2091,17 +2081,6 @@
     "Auto-Doperdrive"
   ],
 
-  "Foreman": [
-    "Headman",
-    "Overcheese",
-    "Foredrive",
-    "Bidder",
-    "Auto-Foreman",
-    "Spirit",
-    "Stocker",
-    "Ganger",
-    "Doppelganger"
-  ],
 
   "Big Cheese": [
     "Bigger Cheese",
@@ -2547,24 +2526,6 @@
     "Auto-Hurler"
   ],
 
-  "Hurler": [
-    "Shaver",
-    "Bazooka",
-    "Catapult",
-    "Myriad",
-    "Leviathan",
-    "Bulker",
-    "Bombard",
-    "Python",
-    "Claimant",
-    "Incline",
-    "Auto-Hurler",
-    "Mongrel",
-    "Bunger",
-    "Deliverer",
-    "Slingshot"
-  ],
-
   "Inception": [
     "Hyperinception",
     "Ream",
@@ -2617,7 +2578,8 @@
     "Hurdle",
     "Meld",
     "Stormer",
-    "Settler"
+    "Settler",
+    "Organizer"
   ],
 
   "Auto-Builder": [
@@ -2630,7 +2592,8 @@
     "Auto-Forger",
     "Auto-Stall",
     "Auto-Fashioner",
-    "Auto-Charger"
+    "Auto-Charger",
+    "Auto-Assembler"
   ],
 
   "Engineer": [
@@ -2644,7 +2607,8 @@
     "Machinist",
     "Driver",
     "Specialist",
-    "Deviser"
+    "Deviser",
+    "Sapper"
   ],
 
   "Boomer": [
@@ -2656,7 +2620,23 @@
     "Rebounder",
     "Fender",
     "Bent Boomer",
-    "Delfector"
+    "Defector",
+    "Geezer",
+    "Springer"
+  ],
+
+    "Assembler": [
+    "Bricklayer",
+    "Organizer",
+    "Connector",
+    "Auto-Assembler",
+    "Sapper",
+    "Springer",
+    "Progenitor",
+    "Blacksmith",
+    "Gouger",
+    "Sartor",
+    "Sculptor"
   ],
 
   "Architect": [
@@ -2669,7 +2649,9 @@
     "Inventor",
     "Designer",
     "Draftsman",
-    "Architect Guard"
+    "Architect Guard",
+    "Brainiac",
+    "Progenitor"
   ],
 
   "Forger": [
@@ -2685,7 +2667,8 @@
     "Blend",
     "Shaper",
     "Modeler",
-    "Melder"
+    "Melder",
+    "Blacksmith"
   ],
 
   "Stall": [
@@ -2697,7 +2680,8 @@
     "Overthrower",
     "Former",
     "Delayer",
-    "Compartment"
+    "Compartment",
+    "Gouger"
   ],
 
   "Fashioner": [
@@ -2712,7 +2696,8 @@
     "Deflector",
     "Blend",
     "Delayer",
-    "Rallyer"
+    "Rallyer",
+    "Sartor"
   ],
 
   "Charger": [
@@ -2724,7 +2709,9 @@
     "Modeler",
     "Compartment",
     "Rallyer",
-    "Deviser"
+    "Deviser",
+    "Sculptor",
+    "Juggernaut"
   ],
 
   "Fortress": [
@@ -2793,18 +2780,6 @@
     "Tri-Machine Guard"
   ],
 
-  "Tri-Trap Guard": [
-    "Tri-Bushwhacker",
-    "Gunner Tri-Trapper",
-    "Quadwark",
-    "Tri-Peashooter",
-    "Tri-Incarcerator",
-    "Tri-Mech Guard",
-    "Tri-Machine Guard",
-    "Hexa-Trap Guard",
-    "Septa-Trap Guard",
-    "Architect Guard"
-  ],
 
   "Pen": [
     "Stall",
@@ -3250,6 +3225,7 @@
   "Test": [
     "Big",
     "Owawawa",
-    "Hunhere!"
+    "Hunhere!",
+    "Am Awake"
   ]
 }
