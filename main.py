@@ -22,6 +22,7 @@ COLUMN_ORDER = {
     "n": ["Ņ", "Score", "Tank", "Date", "Id"],
     "t": ["Ņ", "Score", "Name", "Date", "Id"],
     "e": ["Ņ", "Score", "Tank", "LB", "Tank LB", "Id"],
+    "rt": ["Ņ", "Ratio", "Score", "Tank", "Name", "Id"],
 }
 FIRST_COLUMN = "Score"
 # Per-command behavior switches. Edit these instead of duplicating logic.
@@ -29,10 +30,11 @@ COMMAND_OPTIONS = {
     "n": {"used_lb_type": True, "used_fuzzy_matching": True, "fuzzy_column": "Name", "allow_range": True, "formatting_type": "v2.5"},
     "t": {"used_lb_type": True, "used_fuzzy_matching": True, "fuzzy_column": "Tank", "allow_range": True, "formatting_type": "v2.5"},
     "e": {"used_lb_type": True, "used_fuzzy_matching": True, "fuzzy_column": "Name", "allow_range": True, "formatting_type": "v2"},
-    "c": {"used_lb_type": True, "used_fuzzy_matching": False, "fuzzy_column": None, "allow_range": True, "formatting_type": "v3"},
-    "b": {"used_lb_type": True, "used_fuzzy_matching": False, "fuzzy_column": None, "allow_range": True, "formatting_type": "v3.5"},
+    "c": {"used_lb_type": True, "used_fuzzy_matching": False, "fuzzy_column": None, "allow_range": True, "formatting_type": "v2"},
+    "b": {"used_lb_type": True, "used_fuzzy_matching": False, "fuzzy_column": None, "allow_range": True, "formatting_type": "v2"},
     "p": {"used_lb_type": True, "used_fuzzy_matching": False, "fuzzy_column": None, "allow_range": True, "formatting_type": "v2.5"},
     "br": {"used_lb_type": True, "used_fuzzy_matching": True, "fuzzy_column": "Branch", "allow_range": False, "formatting_type": "v3"},
+    "rt": {"used_lb_type": False, "used_fuzzy_matching": False, "fuzzy_column": None, "allow_range": True, "formatting_type": "v2.5"},
 }
 COOLDOWN_SECONDS = 2
 user_cooldowns = {}
@@ -43,7 +45,7 @@ intents.message_content = True
 
 from discord.ext import commands
 
-bot = commands.Bot(command_prefix="!!", intents=intents)
+bot = commands.Bot(command_prefix=("!!", "o!"), intents=intents)
 
 DATAFRAME_CACHE = None
 CACHE_TTL = 300  # 5 minutes
@@ -589,7 +591,7 @@ async def handle_collective_score(message, df, parts):
     if len(parts) < 3:
         await safe_send(
             message.channel,
-            content="Almost, usage: cu!!PlayerName"
+            content="Almost, usage: o!cu;PlayerName"
         )
         return
     # Prevent the same user from running CU twice at once
@@ -702,7 +704,9 @@ class DidYouMeanButton(ui.Button):
         public_command = internal_to_public.get(
             corrected_parts[1].lower(), corrected_parts[1].lower()
         )
-        corrected_command = public_command + "!!" + "/".join(corrected_parts[2:])
+        corrected_command = "o!" + public_command
+        if corrected_parts[2:]:
+            corrected_command += ";" + ";".join(corrected_parts[2:])
         print(f"[FUZZY] {view.cmd} -> {corrected_command}")
         # Remove old "Did you mean?" message
         await interaction.edit_original_response(
@@ -761,7 +765,7 @@ def handle_random_analysis(df, mode):
 
 def handle_name_extended(df, name):
     """
-    Same as p!!PlayerName, but adds:
+    Same as o!p;PlayerName, but adds:
       LB       = global leaderboard rank for the score
       Tank LB  = leaderboard rank within that tank
     """
@@ -793,7 +797,7 @@ def handle_nu_range(df):
     """
     Uses the 'nu' column as the filter source.
     Example:
-    w!!1-15
+    o!w1-15
     Means:
     show rows where nu is between 1 and 15
     Output columns:
@@ -816,7 +820,7 @@ def handle_nu_range(df):
 # --- Helper for nt!! ---
 async def handle_name_tank(message, df, parts):
     if len(parts) < 4 or not parts[2].strip() or not parts[3].strip():
-        await safe_send(message.channel, content="❌ Usage: nt!!PlayerName/TankName")
+        await safe_send(message.channel, content="❌ Usage: o!nt;PlayerName/TankName")
         return
     name_input, tank_input = parts[2].strip(), parts[3].strip()
 
@@ -1145,7 +1149,7 @@ async def handle_branch_command(
 
 async def handle_cumulative_monthly_top20(message, df, parts):
     """
-    cm!!YYYY-MM
+    o!cm;YYYY-MM
 
     Build a cumulative top-20 leaderboard using only scores whose
     Date falls within the requested calendar month.
@@ -1153,7 +1157,7 @@ async def handle_cumulative_monthly_top20(message, df, parts):
     if len(parts) < 3 or not re.fullmatch(r"\d{4}-\d{2}", parts[2].strip()):
         await safe_send(
             message.channel,
-            content="❌ Usage: cm!!YYYY-MM  (example: cm!!2026-07)"
+            content="❌ Usage: o!cm;YYYY-MM  (example: o!cm;2026-07)"
         )
         return
 
@@ -1603,7 +1607,8 @@ class RangePaginationView(ui.View):
 
         # Start page calculation
         self.page = (start_index - 1) // range_size
-        self.max_page = (len(self.df) - 1) // range_size
+        self.max_page = max(0, (len(self.df) - 1) // max(1, range_size))
+        self.message = None
 
     async def on_timeout(self):
         for item in self.children:
@@ -1774,7 +1779,7 @@ async def handle_records_player(message, df, parts):
     if len(parts) < 3 or not parts[2].strip():
         await safe_send(
             message.channel,
-            content="❌ Usage: re!!PlayerName (add /+ for personal bests)",
+            content="❌ Usage: o!re;PlayerName (add /+ for personal bests)",
         )
         return
     # Detect + anywhere after the player name.
@@ -1870,7 +1875,7 @@ async def fuzzy_or_abort(
     if user_input is None or not str(user_input).strip():
         await safe_send(
             message.channel,
-            content=f"❌ Usage: {message.content.split('!!', 1)[0]}!!<name>",
+            content=f"❌ Usage: o!<command>;<name>",
         )
         return None
     if used_fuzzy_matching and fuzzy_column and df is not None and fuzzy_column in df.columns:
@@ -1980,7 +1985,7 @@ def handle_tank(df, tank):
 async def handle_player_command(message, df, parts):
     """Resolve a player name and return (scores, title) for the dispatcher."""
     if len(parts) < 3 or not parts[2].strip():
-        await safe_send(message.channel, content="❌ Usage: p!!PlayerName")
+        await safe_send(message.channel, content="❌ Usage: o!p;PlayerName")
         return None, None
     name = await fuzzy_or_abort(
         message=message,
@@ -2003,7 +2008,7 @@ async def handle_player_command(message, df, parts):
 async def handle_tank_command(message, df, parts):
     """Resolve a tank name and return (scores, title) for the dispatcher."""
     if len(parts) < 3 or not parts[2].strip():
-        await safe_send(message.channel, content="❌ Usage: t!!TankName")
+        await safe_send(message.channel, content="❌ Usage: o!t;TankName")
         return None, None
     tank = await fuzzy_or_abort(
         message=message,
@@ -2027,7 +2032,7 @@ async def handle_tank_command(message, df, parts):
 async def handle_extended_player_command(message, df, parts):
     """Resolve an extended player search and return (scores, title)."""
     if len(parts) < 3 or not parts[2].strip():
-        await safe_send(message.channel, content="❌ Usage: e!!PlayerName")
+        await safe_send(message.channel, content="❌ Usage: o!e;PlayerName")
         return None, None
     name = await fuzzy_or_abort(
         message=message,
@@ -2130,17 +2135,22 @@ def split_helpers(text):
 
 
 def parse_command_parts(content):
-    """Parse public <command>!!<arg>/<helper> syntax into internal parts."""
-    match = re.match(r"^([a-z][a-z0-9]*)!!(.*)$", content.strip(), flags=re.IGNORECASE | re.DOTALL)
+    """Parse o!command;args and o!command args; accept legacy command!!args too."""
+    text = content.strip()
+    match = re.match(r"^(?:!!|o!)([a-z][a-z0-9]*)(?:[;\s]+(.*))?$",
+                     text, flags=re.IGNORECASE | re.DOTALL)
+    if not match:
+        # Backwards compatibility: p!!Name, t!!Tank, etc.
+        match = re.match(r"^([a-z][a-z0-9]*)!!(.*)$",
+                         text, flags=re.IGNORECASE | re.DOTALL)
     if not match:
         return []
     command, raw = match.groups()
     public_command = command.lower()
-    # Public commands only; player searches use p!! and branches use br!!.
     supported_public_commands = {
         "p", "t", "i", "l", "br", "player", "tank", "info", "leaderboard",
         "records", "best", "a", "b", "c", "e", "nt", "r", "ra", "re",
-        "s", "d", "say", "w", "cu", "cm", "cua", "help", "help2",
+        "s", "d", "say", "w", "cu", "cm", "cua", "help", "help2", "rt",
     }
     if public_command not in supported_public_commands:
         return []
@@ -2149,13 +2159,18 @@ def parse_command_parts(content):
         "player": "n", "tank": "t", "info": "i", "leaderboard": "p",
         "records": "re", "best": "b",
     }
-    command = aliases.get(public_command, public_command)
-    return ["", command, *split_helpers(raw)]
+    internal_command = aliases.get(public_command, public_command)
+    return ["", internal_command, *split_helpers(raw or "")]
 
 
 def normalize_command_message(message):
-    """Return a copy only when the message uses the public !! command syntax."""
-    if not re.match(r"^[a-z][a-z0-9]*!!", message.content.strip(), flags=re.IGNORECASE):
+    """Accept both supported leading prefixes and legacy command-first syntax."""
+    content = message.content.strip()
+    if not (
+        re.match(r"^(?:!!|o!)[a-z][a-z0-9]*(?:[;\s]|$)", content, re.I)
+        or re.match(r"^[a-z][a-z0-9]*!!", content, re.I)
+        or re.match(r"^!o;", content, re.I)
+    ):
         return None
     return copy.copy(message)
 
@@ -2164,7 +2179,14 @@ async def handle_w_command(message, df, parts):
     if "nu" not in df.columns:
         await safe_send(message.channel, content="❌ No 'nu' column found in data.")
         return
-    start_nu, end_nu, warning = 1, 15, None
+    output = handle_nu_range(df)
+    if output.empty:
+        await safe_send(message.channel, content="❌ No valid nu data found.")
+        return
+
+    # Default to the 15 most recently added rows (highest NU values).
+    max_nu = int(output["nu"].max())
+    start_nu, end_nu, warning = max(1, max_nu - 14), max_nu, None
     for value in parts[2:]:
         match = re.fullmatch(r"(\d+)-(\d+)", value.strip())
         if not match:
@@ -2176,10 +2198,6 @@ async def handle_w_command(message, df, parts):
             warning = "❌ Max NU range is 20!"
             end_nu = start_nu + 20
         break
-    output = handle_nu_range(df)
-    if output.empty:
-        await safe_send(message.channel, content="❌ No valid nu data found.")
-        return
     output = output[(output["nu"] >= start_nu) & (output["nu"] <= end_nu)].copy()
     if output.empty:
         await safe_send(message.channel, content="❌ No rows found in that nu range.")
@@ -2206,9 +2224,64 @@ async def handle_w_command(message, df, parts):
     view.message = msg
 
 
+async def handle_ratio_leaderboard(message, df, parts):
+    """Leaderboard ordered by score per hour, highest ratio first."""
+    required = {"Score", "Playtime", "Tank", "Name", "Id"}
+    missing = sorted(required - set(df.columns))
+    if missing:
+        await safe_send(
+            message.channel,
+            content=f"❌ Ratio leaderboard needs these columns: {', '.join(missing)}",
+        )
+        return
+
+    ranked = df.copy()
+    ranked["Score"] = ranked["Score"].apply(parse_score)
+    ranked["_PlaytimeSeconds"] = ranked["Playtime"].apply(parse_playtime)
+    ranked = ranked[ranked["_PlaytimeSeconds"] > 0].copy()
+    if ranked.empty:
+        await safe_send(message.channel, content="❌ No scores with valid playtime were found.")
+        return
+
+    ranked["_Ratio"] = ranked["Score"] / (ranked["_PlaytimeSeconds"] / 3600)
+    ranked = ranked[ranked["_Ratio"].map(lambda value: pd.notna(value) and value != float("inf"))]
+    ranked = ranked.sort_values("_Ratio", ascending=False)
+    ranked = ranked.reset_index(drop=True)
+    ranked["Ratio"] = ranked["_Ratio"].map(
+        lambda value: f"{value / 1_000_000:,.2f}M/hr"
+        if value >= 1_000_000 else f"{value:,.0f}/hr"
+    )
+    ranked = ranked[["Ratio", "Score", "Tank", "Name", "Id"]]
+    ranked = ranked[["Ratio", "Score", "Tank", "Name", "Id"]]
+
+    start, end, page_size, warning = extract_range(
+        parts, max_range=20, total_len=len(ranked)
+    )
+    output = ranked.iloc[start - 1:end].copy()
+    output.insert(0, "Ņ", range(start, start + len(output)))
+    title = "Best Score / Hour Ratios"
+    view = RangePaginationView(
+        df=ranked,
+        start_index=start,
+        range_size=page_size,
+        title=title,
+        shorten_tank=True,
+        formatting_type="v2.5",
+    )
+    footer = f"Rows {start}-{end} / {len(ranked)}"
+    if warning:
+        footer = f"{warning} • {footer}"
+    embed = make_leaderboard_embed(
+        title, output, footer=footer, formatting_type="v2.5",
+        shorten_tank=True,
+    )
+    msg = await safe_send(message.channel, embed=embed, view=view)
+    view.message = msg
+
+
 async def handle_screenshot_command(message, parts):
     if len(parts) < 3 or not parts[2].strip():
-        await safe_send(message.channel, content="❌ Usage: s!!ID")
+        await safe_send(message.channel, content="❌ Usage: o!s;ID")
         return
     df = read_excel_cached()
     if isinstance(df, str) or df.empty:
@@ -2220,7 +2293,7 @@ async def handle_screenshot_command(message, parts):
 
 async def handle_description_command(message, parts):
     if len(parts) < 3 or not parts[2].strip():
-        await safe_send(message.channel, content="❌ Usage: d!!ID")
+        await safe_send(message.channel, content="❌ Usage: o!d;ID")
         return
     df = read_excel_cached()
     if isinstance(df, str) or df.empty:
@@ -2232,7 +2305,7 @@ async def handle_description_command(message, parts):
 
 async def handle_info_command(message, parts):
     if len(parts) < 3 or not parts[2].strip():
-        await safe_send(message.channel, content="❌ Usage: i!!ID")
+        await safe_send(message.channel, content="❌ Usage: o!i;ID")
         return
     df = read_excel_cached()
     if isinstance(df, str) or df.empty:
@@ -2245,10 +2318,10 @@ async def handle_info_command(message, parts):
 async def handle_random_analysis_command(message, df, parts):
     if len(parts) < 3 or not parts[2].strip():
         await safe_send(message.channel, content=(
-            "ra!!0 - 10 random unscored tanks\n"
-            "ra!!1 - 10 random tanks with records from 1Mil-5Mil\n"
-            "ra!!2 - 10 random tanks with records from 5Mil-10Mil\n"
-            "ra!!3 - 10 completely random tanks"
+            "o!ra;0 - 10 random unscored tanks\n"
+            "o!ra;1 - 10 random tanks with records from 1Mil-5Mil\n"
+            "o!ra;2 - 10 random tanks with records from 5Mil-10Mil\n"
+            "o!ra;3 - 10 completely random tanks"
         ))
         return
     try:
@@ -2256,7 +2329,7 @@ async def handle_random_analysis_command(message, df, parts):
         if mode not in (0, 1, 2, 3):
             raise ValueError
     except (TypeError, ValueError):
-        await safe_send(message.channel, content="❌ Invalid mode. Use ra!!0, ra!!1, ra!!2, or ra!!3.")
+        await safe_send(message.channel, content="❌ Invalid mode. Use o!ra;0, o!ra;1, o!ra;2, or o!ra;3.")
         return
     output = handle_random_analysis(df, mode).copy()
     output["Tank"] = output["Tank"].astype(str).str[:14]
@@ -2269,7 +2342,7 @@ async def handle_random_analysis_command(message, df, parts):
 
 async def handle_branch_request(message, parts):
     if len(parts) < 3 or not parts[2].strip() or extract_date_filter([parts[2]])[1]:
-        await safe_send(message.channel, content="❌ Usage: br!!BranchName[/a|/r][/YYYY-MM-DD]")
+        await safe_send(message.channel, content="❌ Usage: o!br;BranchName[/a|/r][/YYYY-MM-DD]")
         return
     branch_name = parts[2].strip()
     branch_mode = next((value.strip().lower() for value in parts[3:] if value.strip().lower() in {"a", "r"}), None)
@@ -2296,9 +2369,9 @@ async def process_olympus_command(
         legacy_targets = {"p": "l", "n": "p", "bch": "br", "t": "t"}
         target = legacy_targets[legacy_name.lower()]
         message = copy.copy(message)
-        message.content = target + "!!" + legacy_args.lstrip()
+        message.content = "o!" + target + ((";" + legacy_args.lstrip()) if legacy_args.strip() else "")
 
-    # Every command, including fuzzy-button reruns, uses public !! syntax.
+    # Every command, including fuzzy-button reruns, uses public o! syntax.
     compact = normalize_command_message(message)
     if compact is None:
         return
@@ -2408,6 +2481,10 @@ async def process_olympus_command(
         await handle_w_command(message, df, parts)
         return
 
+    elif cmd == "rt":
+        await handle_ratio_leaderboard(message, df, parts)
+        return
+
     elif cmd == "cu":
         await handle_collective_score(message, df, parts)
         return
@@ -2440,7 +2517,7 @@ async def process_olympus_command(
         if len(parts) < 3 or not parts[2].strip():
             await safe_send(
                 message.channel,
-                content="❌ Usage: re!!PlayerName (add /+ for personal bests)",
+                content="❌ Usage: o!re;PlayerName (add /+ for personal bests)",
             )
             return
         await handle_records_player(message, df, parts)
@@ -2458,14 +2535,14 @@ async def process_olympus_command(
     elif cmd == "help":
         help_message = (
                 "Commands:\n"
-                "l!!                - Leaderboard\n"            
-                "t!!TankName        - Tank scores\n"
-                "p!!PlayerName      - Player scores\n"
-                "i!!ID              - Score info\n"
-                "br!!BranchName/a  - Every tank in an AR branch\n"
-                "r!!a             - Random recommendation\n"            
+                "o!l                - Leaderboard\n"            
+                "o!t;TankName        - Tank scores\n"
+                "o!p;PlayerName      - Player scores\n"
+                "o!i;ID              - Score info\n"
+                "o!br;BranchName/a  - Every tank in an AR branch\n"
+                "o!ra             - Random recommendation\n"            
 
-                "help2!!            -for more commands\n"
+                "o!help2            -for more commands\n"
             )
         await safe_send(message.channel, content=help_message)
         return
@@ -2473,23 +2550,25 @@ async def process_olympus_command(
     elif cmd == "help2":
         help_message = (
             "Commands:\n"
-            "re!!PlayerName       - Score records of a player\n"
-            "br!!BranchName/a     - AR branch highscores\n"
-            "br!!BranchName/r     - non-AR branch highscores\n"
-            "c!!                  - Top tank list\n"
-            "b!!                  - Top player list\n"
-            "e!!PlayerName        - Player scores with global + tank ranks\n"
-            "s!!ID                - Screenshot of a score\n"
-            "d!!ID                - Score description\n"
-            "cu!!PlayerName       - Cumulative leaderboard for a player\n"
-            "cua!!                - Cumulative leaderboard of all time\n"
-            "cm!!YYYY-MM          - Cumulative leaderboard for a month\n"
-            "w!!1-15              - See newly added scores\n"
-            "ra!!0/1/2/3          - Random recommendations\n"
-            "r!!a/b/r             - Random tank recommendation modes\n"
-            "nt!!Player/Tank      - Search a player and tank together\n"
-            "say!!                - Random text\n"
-            "Legacy aliases: !o;p → l!!, !o;n → p!!, !o;bch → br!!, !o;t → t!!\n"
+            "o!re;PlayerName       - Score records of a player\n"
+            "o!br;BranchName/a     - AR branch highscores\n"
+            "o!brBranchName/r     - non-AR branch highscores\n"
+            "o!c                  - Top tank list\n"
+            "o!b                  - Top player list\n"
+            "o!e;PlayerName        - Player scores with global + tank ranks\n"
+            "o!s;ID                - Screenshot of a score\n"
+            "o!d;ID                - Score description\n"
+            "o!cu;PlayerName       - Cumulative leaderboard for a player\n"
+            "o!cua                - Cumulative leaderboard of all time\n"
+            "o!cm;YYYY-MM          - Cumulative leaderboard for a month\n"
+            "o!w                 - Latest 15 added scores (highest NU)\n"
+            "o!rt                - Best score/hour ratios\\n"
+            "o!ra;0/1/2/3          - Random recommendations\n"
+            "o!r;a/b/r             - Random tank recommendation modes\n"
+            "o!nt;Player/Tank      - Search a player and tank together\n"
+            "o!say                - Random text\n"
+            "Prefix format: o!command;argument or o!command (e.g. o!p;Name, o!l)\\n"
+            "Legacy aliases: !o;p → o!l, !o;n → o!p, !o;bch → o!br, !o;t → o!t\n"
             "Add /1-15 to limit results, or /YYYY-MM-DD, /<YYYY-MM-DD, />YYYY-MM-DD to filter by date."
         )
         await safe_send(message.channel, content=help_message)
@@ -2500,9 +2579,9 @@ async def process_olympus_command(
             await safe_send(
                 message.channel,
                 content=(
-                    "**r!!a** for a tank with a player record!\n"
-                    "**r!!b** for the tank with no score!\n"
-                    "**r!!r** for a fully random tank!"
+                    "**o!ra** for a tank with a player record!\n"
+                    "**o!r;b** for the tank with no score!\n"
+                    "**o!r;r** for a fully random tank!"
                 )
             )
             return
@@ -2614,7 +2693,7 @@ async def on_message(message):
         # Log the full traceback so actual causes are visible in hosting logs.
         print(f"[COMMAND ERROR] {type(exc).__name__}: {exc}")
         traceback.print_exc()
-        if message.author != bot.user and "!!" in message.content:
+        if message.author != bot.user and ("!!" in message.content or message.content.strip().startswith("o!")):
             await safe_send(
                 message.channel,
                 content=f"❌ Command failed: `{type(exc).__name__}: {str(exc)[:250]}`. The full details are in the bot logs.",
