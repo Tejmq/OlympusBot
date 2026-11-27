@@ -2539,7 +2539,7 @@ async def process_olympus_command(
                 "o!t;TankName        - Tank scores\n"
                 "o!p;PlayerName      - Player scores\n"
                 "o!i;ID              - Score info\n"
-                "o!br;BranchName/a  - Every tank in an AR branch\n"
+                "o!br;BranchName  - Every tank in a branch\n"
                 "o!ra             - Random recommendation\n"            
 
                 "o!help2            -for more commands\n"
@@ -2551,8 +2551,8 @@ async def process_olympus_command(
         help_message = (
             "Commands:\n"
             "o!re;PlayerName       - Score records of a player\n"
-            "o!br;BranchName/a     - AR branch highscores\n"
-            "o!brBranchName/r     - non-AR branch highscores\n"
+            "o!br;BranchName/a     - Branch scores ar only\n"
+            "o!brBranchName/r     - Branch scores regular\n"
             "o!c                  - Top tank list\n"
             "o!b                  - Top player list\n"
             "o!e;PlayerName        - Player scores with global + tank ranks\n"
@@ -2566,9 +2566,7 @@ async def process_olympus_command(
             "o!ra;0/1/2/3          - Random recommendations\n"
             "o!r;a/b/r             - Random tank recommendation modes\n"
             "o!nt;Player/Tank      - Search a player and tank together\n"
-            "o!say                - Random text\n"
-            "Prefix format: o!command;argument or o!command (e.g. o!p;Name, o!l)\\n"
-            "Legacy aliases: !o;p → o!l, !o;n → o!p, !o;bch → o!br, !o;t → o!t\n"
+            "o!say                - Random silly text\n"
             "Add /1-15 to limit results, or /YYYY-MM-DD, /<YYYY-MM-DD, />YYYY-MM-DD to filter by date."
         )
         await safe_send(message.channel, content=help_message)
