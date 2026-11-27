@@ -206,11 +206,11 @@ def make_leaderboard_embed(
 
         if "Name" in display.columns:
             display["Name"] = display["Name"].astype(str).map(
-                lambda value: shorten_name(value, 16)
+                lambda value: shorten_name(value, 10)
             )
 
         if shorten_tank and "Tank" in display.columns:
-            display["Tank"] = display["Tank"].astype(str).str[:18]
+            display["Tank"] = display["Tank"].astype(str).map(shorten_tank_name)
 
         rank_col = "Ņ" if "Ņ" in display.columns else None
         data_cols = [
@@ -285,11 +285,11 @@ def make_leaderboard_embed(
 
         if "Name" in display.columns:
             display["Name"] = display["Name"].astype(str).map(
-                lambda value: shorten_name(value, 16)
+                lambda value: shorten_name(value, 10)
             )
 
         if shorten_tank and "Tank" in display.columns:
-            display["Tank"] = display["Tank"].astype(str).str[:18]
+            display["Tank"] = display["Tank"].astype(str).map(shorten_tank_name)
 
         columns = [str(col) for col in display.columns]
 
@@ -383,7 +383,7 @@ def make_leaderboard_embed(
             )
 
         if shorten_tank and "Tank" in display.columns:
-            display["Tank"] = display["Tank"].astype(str).str[:12]
+            display["Tank"] = display["Tank"].astype(str).map(lambda value: shorten_tank_name(value, 12))
 
         rank_col = "Ņ" if "Ņ" in display.columns else None
         data_cols = [
@@ -1688,6 +1688,19 @@ def shorten_name(name: str, max_len: int = 10) -> str:
     if len(name) > max_len:
         name = name[:max_len]
     return name
+
+
+def shorten_tank_name(tank: str, max_len: int = 8) -> str:
+    """Restore the original compact tank labels used in leaderboard tables."""
+    return (
+        str(tank)
+        .strip()
+        .lower()
+        .replace("triple", "t")
+        .replace("auto", "a")
+        .replace("hexa", "h")
+        .title()[:max_len]
+    )
 
 
 
